@@ -23,10 +23,7 @@
         <h1>Convierte señales en decisiones informadas.</h1>
         <p>Integra los resultados de imagen y video, revisa la evidencia y obtén una recomendación clara para el docente.</p>
       </div>
-      <a class="docs-link" id="docs-link" href="/docs">Ver documentación API <span>↗</span></a>
     </section>
-
-    <section class="modules" id="modules" aria-label="Estado de los equipos"></section>
 
     <div class="layout">
       <section class="card input-card">
@@ -64,11 +61,6 @@
           <button class="text-button" id="reset">Limpiar</button>
         </div>
         <p class="feedback" id="feedback">Carga al menos un resultado para comenzar.</p>
-
-        <details class="advanced">
-          <summary>Opciones avanzadas · Ver o editar JSON</summary>
-          <textarea id="payload" spellcheck="false" aria-label="JSON de integración"></textarea>
-        </details>
       </section>
 
       <section class="card result-card" aria-live="polite">
@@ -98,11 +90,6 @@
           <div class="result-section"><h3>Modalidades</h3><div class="chips" id="modalities"></div></div>
           <div class="result-section"><h3>Evidencia encontrada</h3><div class="evidence-list" id="evidence"></div></div>
           <div class="recommendation"><span>Recomendación</span><p id="recommendation"></p></div>
-
-          <details class="advanced response-details">
-            <summary>Ver respuesta técnica completa</summary>
-            <pre id="raw-result"></pre>
-          </details>
         </div>
       </section>
     </div>

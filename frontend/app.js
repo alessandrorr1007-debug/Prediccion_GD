@@ -6,7 +6,6 @@ const API_BASE = window.location.port === '8001'
     : 'https://prediccion-backend-dwq9.onrender.com';
 
 const elements = {
-  modules: document.querySelector('#modules'),
   connectionDot: document.querySelector('#connection-dot'),
   connectionText: document.querySelector('#connection-text'),
   videoFile: document.querySelector('#video-file'),
@@ -20,13 +19,9 @@ const elements = {
   demo: document.querySelector('#demo'),
   reset: document.querySelector('#reset'),
   feedback: document.querySelector('#feedback'),
-  payload: document.querySelector('#payload'),
   emptyResult: document.querySelector('#empty-result'),
   predictionResult: document.querySelector('#prediction-result'),
-  docsLink: document.querySelector('#docs-link'),
 };
-
-elements.docsLink.href = `${API_BASE}/docs`;
 
 const state = {video: null, imagen: null};
 
@@ -71,10 +66,6 @@ function currentPayload() {
   return payload;
 }
 
-function syncPayload() {
-  elements.payload.value = JSON.stringify(currentPayload(), null, 2);
-}
-
 function setConnection(online) {
   elements.connectionDot.className = online ? 'online' : 'offline';
   elements.connectionText.textContent = online ? 'Sistema disponible' : 'Sin conexión';
@@ -84,37 +75,10 @@ function moduleLabel(name) {
   return {imagen: 'Imagen', video: 'Video', audio: 'Audio', prediccion: 'Predicción'}[name] || name;
 }
 
-async function loadModules() {
+async function checkConnection() {
   try {
-    const response = await fetch(`${API_BASE}/api/modulos`);
+    const response = await fetch(`${API_BASE}/api/salud`);
     if (!response.ok) throw new Error('No se pudo consultar el sistema');
-    const data = await response.json();
-    elements.modules.replaceChildren();
-    for (const module of data.modulos) {
-      const card = document.createElement(module.repositorio ? 'a' : 'div');
-      card.className = `module module-${module.nombre}`;
-      if (module.repositorio) {
-        card.href = module.repositorio;
-        card.target = '_blank';
-        card.rel = 'noreferrer';
-      }
-      const icon = document.createElement('span');
-      icon.className = 'module-icon';
-      icon.textContent = {imagen: '◇', video: '▶', audio: '◖', prediccion: '⌁'}[module.nombre] || '•';
-      const copy = document.createElement('span');
-      const title = document.createElement('strong');
-      title.textContent = moduleLabel(module.nombre);
-      const detail = document.createElement('small');
-      const ready = !module.estado.startsWith('pendiente');
-      detail.className = ready ? 'ready' : 'pending';
-      detail.textContent = ready ? 'Conectado' : 'Pendiente';
-      copy.append(title, detail);
-      const arrow = document.createElement('span');
-      arrow.className = 'module-arrow';
-      arrow.textContent = module.repositorio ? '↗' : '—';
-      card.append(icon, copy, arrow);
-      elements.modules.append(card);
-    }
     setConnection(true);
   } catch (error) {
     setConnection(false);
@@ -139,7 +103,6 @@ async function loadFile(file, type) {
     status.textContent = `${file.name} · ${frameCount} ${frameCount === 1 ? 'fotograma' : 'fotogramas'}`;
     source.classList.add('loaded');
     elements.feedback.textContent = 'Archivo cargado correctamente.';
-    syncPayload();
   } catch (error) {
     elements.feedback.textContent = error.message;
   }
@@ -154,7 +117,6 @@ function setDemo() {
   elements.videoSource.classList.add('loaded');
   elements.imageSource.classList.add('loaded');
   elements.feedback.textContent = 'Caso de demostración listo para analizar.';
-  syncPayload();
 }
 
 function clearAll() {
@@ -168,7 +130,6 @@ function clearAll() {
   elements.videoSource.classList.remove('loaded');
   elements.imageSource.classList.remove('loaded');
   elements.feedback.textContent = 'Carga al menos un resultado para comenzar.';
-  elements.payload.value = '{}';
   elements.emptyResult.hidden = false;
   elements.predictionResult.hidden = true;
 }
@@ -241,7 +202,6 @@ function renderResult(data) {
   document.querySelector('#evidence-count').textContent = data.evidencia.length;
   document.querySelector('#recommendation').textContent = data.recomendacion;
   document.querySelector('#result-time').textContent = `Actualizado ${new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`;
-  document.querySelector('#raw-result').textContent = JSON.stringify(data, null, 2);
   renderModalities(data);
   renderEvidence(data.evidencia);
   elements.emptyResult.hidden = true;
@@ -249,12 +209,9 @@ function renderResult(data) {
 }
 
 async function analyze() {
-  let body;
-  try {
-    body = JSON.parse(elements.payload.value);
-    if (!body.video && !body.imagen) throw new Error('Carga un resultado de VIDEO o IMAGEN antes de continuar.');
-  } catch (error) {
-    elements.feedback.textContent = error.message;
+  const body = currentPayload();
+  if (!body.video && !body.imagen) {
+    elements.feedback.textContent = 'Carga un resultado de VIDEO o IMAGEN antes de continuar.';
     return;
   }
   elements.analyze.disabled = true;
@@ -280,10 +237,9 @@ async function analyze() {
 
 elements.videoFile.addEventListener('change', () => loadFile(elements.videoFile.files[0], 'video'));
 elements.imageFile.addEventListener('change', () => loadFile(elements.imageFile.files[0], 'imagen'));
-elements.allowed.addEventListener('input', syncPayload);
 elements.demo.addEventListener('click', setDemo);
 elements.reset.addEventListener('click', clearAll);
 elements.analyze.addEventListener('click', analyze);
 
 clearAll();
-loadModules();
+checkConnection();
