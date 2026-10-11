@@ -1,0 +1,12 @@
+{
+  "nombre": "prediccion",
+  "estado": "disponible_con_integracion_imagen_video",
+  "responsable": "equipo de prediccion",
+  "repositorio": "https://github.com/alessandrorr1007-debug/Prediccion_Backend",
+  "artefactos": [
+    "backend/modulos/prediccion/engine.py",
+    "backend/modulos/prediccion/integracion.py"
+  ],
+  "funcion": "Normalizar y combinar señales entregadas por imagen, video y audio",
+  "entrenamiento": "pendiente de datos etiquetados; actualmente usa reglas explicables"
+}

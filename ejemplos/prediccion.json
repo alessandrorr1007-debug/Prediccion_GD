@@ -1,0 +1,11 @@
+{
+  "segundo_actual": 20,
+  "ventana_segundos": 60,
+  "objetos_permitidos": ["libro"],
+  "eventos": [
+    {"id": "img-1", "modalidad": "imagen", "senal": "telefono", "segundo": 10, "confianza": 0.92, "calidad": 0.9, "modelo": "imagen-v1"},
+    {"id": "vid-1", "modalidad": "video", "senal": "telefono", "segundo": 15, "confianza": 0.91, "calidad": 0.9, "modelo": "video-v1"},
+    {"id": "vid-2", "modalidad": "video", "senal": "telefono", "segundo": 20, "confianza": 0.93, "calidad": 0.9, "modelo": "video-v1"},
+    {"id": "aud-1", "modalidad": "audio", "senal": "voz_adicional", "segundo": 18, "confianza": 0.8, "calidad": 0.9, "modelo": "audio-v1"}
+  ]
+}

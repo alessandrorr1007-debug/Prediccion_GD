@@ -1,0 +1,46 @@
+{
+  "segundo_actual": 12,
+  "ventana_segundos": 60,
+  "objetos_permitidos": ["libro"],
+  "video": {
+    "modelo": "SistemaSupervisionExamenes/best.pt",
+    "frames": [
+      {
+        "frame_id": 80,
+        "timestamp": 10,
+        "calidad": 0.9,
+        "detecciones": [
+          {"clase": "persona", "confianza": 0.91},
+          {"clase": "telefono", "confianza": 0.82}
+        ]
+      }
+    ]
+  },
+  "imagen": {
+    "modulo": "IMAGEN",
+    "modelo": "SistemaSupervisionExamenes-Imagen",
+    "frames": [
+      {
+        "frame_id": 80,
+        "timestamp": 10,
+        "calidad_normalizada": 0.85,
+        "objetos": [
+          {
+            "id": "objeto-1",
+            "clase": "telefono",
+            "confianza_video": 0.82,
+            "confianza_procesada": 0.88,
+            "estado": "confirmada"
+          },
+          {
+            "id": "objeto-2",
+            "clase": "reloj",
+            "confianza_video": 0.40,
+            "confianza_procesada": 0.20,
+            "estado": "no_confirmada"
+          }
+        ]
+      }
+    ]
+  }
+}

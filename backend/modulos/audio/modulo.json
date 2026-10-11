@@ -1,0 +1,9 @@
+{
+  "nombre": "audio",
+  "estado": "pendiente_repositorio_y_contrato",
+  "responsable": "equipo de audio",
+  "repositorio": null,
+  "artefactos": [],
+  "funcion": "Entregar señales acústicas reconocidas con marcas de tiempo y confianza",
+  "entrenamiento": "externo, mantenido por el equipo de audio"
+}

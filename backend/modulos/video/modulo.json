@@ -1,0 +1,9 @@
+{
+  "nombre": "video",
+  "estado": "repositorio_recibido_con_adaptador",
+  "responsable": "equipo de video",
+  "repositorio": "https://github.com/cesarcabanillas1921-bit/SistemaSupervisionExamenes",
+  "artefactos": ["backend/modulos/video/adapter.py"],
+  "funcion": "Detectar objetos con YOLO y entregar clase, confianza, caja y tiempo por fotograma",
+  "entrenamiento": "externo, mantenido por el equipo de video"
+}

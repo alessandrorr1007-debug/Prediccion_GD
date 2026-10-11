@@ -1,0 +1,9 @@
+{
+  "nombre": "imagen",
+  "estado": "repositorio_recibido_con_exportacion_json",
+  "responsable": "equipo de imagen",
+  "repositorio": "https://github.com/Zudo45/SistemaSupervisionExamenes-Imagen",
+  "artefactos": ["backend/modulos/imagen/adapter.py"],
+  "funcion": "Mejorar y verificar las detecciones de video, medir calidad y exportar JSON/CSV",
+  "entrenamiento": "externo, mantenido por el equipo de imagen"
+}
