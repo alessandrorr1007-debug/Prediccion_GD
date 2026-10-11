@@ -2,6 +2,12 @@ const payload = document.querySelector('#payload');
 const run = document.querySelector('#run');
 const status = document.querySelector('#status');
 const result = document.querySelector('#result');
+const localHost = ['localhost', '127.0.0.1', ''].includes(window.location.hostname);
+const API_BASE = window.location.port === '8001'
+  ? ''
+  : localHost
+    ? 'http://127.0.0.1:8001'
+    : 'https://prediccion-backend-dwq9.onrender.com';
 
 const example = {
   segundo_actual: 12,
@@ -36,7 +42,7 @@ const example = {
 };
 
 async function loadModules() {
-  const response = await fetch('/api/modulos');
+  const response = await fetch(`${API_BASE}/api/modulos`);
   const data = await response.json();
   const target = document.querySelector('#modules');
   target.replaceChildren();
@@ -66,7 +72,7 @@ run.onclick = async () => {
   status.textContent = 'Procesando señales…';
   try {
     const body = JSON.parse(payload.value);
-    const response = await fetch('/api/prediccion/integrar', {
+    const response = await fetch(`${API_BASE}/api/prediccion/integrar`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(body),
