@@ -2,7 +2,7 @@
   "nombre": "prediccion",
   "estado": "disponible_con_integracion_imagen_video",
   "responsable": "equipo de prediccion",
-  "repositorio": "https://github.com/alessandrorr1007-debug/Prediccion_Backend",
+  "repositorio": "https://github.com/alessandrorr1007-debug/Prediccion_GD",
   "artefactos": [
     "backend/modulos/prediccion/engine.py",
     "backend/modulos/prediccion/integracion.py"
