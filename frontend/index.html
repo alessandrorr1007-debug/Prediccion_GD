@@ -3,179 +3,222 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AulaPredict · Plataforma de Predicción e Integración de Señales</title>
+  <title>AulaPredict · Plataforma Analítica de Reglas Explicables</title>
   <link rel="stylesheet" href="/style.css">
   <script src="/app.js" defer></script>
 </head>
 <body>
+  <!-- Header SaaS / Linear Style -->
   <header>
     <div class="header-brand">
-      <div class="logo-badge" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      <div class="brand-icon-wrapper" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
       </div>
       <span class="marca">AulaPredict</span>
-      <span class="header-tag">Predicción / Integración</span>
-    </div>
-    <div class="header-status">
-      <div class="status-pill">
-        <span class="pulse-dot"></span>
-        <span id="conexion-estado">Servicio Activo :8001</span>
+      <div class="brand-badges">
+        <span class="badge-saas badge-accent">PREDICCIÓN / INTEGRACIÓN</span>
+        <span class="badge-saas">REGLAS EXPLICABLES</span>
       </div>
-      <a href="/docs" target="_blank" class="header-link">Swagger API</a>
+    </div>
+    <div class="header-meta">
+      <div class="service-status-pill">
+        <span class="pulse-led"></span>
+        <span id="conexion-estado">API :8001 LIVE</span>
+      </div>
+      <a href="/docs" target="_blank" class="header-nav-link">Swagger Docs</a>
     </div>
   </header>
 
   <main>
-    <section class="introduccion">
-      <div class="hero-meta">
-        <span class="etiqueta">Consola de Inferencia Heurística</span>
-        <span class="hero-pill">Reglas Explicables</span>
+    <!-- Subheader / Context Banner -->
+    <section class="hero-section">
+      <div class="hero-lead">
+        <h1>Centro de Integración y Reglas Explicables</h1>
+        <p class="hero-subtitle">De las señales a la revisión humana colegiada</p>
       </div>
-      <h1>De las señales multimodales a la revisión humana colegiada</h1>
-      <p class="hero-desc">
-        Plataforma analítica con dos motores independientes: <strong>Supervisión de exámenes en vivo</strong> y <strong>Seguimiento longitudinal por estudiante</strong>.
-        Recibe telemetría JSON de módulos periféricos (Video, Imagen, Audio pendiente); no almacena datos biométricos ni reemplaza el criterio docente.
-      </p>
-      <div class="banner-etico">
-        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+      <div class="banner-notice">
+        <svg viewBox="0 0 24 24"><path d="M11 15h2v2h-2zm0-8h2v6h-2zm1-5C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
         <span>
-          <strong>Garantía Ética:</strong> Esta plataforma emite un índice heurístico explicable, nunca una probabilidad cerrada ni un diagnóstico sancionatorio. Siempre requiere validación por una persona responsable.
+          <strong>Aviso de Sistema:</strong> Módulo AUDIO pendiente de contrato externo. Los resultados constituyen un índice heurístico explicable para asistencia a la decisión docente; el sistema no emite sanciones ni diagnósticos automáticos.
         </span>
       </div>
     </section>
 
     <div class="paneles">
-      <!-- PANEL 1: Ingesta y Parámetros -->
+      <!-- PANEL IZQUIERDO: Ingesta y Configuración -->
       <section class="panel-card" aria-labelledby="entrada-titulo">
-        <div class="panel-header">
-          <h2 id="entrada-titulo">
-            <span class="step-badge">1</span>
-            Recibir e Integrar Resultados
+        <div class="panel-card-header">
+          <h2 id="entrada-titulo" class="panel-title">
+            <span class="panel-step-num">1</span>
+            Recibir resultados
           </h2>
+          <span class="badge-saas">Ingesta Telemetría</span>
         </div>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label for="servidor">Dirección del Servicio API</label>
-            <input id="servidor" type="url" placeholder="http://localhost:8001">
-          </div>
-          <div class="form-group">
-            <label for="motor">Motor de Análisis</label>
-            <select id="motor">
-              <option value="examen">Supervisión de Exámenes en Vivo</option>
-              <option value="seguimiento">Seguimiento Longitudinal por Estudiante</option>
-            </select>
-          </div>
+        <!-- Selector de Motor (Visual Cards + Native select sincronizado) -->
+        <label class="form-label">Motor de Análisis</label>
+        <div class="motor-tab-group" role="tablist" aria-label="Selección de Motor">
+          <button id="tab-motor-examen" type="button" class="motor-card-btn active" role="tab" aria-selected="true">
+            <span class="motor-card-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+              Supervisión de exámenes
+            </span>
+            <span class="motor-card-desc">Inferencia en vivo sobre sesiones de evaluación</span>
+          </button>
+          <button id="tab-motor-seguimiento" type="button" class="motor-card-btn" role="tab" aria-selected="false">
+            <span class="motor-card-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+              Seguimiento académico
+            </span>
+            <span class="motor-card-desc">Evaluación longitudinal por estudiante (Demo)</span>
+          </button>
         </div>
 
-        <!-- Controles para Examen -->
+        <!-- Native Select (preservado para test contract) -->
+        <select id="motor" aria-hidden="true" tabindex="-1">
+          <option value="examen" selected>Supervisión de exámenes</option>
+          <option value="seguimiento">Seguimiento por estudiante · demo sintética local</option>
+        </select>
+
+        <!-- Configuración de Red / Servidor -->
+        <div class="form-group">
+          <label for="servidor" class="form-label">Dirección del Servicio API</label>
+          <input id="servidor" type="url" class="form-input" placeholder="http://localhost:8001">
+        </div>
+
+        <!-- Formato de Entrada (Examen) -->
         <div id="controles-examen" class="form-group">
-          <label for="formato">Formato del Contrato de Entrada</label>
-          <select id="formato">
-            <option value="integracion">Entrada conjunta (Imagen / Video)</option>
-            <option value="imagen">Exportación de Módulo IMAGEN</option>
-            <option value="video">Alerta o fotogramas de Módulo VIDEO</option>
+          <label for="formato" class="form-label">Formato de Entrada</label>
+          <select id="formato" class="form-select">
+            <option value="integracion">Entrada conjunta (imagen / video)</option>
+            <option value="imagen">Exportación de IMAGEN</option>
+            <option value="video">Alerta o fotogramas de VIDEO</option>
             <option value="interno">Eventos normalizados del motor</option>
           </select>
         </div>
 
-        <!-- Controles para Seguimiento -->
+        <!-- Controles de Seguimiento (Subpanel dinámico) -->
         <div id="controles-seguimiento" hidden>
-          <label for="ejemplo-seguimiento">Escenario de Prueba Sintético</label>
-          <select id="ejemplo-seguimiento">
+          <label for="ejemplo-seguimiento" class="form-label">Escenario Sintético de Prueba</label>
+          <select id="ejemplo-seguimiento" class="form-select">
             <option value="juan">Juan Pérez · Concurrencia de factores de riesgo</option>
-            <option value="sin_alerta">Escenario de control · Sin alertas</option>
-            <option value="identidad_desconocida">Identidad desconocida · Observación sin atribuir</option>
+            <option value="sin_alerta">Escenario de control · Sin alerta</option>
+            <option value="identidad_desconocida">Identidad desconocida · Observaciones sin atribuir</option>
             <option value="insuficientes">Muestra insuficiente · Datos incompletos</option>
             <option value="contradictorio">Observaciones contradictorias entre módulos</option>
             <option value="duplicados">Telemetría redundante · Eventos duplicados</option>
-            <option value="aislado">Observación aislada · Sin persistencia</option>
+            <option value="aislado">Observación aislada sin persistencia</option>
             <option value="cambio_patron">Desviación en observaciones históricas</option>
           </select>
-          <div class="preset-actions">
-            <button id="cargar-ejemplo" type="button">⚡ Cargar Ejemplo Sintético</button>
+          <div class="seguimiento-action-row">
+            <button id="cargar-ejemplo" type="button">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+              Cargar ejemplo sintético
+            </button>
           </div>
-          <p class="ayuda" style="margin-top:10px;">
-            Datos de simulación (simulado=true). La identidad requiere asignación explícita por sesión. No almacena datos reales.
+          <p class="ayuda" style="margin-top:8px;">
+            Datos de demostración (simulado=true). La identidad requiere asignación explícita por sesión. No almacena datos reales.
           </p>
         </div>
 
-        <!-- Ingesta de Archivo -->
-        <div class="form-group">
-          <label for="archivo">Importar Archivo JSON Externo</label>
-          <div class="file-upload-wrapper">
-            <svg class="file-upload-icon" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
-            <div class="file-upload-text">
-              <input id="archivo" type="file" accept=".json,application/json">
-            </div>
+        <!-- Importar Archivo Externo -->
+        <div class="file-import-card">
+          <div class="file-import-desc">
+            <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+            <span>Importar JSON del equipo</span>
           </div>
+          <input id="archivo" type="file" accept=".json,application/json">
         </div>
 
-        <!-- Editor de JSON -->
-        <div class="editor-container">
-          <div class="editor-toolbar">
-            <span class="editor-title">payload_input.json</span>
-            <div class="editor-actions">
-              <button id="btn-formatear" type="button" class="btn-mini">Formatear</button>
-              <button id="btn-copiar-entrada" type="button" class="btn-mini">Copiar</button>
+        <!-- Editor de JSON / Payload (Monaco style) -->
+        <div class="json-editor-shell">
+          <div class="editor-header-bar">
+            <span class="editor-file-badge">
+              <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+              payload.json
+            </span>
+            <div class="editor-action-buttons">
+              <button id="btn-formatear" type="button" class="btn-editor-tool" title="Formatear JSON">{ } Formatear</button>
+              <button id="btn-copiar-entrada" type="button" class="btn-editor-tool" title="Copiar al portapapeles">Copiar</button>
             </div>
           </div>
-          <textarea id="entrada" rows="16" spellcheck="false" aria-describedby="ayuda"></textarea>
+          <textarea id="entrada" rows="18" spellcheck="false" aria-describedby="ayuda"></textarea>
         </div>
 
+        <!-- Tooltip / Aviso técnico -->
         <p id="ayuda" class="ayuda">
-          El ejemplo inicial es sintético. Si combinas fechas de IMAGEN con VIDEO, indica imagen.origen_temporal. Las métricas de calidad no se normalizan automáticamente a 0–1.
+          El ejemplo inicial es sintético. Si combinas fechas de IMAGEN con VIDEO, indica imagen.origen_temporal. Las métricas de calidad no se convierten automáticamente a 0–1.
         </p>
 
+        <!-- CTA Principal -->
         <button id="ejecutar" type="button">
-          <span>⚡ Evaluar Señales y Reglas</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          Evaluar señales
         </button>
         <p id="estado" role="status" aria-live="polite"></p>
       </section>
 
-      <!-- PANEL 2: Resultados y Auditoría -->
+      <!-- PANEL DERECHO: Resultados e Inspección -->
       <section class="panel-card" aria-labelledby="salida-titulo">
-        <div class="panel-header">
-          <h2 id="salida-titulo">
-            <span class="step-badge">2</span>
-            Revisar Evidencia y Diagnóstico
+        <div class="panel-card-header">
+          <h2 id="salida-titulo" class="panel-title">
+            <span class="panel-step-num">2</span>
+            Revisar evidencia
           </h2>
+          <span class="badge-saas">Auditoría Explicable</span>
         </div>
 
-        <!-- Resumen Score & Nivel -->
-        <div class="resumen">
-          <div class="gauge-box">
-            <strong id="indice">—</strong>
-            <span class="gauge-label">Índice / 100</span>
+        <!-- Card Principal de Métrica (Score Heurístico con Tacómetro Circular SVG) -->
+        <div class="metric-summary-card">
+          <div class="gauge-wrapper" aria-hidden="true">
+            <svg class="gauge-svg" viewBox="0 0 120 120">
+              <circle class="gauge-bg" cx="60" cy="60" r="50"></circle>
+              <circle id="gauge-bar" class="gauge-progress" cx="60" cy="60" r="50"></circle>
+            </svg>
+            <div class="gauge-inner-content">
+              <strong id="indice">—</strong>
+              <span class="gauge-denom">/ 100</span>
+            </div>
           </div>
-          <div class="resumen-info">
+
+          <div class="metric-info-section">
             <span id="nivel">Sin evaluar</span>
             <p id="descripcion-indice">Índice heurístico de revisión / 100. No es una probabilidad.</p>
           </div>
         </div>
 
-        <!-- Recomendación Asistida -->
-        <div class="recommendation-card">
-          <div class="recommendation-card-header">Directriz de Intervención</div>
+        <!-- Directriz de Intervención / Recomendación -->
+        <div class="directive-callout">
+          <div class="directive-callout-label">Directriz de Intervención</div>
           <p id="recomendacion">Carga los resultados y evalúa las señales para ver su explicación.</p>
         </div>
 
-        <!-- Contenedor dinámico de estudiantes / evidencias -->
-        <div id="resultados-estudiantes" aria-live="polite"></div>
-
-        <!-- Respuesta JSON Raw / Inspección Técnica -->
-        <div class="salida-wrapper">
-          <div class="salida-header">
-            <h3>Auditoría de Inferencia (Respuesta Raw)</h3>
-            <button id="btn-copiar-salida" type="button" class="btn-mini">Copiar JSON</button>
+        <!-- Desglose de Reglas y Evidencias por Estudiante -->
+        <div id="resultados-estudiantes" aria-live="polite">
+          <div id="empty-state" class="empty-evidence-state">
+            <svg class="empty-state-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+            <h3 class="empty-state-title">Listo para evaluar señales</h3>
+            <p class="empty-state-desc">Selecciona un escenario o importa un archivo JSON y haz clic en "Evaluar señales" para inspeccionar las reglas disparadas.</p>
           </div>
-          <pre id="salida" tabindex="0">La respuesta del servicio aparecerá aquí.</pre>
         </div>
+
+        <!-- Consola Colapsable de Respuesta Raw (Datadog style) -->
+        <details class="raw-console-details" open>
+          <summary class="raw-console-summary">
+            <div class="summary-left-title">
+              <svg class="summary-chevron" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+              <span>Respuesta completa del servicio</span>
+            </div>
+            <button id="btn-copiar-salida" type="button" class="btn-editor-tool">Copiar JSON</button>
+          </summary>
+          <pre id="salida" tabindex="0">La respuesta del servicio aparecerá aquí.</pre>
+        </details>
       </section>
     </div>
 
+    <!-- Footer de Auditoría Legal -->
     <footer>
-      <strong>AulaPredict v3.1</strong> · Sistema de apoyo a la decisión docente. Las detecciones de IMAGEN y VIDEO son señales auxiliares que requieren correlación contextual. Módulo AUDIO en desarrollo. No almacenar credenciales ni datos sensibles.
+      <strong>AulaPredict Analytics · Reglas Explicables:</strong> Siempre requiere revisión humana colegiada. No constituye un diagnóstico ni una sanción automática. Emociones e identidad de IMAGEN aún no están disponibles en el contrato actual.
     </footer>
   </main>
 </body>
