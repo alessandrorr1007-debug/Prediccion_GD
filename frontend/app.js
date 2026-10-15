@@ -90,16 +90,20 @@ const DEMO_INICIAL_ESTUDIANTES = [
     id: 1,
     nombre: "Estudiante 1",
     subId: "0.91",
-    estado: "Concentrado",
+    estado: "Concentrado en sesión",
+    accionDetectada: "Atento a la clase sin distractores",
     estadoClase: "status-concentrado",
     atencion: 92,
     tipoAtencion: "attention-fill-green",
     emociones: {
-      fatiga: 6,
-      estres: 8,
-      tristeza: 4,
       neutral: 82,
-      dominante: "Neutral / Concentración (😊)"
+      felicidad: 12,
+      tristeza: 4,
+      miedo: 5,
+      enojo: 3,
+      sorpresa: 2,
+      disgusto: 2,
+      dominante: "Neutral / Concentración (😐)"
     },
     causas: [
       { texto: "Descanso adecuado y preparación previa del tema", prob: 89 },
@@ -127,46 +131,103 @@ estudiantesEnCaptura = JSON.parse(JSON.stringify(DEMO_INICIAL_ESTUDIANTES));
 // ============================================================================
 
 function renderizarPanelesInferiores(estudiante) {
-  if (!estudiante) return;
-
   const labels = typeof document !== "undefined" && document.querySelectorAll ? document.querySelectorAll(".selected-student-label") : [];
   labels.forEach(el => {
-    el.textContent = `(${estudiante.nombre})`;
+    el.textContent = estudiante ? `(${estudiante.nombre})` : "(Sin selección)";
   });
 
-  const emoFatiga = elemento("emo-pct-fatiga");
-  const barFatiga = elemento("emo-bar-fatiga");
-  const emoEstres = elemento("emo-pct-estres");
-  const barEstres = elemento("emo-bar-estres");
-  const emoTristeza = elemento("emo-pct-tristeza");
-  const barTristeza = elemento("emo-bar-tristeza");
   const emoNeutral = elemento("emo-pct-neutral");
   const barNeutral = elemento("emo-bar-neutral");
+  const emoFelicidad = elemento("emo-pct-felicidad");
+  const barFelicidad = elemento("emo-bar-felicidad");
+  const emoTristeza = elemento("emo-pct-tristeza");
+  const barTristeza = elemento("emo-bar-tristeza");
+  const emoMiedo = elemento("emo-pct-miedo");
+  const barMiedo = elemento("emo-bar-miedo");
+  const emoEnojo = elemento("emo-pct-enojo");
+  const barEnojo = elemento("emo-bar-enojo");
+  const emoSorpresa = elemento("emo-pct-sorpresa");
+  const barSorpresa = elemento("emo-bar-sorpresa");
+  const emoDisgusto = elemento("emo-pct-disgusto");
+  const barDisgusto = elemento("emo-bar-disgusto");
   const domEmoText = elemento("dominant-emotion-text");
+  const actionBadge = elemento("student-action-badge");
 
-  if (emoFatiga && barFatiga) {
-    emoFatiga.textContent = `${estudiante.emociones.fatiga}%`;
-    barFatiga.style.width = `${estudiante.emociones.fatiga}%`;
+  if (!estudiante) {
+    // Reseteo limpio cuando no hay estudiantes en la captura
+    if (emoNeutral && barNeutral) { emoNeutral.textContent = "0%"; barNeutral.style.width = "0%"; }
+    if (emoFelicidad && barFelicidad) { emoFelicidad.textContent = "0%"; barFelicidad.style.width = "0%"; }
+    if (emoTristeza && barTristeza) { emoTristeza.textContent = "0%"; barTristeza.style.width = "0%"; }
+    if (emoMiedo && barMiedo) { emoMiedo.textContent = "0%"; barMiedo.style.width = "0%"; }
+    if (emoEnojo && barEnojo) { emoEnojo.textContent = "0%"; barEnojo.style.width = "0%"; }
+    if (emoSorpresa && barSorpresa) { emoSorpresa.textContent = "0%"; barSorpresa.style.width = "0%"; }
+    if (emoDisgusto && barDisgusto) { emoDisgusto.textContent = "0%"; barDisgusto.style.width = "0%"; }
+    if (domEmoText) domEmoText.textContent = "Esperando detección en captura";
+    if (actionBadge) actionBadge.textContent = "Sin alumnos detectados";
+
+    const causesList = elemento("causes-list");
+    if (causesList) {
+      causesList.innerHTML = `<div class="prediction-empty-notice">⚠️ Esperando detección de estudiantes para inferir acontecimientos previos.</div>`;
+    }
+    const consequencesList = elemento("consequences-list");
+    if (consequencesList) {
+      consequencesList.innerHTML = `<div class="prediction-empty-notice">⚠️ Esperando detección de estudiantes para estimar consecuencias futuras.</div>`;
+    }
+    const riskBanner = elemento("risk-score-banner");
+    const riesgoScoreNum = elemento("riesgo-score-num");
+    const riesgoNivelText = elemento("riesgo-nivel-text");
+    const examRiskDesc = elemento("exam-risk-desc");
+    const narrativeText = elemento("assistant-narrative-text");
+
+    if (riskBanner) riskBanner.className = "risk-score-banner bg-risk-optimal";
+    if (riesgoScoreNum) riesgoScoreNum.textContent = "0";
+    if (riesgoNivelText) riesgoNivelText.textContent = "Sin Alumnos Evaluados";
+    if (examRiskDesc) examRiskDesc.textContent = "Encuadra la cámara o sube una imagen de aula con alumnos para calcular el riesgo.";
+    if (narrativeText) {
+      narrativeText.innerHTML = "No se detectaron estudiantes en la captura actual. Asegúrate de encuadrar al grupo o sube una foto con alumnos para generar la predicción asistida.";
+    }
+    return;
   }
-  if (emoEstres && barEstres) {
-    emoEstres.textContent = `${estudiante.emociones.estres}%`;
-    barEstres.style.width = `${estudiante.emociones.estres}%`;
+
+  const emos = estudiante.emociones || {};
+  if (emoNeutral && barNeutral) {
+    emoNeutral.textContent = `${emos.neutral !== undefined ? emos.neutral : (emos.neutral || 0)}%`;
+    barNeutral.style.width = `${emos.neutral !== undefined ? emos.neutral : 0}%`;
+  }
+  if (emoFelicidad && barFelicidad) {
+    emoFelicidad.textContent = `${emos.felicidad !== undefined ? emos.felicidad : 0}%`;
+    barFelicidad.style.width = `${emos.felicidad !== undefined ? emos.felicidad : 0}%`;
   }
   if (emoTristeza && barTristeza) {
-    emoTristeza.textContent = `${estudiante.emociones.tristeza}%`;
-    barTristeza.style.width = `${estudiante.emociones.tristeza}%`;
+    emoTristeza.textContent = `${emos.tristeza !== undefined ? emos.tristeza : 0}%`;
+    barTristeza.style.width = `${emos.tristeza !== undefined ? emos.tristeza : 0}%`;
   }
-  if (emoNeutral && barNeutral) {
-    emoNeutral.textContent = `${estudiante.emociones.neutral}%`;
-    barNeutral.style.width = `${estudiante.emociones.neutral}%`;
+  if (emoMiedo && barMiedo) {
+    emoMiedo.textContent = `${emos.miedo !== undefined ? emos.miedo : (emos.estres || 0)}%`;
+    barMiedo.style.width = `${emos.miedo !== undefined ? emos.miedo : (emos.estres || 0)}%`;
+  }
+  if (emoEnojo && barEnojo) {
+    emoEnojo.textContent = `${emos.enojo !== undefined ? emos.enojo : 0}%`;
+    barEnojo.style.width = `${emos.enojo !== undefined ? emos.enojo : 0}%`;
+  }
+  if (emoSorpresa && barSorpresa) {
+    emoSorpresa.textContent = `${emos.sorpresa !== undefined ? emos.sorpresa : 0}%`;
+    barSorpresa.style.width = `${emos.sorpresa !== undefined ? emos.sorpresa : 0}%`;
+  }
+  if (emoDisgusto && barDisgusto) {
+    emoDisgusto.textContent = `${emos.disgusto !== undefined ? emos.disgusto : 0}%`;
+    barDisgusto.style.width = `${emos.disgusto !== undefined ? emos.disgusto : 0}%`;
   }
   if (domEmoText) {
-    domEmoText.textContent = estudiante.emociones.dominante;
+    domEmoText.textContent = emos.dominante || "Neutral / Concentración (😐)";
+  }
+  if (actionBadge) {
+    actionBadge.textContent = estudiante.accionDetectada || "Atento a la clase sin distractores";
   }
 
   const causesList = elemento("causes-list");
   if (causesList) {
-    causesList.innerHTML = estudiante.causas.map(c => `
+    causesList.innerHTML = (estudiante.causas || []).map(c => `
       <div class="prob-item">
         <div class="prob-item-text-row">
           <span class="prob-item-title">${c.texto}</span>
@@ -181,7 +242,7 @@ function renderizarPanelesInferiores(estudiante) {
 
   const consequencesList = elemento("consequences-list");
   if (consequencesList) {
-    consequencesList.innerHTML = estudiante.consecuencias.map(c => `
+    consequencesList.innerHTML = (estudiante.consecuencias || []).map(c => `
       <div class="prob-item">
         <div class="prob-item-text-row">
           <span class="prob-item-title">${c.texto}</span>
@@ -207,7 +268,7 @@ function renderizarPanelesInferiores(estudiante) {
   if (riesgoNivelText) riesgoNivelText.textContent = estudiante.nivelRiesgo;
   if (examRiskDesc) examRiskDesc.textContent = estudiante.alertaExamen;
   if (narrativeText) {
-    narrativeText.innerHTML = estudiante.narrativa.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+    narrativeText.innerHTML = (estudiante.narrativa || "").replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
   }
 }
 
@@ -218,6 +279,17 @@ function renderizarCuadriculaEstudiantes() {
   const countBadge = elemento("students-count-badge");
   if (countBadge) {
     countBadge.textContent = `${estudiantesEnCaptura.length} Alumno${estudiantesEnCaptura.length === 1 ? "" : "s"} Detectado${estudiantesEnCaptura.length === 1 ? "" : "s"}`;
+  }
+
+  if (estudiantesEnCaptura.length === 0) {
+    container.innerHTML = `
+      <div class="students-empty-state">
+        <div class="empty-state-icon">🚫</div>
+        <div class="empty-state-title">No se detectaron estudiantes en la captura</div>
+        <div class="empty-state-desc">Asegúrate de que haya al menos un alumno visible en el encuadre o toma una nueva captura para generar predicciones.</div>
+      </div>
+    `;
+    return;
   }
 
   container.innerHTML = estudiantesEnCaptura.map(est => {
@@ -255,7 +327,7 @@ function renderizarCuadriculaEstudiantes() {
 
 function seleccionarEstudiante(id) {
   estudianteSeleccionadoId = id;
-  const estudiante = estudiantesEnCaptura.find(e => e.id === id) || estudiantesEnCaptura[0];
+  const estudiante = estudiantesEnCaptura.find(e => e.id === id) || (estudiantesEnCaptura.length > 0 ? estudiantesEnCaptura[0] : null);
   renderizarCuadriculaEstudiantes();
   renderizarPanelesInferiores(estudiante);
 }
@@ -357,6 +429,30 @@ function iniciarRenderizadoCanvas() {
         ctx.fillText(est.distractorBox.label, dx + 5, dy - 5);
       }
     });
+
+    // Si no hay personas detectadas y la imagen está congelada, mostrar aviso en el visor
+    if (estudiantesEnCaptura.length === 0 && modoCapturaCongelada) {
+      ctx.fillStyle = "rgba(15, 23, 42, 0.75)";
+      const boxW = Math.min(w * 0.7, 340);
+      const boxH = 44;
+      const bx = (w - boxW) / 2;
+      const by = h * 0.42;
+      if (ctx.roundRect) {
+        ctx.beginPath();
+        ctx.roundRect(bx, by, boxW, boxH, 8);
+        ctx.fill();
+        ctx.strokeStyle = "#F59E0B";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      } else {
+        ctx.fillRect(bx, by, boxW, boxH);
+      }
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "bold 13px Inter, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("⚠️ Sin personas detectadas en la captura", w / 2, by + 27);
+      ctx.textAlign = "start";
+    }
 
     animCanvasId = requestAnimationFrame(renderLoop);
   };
@@ -460,11 +556,29 @@ async function ejecutarCapturaYPrediccion() {
   }
   modoCapturaCongelada = true;
 
+  // Simular contexto recibido de Imagen/Video si fue seleccionado
+  const selContexto = elemento("select-contexto-simulado");
+  let contextoExterno = null;
+  if (selContexto) {
+    if (selContexto.value === "celular") {
+      contextoExterno = { acciones_detectadas: ["uso_celular"], objetos: ["telefono"] };
+    } else if (selContexto.value === "audifonos") {
+      contextoExterno = { acciones_detectadas: ["uso_audifonos"], objetos: ["audifonos"] };
+    } else if (selContexto.value === "cansancio") {
+      contextoExterno = { acciones_detectadas: ["postura_cansancio", "durmiendo"], objetos: [] };
+    }
+  }
+
   try {
+    const payload = { imagen_b64: imagenB64 };
+    if (contextoExterno) {
+      payload.contexto_externo = contextoExterno;
+    }
+
     const res = await fetch(`${servidor()}/api/prediccion/analizar-captura`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ imagen_b64: imagenB64 })
+      body: JSON.stringify(payload)
     });
 
     if (!res.ok) {
@@ -472,16 +586,23 @@ async function ejecutarCapturaYPrediccion() {
     }
 
     const data = await res.json();
-    if (data.estudiantes && data.estudiantes.length > 0) {
+    if (data.total_alumnos > 0 && data.estudiantes && data.estudiantes.length > 0) {
       estudiantesEnCaptura = data.estudiantes;
       seleccionarEstudiante(estudiantesEnCaptura[0].id);
+      if (statusText) statusText.textContent = `Captura Analizada (${estudiantesEnCaptura.length} Alumnos)`;
+    } else {
+      // ESTADO LIMPIO: Cero personas detectadas
+      estudiantesEnCaptura = [];
+      estudianteSeleccionadoId = null;
+      renderizarCuadriculaEstudiantes();
+      renderizarPanelesInferiores(null);
+      if (statusText) statusText.textContent = "0 Alumnos Detectados";
     }
 
-    if (statusText) statusText.textContent = `Captura Analizada (${estudiantesEnCaptura.length} Alumnos)`;
     if (locationLabel) locationLabel.textContent = `Aula 301 · ${data.resolucion_captura || "HD"}`;
   } catch (err) {
     console.warn("Fallo en backend, usando predicción local calibrada:", err);
-    if (statusText) statusText.textContent = "Captura Analizada (Local)";
+    if (statusText) statusText.textContent = "Error al procesar captura";
   } finally {
     if (btnCapture) {
       btnCapture.disabled = false;
@@ -547,21 +668,44 @@ function configurarSubidaFoto() {
       }
 
       if (statusText) statusText.textContent = "Analizando Foto Subida...";
+      modoCapturaCongelada = true;
+
+      // Leer contexto simulado si está activo
+      const selContexto = elemento("select-contexto-simulado");
+      let contextoExterno = null;
+      if (selContexto) {
+        if (selContexto.value === "celular") {
+          contextoExterno = { acciones_detectadas: ["uso_celular"], objetos: ["telefono"] };
+        } else if (selContexto.value === "audifonos") {
+          contextoExterno = { acciones_detectadas: ["uso_audifonos"], objetos: ["audifonos"] };
+        } else if (selContexto.value === "cansancio") {
+          contextoExterno = { acciones_detectadas: ["postura_cansancio", "durmiendo"], objetos: [] };
+        }
+      }
 
       try {
+        const payload = { imagen_b64: b64 };
+        if (contextoExterno) payload.contexto_externo = contextoExterno;
+
         const res = await fetch(`${servidor()}/api/prediccion/analizar-captura`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imagen_b64: b64 })
+          body: JSON.stringify(payload)
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.estudiantes && data.estudiantes.length > 0) {
+          if (data.total_alumnos > 0 && data.estudiantes && data.estudiantes.length > 0) {
             estudiantesEnCaptura = data.estudiantes;
             seleccionarEstudiante(estudiantesEnCaptura[0].id);
+            if (statusText) statusText.textContent = `Foto Analizada (${estudiantesEnCaptura.length} Alumnos)`;
+          } else {
+            estudiantesEnCaptura = [];
+            estudianteSeleccionadoId = null;
+            renderizarCuadriculaEstudiantes();
+            renderizarPanelesInferiores(null);
+            if (statusText) statusText.textContent = "0 Alumnos Detectados";
           }
         }
-        if (statusText) statusText.textContent = `Foto Analizada (${estudiantesEnCaptura.length} Alumnos)`;
       } catch (err) {
         console.warn("Error procesando foto subida:", err);
       }

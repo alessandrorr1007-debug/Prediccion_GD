@@ -103,6 +103,15 @@
 
               <!-- Acciones Secundarias de Captura -->
               <div class="capture-secondary-actions">
+                <div class="sim-context-select-box">
+                  <label for="select-contexto-simulado" class="sim-label">📡 Contexto Imagen/Video:</label>
+                  <select id="select-contexto-simulado" class="sim-select" title="Simula el reporte de acción recibido desde los módulos de Imagen o Video">
+                    <option value="auto" selected>Auto-detectar en foto</option>
+                    <option value="celular">+ Reporte: Alumno con Celular</option>
+                    <option value="audifonos">+ Reporte: Alumno con Audífonos/Distraído</option>
+                    <option value="cansancio">+ Reporte: Alumno con Postura Cansancio</option>
+                  </select>
+                </div>
                 <button id="btn-group-classroom" type="button" class="btn-action-ghost" title="Carga una captura grupal de aula con 5 estudiantes analizados por el modelo">
                   🖼️ Probar con Captura Grupal
                 </button>
@@ -186,72 +195,109 @@
              FILA INFERIOR (3 TARJETAS: PREDICCIÓN DEL ESTUDIANTE SELECCIONADO)
              ================================================================ -->
         <div class="bottom-row-grid">
-          <!-- Tarjeta 1 (Izquierda 33%): Predicción de Estado y Emociones -->
+          <!-- Tarjeta 1 (Izquierda 33%): Reconocimiento Facial: 7 Emociones -->
           <section class="card prediction-card emotions-card">
             <div class="card-header-clean">
               <h3 class="card-title-sm">
-                🔮 Predicción de Estado y Emociones <span class="selected-student-label">(Estudiante 1)</span>
+                🔮 Reconocimiento Facial: 7 Emociones <span class="selected-student-label">(Estudiante 1)</span>
               </h3>
-              <span class="sub-label">Predicción de Estado y Emociones en Vivo</span>
+              <span class="sub-label">Predicción Facial Calibrada (0% - 100%)</span>
             </div>
 
-            <!-- 4 Barras Horizontales de Emociones -->
+            <!-- 7 Barras Horizontales de Emociones Universales -->
             <div class="emotions-bars-list">
-              <!-- 1. Distracción / Fatiga (😴) -->
+              <!-- 1. Neutral / Concentración (😐) -->
               <div class="emotion-item">
                 <div class="emotion-title-row">
-                  <span class="emo-label">Distracción / Fatiga (😴)</span>
-                  <span id="emo-pct-fatiga" class="emo-val text-coral">6%</span>
+                  <span class="emo-label">Neutral / Concentración (😐)</span>
+                  <span id="emo-pct-neutral" class="emo-val text-neutral">82%</span>
                 </div>
                 <div class="progress-track">
-                  <div id="emo-bar-fatiga" class="progress-fill fill-coral" style="width: 6%;"></div>
+                  <div id="emo-bar-neutral" class="progress-fill fill-neutral" style="width: 82%;"></div>
                 </div>
               </div>
 
-              <!-- 2. Estrés / Ansiedad (😟) -->
+              <!-- 2. Felicidad / Motivación (😊) -->
               <div class="emotion-item">
                 <div class="emotion-title-row">
-                  <span class="emo-label">Estrés / Ansiedad (😟)</span>
-                  <span id="emo-pct-estres" class="emo-val text-amber">8%</span>
+                  <span class="emo-label">Felicidad / Motivación (😊)</span>
+                  <span id="emo-pct-felicidad" class="emo-val text-felicidad">12%</span>
                 </div>
                 <div class="progress-track">
-                  <div id="emo-bar-estres" class="progress-fill fill-amber" style="width: 8%;"></div>
+                  <div id="emo-bar-felicidad" class="progress-fill fill-felicidad" style="width: 12%;"></div>
                 </div>
               </div>
 
-              <!-- 3. Tristeza / Desatención (😢) -->
+              <!-- 3. Tristeza / Decaimiento (😢) -->
               <div class="emotion-item">
                 <div class="emotion-title-row">
-                  <span class="emo-label">Tristeza / Desatención (😢)</span>
-                  <span id="emo-pct-tristeza" class="emo-val text-yellow">4%</span>
+                  <span class="emo-label">Tristeza / Decaimiento (😢)</span>
+                  <span id="emo-pct-tristeza" class="emo-val text-tristeza">4%</span>
                 </div>
                 <div class="progress-track">
-                  <div id="emo-bar-tristeza" class="progress-fill fill-yellow" style="width: 4%;"></div>
+                  <div id="emo-bar-tristeza" class="progress-fill fill-tristeza" style="width: 4%;"></div>
                 </div>
               </div>
 
-              <!-- 4. Neutral / Concentración (😊) -->
+              <!-- 4. Miedo / Ansiedad / Estrés (😨) -->
               <div class="emotion-item">
                 <div class="emotion-title-row">
-                  <span class="emo-label">Neutral / Concentración (😊)</span>
-                  <span id="emo-pct-neutral" class="emo-val text-blue">82%</span>
+                  <span class="emo-label">Miedo / Ansiedad / Estrés (😨)</span>
+                  <span id="emo-pct-miedo" class="emo-val text-miedo">5%</span>
                 </div>
                 <div class="progress-track">
-                  <div id="emo-bar-neutral" class="progress-fill fill-blue" style="width: 82%;"></div>
+                  <div id="emo-bar-miedo" class="progress-fill fill-miedo" style="width: 5%;"></div>
+                </div>
+              </div>
+
+              <!-- 5. Enojo / Frustración (😠) -->
+              <div class="emotion-item">
+                <div class="emotion-title-row">
+                  <span class="emo-label">Enojo / Frustración (😠)</span>
+                  <span id="emo-pct-enojo" class="emo-val text-enojo">3%</span>
+                </div>
+                <div class="progress-track">
+                  <div id="emo-bar-enojo" class="progress-fill fill-enojo" style="width: 3%;"></div>
+                </div>
+              </div>
+
+              <!-- 6. Sorpresa / Sobresalto (😲) -->
+              <div class="emotion-item">
+                <div class="emotion-title-row">
+                  <span class="emo-label">Sorpresa (😲)</span>
+                  <span id="emo-pct-sorpresa" class="emo-val text-sorpresa">2%</span>
+                </div>
+                <div class="progress-track">
+                  <div id="emo-bar-sorpresa" class="progress-fill fill-sorpresa" style="width: 2%;"></div>
+                </div>
+              </div>
+
+              <!-- 7. Disgusto / Rechazo (🤢) -->
+              <div class="emotion-item">
+                <div class="emotion-title-row">
+                  <span class="emo-label">Disgusto / Rechazo (🤢)</span>
+                  <span id="emo-pct-disgusto" class="emo-val text-disgusto">2%</span>
+                </div>
+                <div class="progress-track">
+                  <div id="emo-bar-disgusto" class="progress-fill fill-disgusto" style="width: 2%;"></div>
                 </div>
               </div>
             </div>
 
-            <!-- Resumen de Estado Emocional Dominante -->
+            <!-- Resumen de Estado Emocional Dominante y Acción Detectada -->
             <div class="dominant-emotion-pill-wrap">
               <div id="dominant-pill-box" class="dominant-pill">
                 <span class="dot-accent-orange"></span>
-                <span>Estado Emocional Dominante: <strong id="dominant-emotion-text">Neutral / Concentración (😊)</strong></span>
+                <span>Estado Emocional Dominante: <strong id="dominant-emotion-text">Neutral / Concentración (😐)</strong></span>
+              </div>
+              <div id="action-pill-box" class="action-pill">
+                <span class="dot-action-blue"></span>
+                <span>Acción Detectada: <strong id="student-action-badge">Atento a la clase sin distractores</strong></span>
               </div>
             </div>
 
             <div class="card-footer-badge">
-              <span>✅ Modelo Facial Entrenado v2.4 (RandomForest + Inferencia Bayesiana)</span>
+              <span>✅ Modelo Facial de 7 Emociones Universales (v2.5) + Fusión Multimodal</span>
             </div>
           </section>
 

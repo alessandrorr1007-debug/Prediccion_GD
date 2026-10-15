@@ -13,11 +13,15 @@ export interface EstudianteAula {
   estadoClase: string;
   atencion: number;
   tipoAtencion: string;
+  accionDetectada?: string;
   emociones: {
-    fatiga: number;
-    estres: number;
-    tristeza: number;
     neutral: number;
+    felicidad: number;
+    tristeza: number;
+    miedo: number;
+    enojo: number;
+    sorpresa: number;
+    disgusto: number;
     dominante: string;
   };
   causas: Array<{ texto: string; prob: number }>;
@@ -43,12 +47,16 @@ const ESTUDIANTES_MOCK: EstudianteAula[] = [
     atencion: 92,
     tipoAtencion: "bg-emerald-500",
     emociones: {
-      fatiga: 6,
-      estres: 8,
-      tristeza: 4,
       neutral: 82,
-      dominante: "Neutral / Concentración (😊)"
+      felicidad: 12,
+      tristeza: 4,
+      miedo: 5,
+      enojo: 3,
+      sorpresa: 2,
+      disgusto: 2,
+      dominante: "Neutral / Concentración (😐)"
     },
+    accionDetectada: "Atento a la clase sin distractores",
     causas: [
       { texto: "Descanso adecuado y preparación previa del tema", prob: 89 },
       { texto: "Estabilidad emocional y motivación activa", prob: 81 }
@@ -75,12 +83,16 @@ const ESTUDIANTES_MOCK: EstudianteAula[] = [
     atencion: 42,
     tipoAtencion: "bg-amber-500",
     emociones: {
-      fatiga: 56,
-      estres: 22,
-      tristeza: 14,
-      neutral: 8,
-      dominante: "Distracción / Fatiga (😴)"
+      neutral: 14,
+      felicidad: 5,
+      tristeza: 48,
+      miedo: 18,
+      enojo: 8,
+      sorpresa: 4,
+      disgusto: 3,
+      dominante: "Tristeza / Decaimiento (😢)"
     },
+    accionDetectada: "Postura cabizbaja con parpadeo lento",
     causas: [
       { texto: "Posible sobrecarga de tareas o desvelo nocturno prolongado", prob: 82 },
       { texto: "Tránsito pesado o contratiempo antes de ingresar al aula", prob: 75 }
@@ -107,12 +119,16 @@ const ESTUDIANTES_MOCK: EstudianteAula[] = [
     atencion: 15,
     tipoAtencion: "bg-red-500",
     emociones: {
-      fatiga: 48,
-      estres: 32,
-      tristeza: 12,
       neutral: 8,
-      dominante: "Distracción / Fatiga (😴)"
+      felicidad: 4,
+      tristeza: 14,
+      miedo: 38,
+      enojo: 28,
+      sorpresa: 5,
+      disgusto: 3,
+      dominante: "Miedo / Ansiedad / Estrés (😨)"
     },
+    accionDetectada: "Uso de teléfono móvil frente a cámara",
     causas: [
       { texto: "Posible sobrecarga de tareas o desvelo nocturno", prob: 82 },
       { texto: "Tránsito, retraso o contratiempo antes de ingresar", prob: 75 }
@@ -140,12 +156,16 @@ const ESTUDIANTES_MOCK: EstudianteAula[] = [
     atencion: 38,
     tipoAtencion: "bg-amber-500",
     emociones: {
-      fatiga: 35,
-      estres: 45,
-      tristeza: 15,
-      neutral: 5,
-      dominante: "Estrés / Ansiedad (😟)"
+      neutral: 10,
+      felicidad: 6,
+      tristeza: 22,
+      miedo: 44,
+      enojo: 12,
+      sorpresa: 4,
+      disgusto: 2,
+      dominante: "Miedo / Ansiedad / Estrés (😨)"
     },
+    accionDetectada: "Foco visual evasivo hacia los lados",
     causas: [
       { texto: "Posible conflicto personal o mal momento emocional previo al aula", prob: 84 },
       { texto: "Desmotivación o frustración por calificaciones recientes", prob: 68 }
@@ -172,12 +192,16 @@ const ESTUDIANTES_MOCK: EstudianteAula[] = [
     atencion: 85,
     tipoAtencion: "bg-blue-500",
     emociones: {
-      fatiga: 8,
-      estres: 10,
-      tristeza: 5,
-      neutral: 77,
-      dominante: "Neutral / Concentración (😊)"
+      neutral: 78,
+      felicidad: 14,
+      tristeza: 3,
+      miedo: 2,
+      enojo: 1,
+      sorpresa: 1,
+      disgusto: 1,
+      dominante: "Neutral / Concentración (😐)"
     },
+    accionDetectada: "Atento a la clase sin distractores",
     causas: [
       { texto: "Descanso adecuado y preparación previa del tema", prob: 89 },
       { texto: "Estabilidad emocional y motivación activa", prob: 81 }
@@ -567,66 +591,104 @@ export const AulaPredictDashboard: React.FC = () => {
 
           {/* FILA INFERIOR: 3 TARJETAS DE PREDICCIÓN (33% · 34% · 33%) */}
           <div className="grid grid-cols-1 lg:grid-cols-[33%_34%_33%] gap-5 items-stretch">
-            {/* Tarjeta 1: Emociones */}
+            {/* Tarjeta 1: Reconocimiento Facial: 7 Emociones */}
             <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col justify-between">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 mb-0.5">
-                  🔮 Predicción de Estado y Emociones <span className="text-blue-600 font-bold">({alumnoActual.nombre})</span>
+                  🔮 Reconocimiento Facial: 7 Emociones <span className="text-blue-600 font-bold">({alumnoActual.nombre})</span>
                 </h3>
-                <span className="text-[11px] text-slate-400">Predicción de Estado y Emociones en Vivo</span>
+                <span className="text-[11px] text-slate-400">Distribución Porcentual Calibrada (0% - 100%)</span>
 
-                <div className="mt-4 flex flex-col gap-3.5">
+                <div className="mt-4 flex flex-col gap-2.5">
                   <div>
                     <div className="flex justify-between text-xs mb-1">
-                      <span className="font-medium text-slate-700">Distracción / Fatiga (😴)</span>
-                      <span className="font-mono font-bold text-[#F97316]">{alumnoActual.emociones.fatiga}%</span>
-                    </div>
-                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-[#F97316] rounded-full" style={{ width: `${alumnoActual.emociones.fatiga}%` }}></div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="font-medium text-slate-700">Estrés / Ansiedad (😟)</span>
-                      <span className="font-mono font-bold text-[#F59E0B]">{alumnoActual.emociones.estres}%</span>
-                    </div>
-                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-[#F59E0B] rounded-full" style={{ width: `${alumnoActual.emociones.estres}%` }}></div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="font-medium text-slate-700">Tristeza / Desatención (😢)</span>
-                      <span className="font-mono font-bold text-yellow-600">{alumnoActual.emociones.tristeza}%</span>
-                    </div>
-                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-[#FACC15] rounded-full" style={{ width: `${alumnoActual.emociones.tristeza}%` }}></div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="font-medium text-slate-700">Neutral / Concentración (😊)</span>
+                      <span className="font-medium text-slate-700">Neutral / Concentración (😐)</span>
                       <span className="font-mono font-bold text-blue-600">{alumnoActual.emociones.neutral}%</span>
                     </div>
                     <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-[#60A5FA] rounded-full" style={{ width: `${alumnoActual.emociones.neutral}%` }}></div>
+                      <div className="h-full bg-[#3B82F6] rounded-full" style={{ width: `${alumnoActual.emociones.neutral}%` }}></div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-medium text-slate-700">Felicidad / Motivación (😊)</span>
+                      <span className="font-mono font-bold text-emerald-600">{alumnoActual.emociones.felicidad}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-[#10B981] rounded-full" style={{ width: `${alumnoActual.emociones.felicidad}%` }}></div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-medium text-slate-700">Tristeza / Decaimiento (😢)</span>
+                      <span className="font-mono font-bold text-yellow-600">{alumnoActual.emociones.tristeza}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-[#EAB308] rounded-full" style={{ width: `${alumnoActual.emociones.tristeza}%` }}></div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-medium text-slate-700">Miedo / Ansiedad / Estrés (😨)</span>
+                      <span className="font-mono font-bold text-amber-600">{alumnoActual.emociones.miedo}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-[#F59E0B] rounded-full" style={{ width: `${alumnoActual.emociones.miedo}%` }}></div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-medium text-slate-700">Enojo / Frustración (😠)</span>
+                      <span className="font-mono font-bold text-red-600">{alumnoActual.emociones.enojo}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-[#EF4444] rounded-full" style={{ width: `${alumnoActual.emociones.enojo}%` }}></div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-medium text-slate-700">Sorpresa (😲)</span>
+                      <span className="font-mono font-bold text-purple-600">{alumnoActual.emociones.sorpresa}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-[#8B5CF6] rounded-full" style={{ width: `${alumnoActual.emociones.sorpresa}%` }}></div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-medium text-slate-700">Disgusto / Rechazo (🤢)</span>
+                      <span className="font-mono font-bold text-teal-600">{alumnoActual.emociones.disgusto}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-[#14B8A6] rounded-full" style={{ width: `${alumnoActual.emociones.disgusto}%` }}></div>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-4 p-2.5 rounded-lg bg-orange-50 border border-orange-200 text-xs text-orange-900 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0"></span>
-                  <span>
-                    Estado Emocional Dominante: <strong>{alumnoActual.emociones.dominante}</strong>
-                  </span>
+                <div className="mt-4 flex flex-col gap-2">
+                  <div className="p-2.5 rounded-lg bg-orange-50 border border-orange-200 text-xs text-orange-900 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0"></span>
+                    <span>
+                      Estado Emocional Dominante: <strong>{alumnoActual.emociones.dominante}</strong>
+                    </span>
+                  </div>
+                  <div className="p-2 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-900 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-600 flex-shrink-0"></span>
+                    <span>
+                      Acción Detectada: <strong>{alumnoActual.accionDetectada || "Atento a la clase sin distractores"}</strong>
+                    </span>
+                  </div>
                 </div>
               </div>
 
               <div className="mt-4 pt-3 border-t border-slate-200 text-[10.5px] text-slate-500 font-medium">
-                ✅ Modelo Facial Entrenado v2.4 (RandomForest + Inferencia Bayesiana)
+                ✅ Modelo Facial de 7 Emociones Universales (v2.5) + Fusión Multimodal
               </div>
             </section>
 

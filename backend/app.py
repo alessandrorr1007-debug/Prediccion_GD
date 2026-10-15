@@ -103,9 +103,11 @@ async def prediccion_analizar_captura(request: Request):
     if not imagen_b64 or not isinstance(imagen_b64, str):
         raise HTTPException(422, "Se requiere imagen_b64 en formato base64")
 
+    contexto_externo = cuerpo.get("contexto_externo")
+
     try:
         from backend.entrenamiento_prediccion.predictor import procesar_captura_imagen
-        return await run_in_threadpool(procesar_captura_imagen, imagen_b64)
+        return await run_in_threadpool(procesar_captura_imagen, imagen_b64, contexto_externo)
     except Exception as e:
         raise HTTPException(500, f"Error al procesar predicción de captura: {str(e)}")
 

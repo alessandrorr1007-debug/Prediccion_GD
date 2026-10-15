@@ -43,6 +43,22 @@ class MotorTests(unittest.TestCase):
     def test_senal_desconocida_no_indica_normalidad(self):
         self.assertIsNone(predecir({"eventos": [dict(evento(), senal="otra") ]})["indice_revision"])
 
+    def test_captura_sin_personas_devuelve_cero_alumnos(self):
+        import base64
+        import cv2
+        import numpy as np
+        from backend.entrenamiento_prediccion.predictor import procesar_captura_imagen
+
+        # Imagen plana vacía (pared o escritorio sin personas)
+        vacia = np.zeros((360, 480, 3), dtype=np.uint8)
+        _, buffer = cv2.imencode(".jpg", vacia)
+        b64 = base64.b64encode(buffer).decode("utf-8")
+
+        resultado = procesar_captura_imagen(b64)
+        self.assertEqual(resultado["total_alumnos"], 0)
+        self.assertEqual(resultado["estudiantes"], [])
+        self.assertEqual(resultado["estado"], "sin_personas")
+
 
 if __name__ == "__main__":
     unittest.main()
