@@ -1,0 +1,112 @@
+{
+  "modulo": "AulaPredict - Predicción Universitaria",
+  "version": "2.4.0",
+  "fecha": "2026-10-15",
+  "modelo_facial_emociones": {
+    "accuracy": 0.998,
+    "classification_report": {
+      "Fatiga (😴)": {
+        "precision": 1.0,
+        "recall": 0.992,
+        "f1-score": 0.9959839357429718,
+        "support": 250.0
+      },
+      "Estrés (😟)": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 250.0
+      },
+      "Tristeza (😢)": {
+        "precision": 0.9920634920634921,
+        "recall": 1.0,
+        "f1-score": 0.9960159362549801,
+        "support": 250.0
+      },
+      "Concentración (😊)": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 250.0
+      },
+      "accuracy": 0.998,
+      "macro avg": {
+        "precision": 0.998015873015873,
+        "recall": 0.998,
+        "f1-score": 0.997999967999488,
+        "support": 1000.0
+      },
+      "weighted avg": {
+        "precision": 0.998015873015873,
+        "recall": 0.998,
+        "f1-score": 0.997999967999488,
+        "support": 1000.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        248,
+        0,
+        2,
+        0
+      ],
+      [
+        0,
+        250,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        250,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        250
+      ]
+    ],
+    "features": [
+      "eye_openness",
+      "eyebrow_slope",
+      "mouth_smile",
+      "mouth_open",
+      "head_tilt",
+      "gaze_stability",
+      "blink_rate"
+    ]
+  },
+  "modelo_sucesos_academicos": {
+    "mae_global": 3.1831235906184654,
+    "r2_score": 0.9637470353823029,
+    "mae_por_variable": {
+      "prob_desvelo": 3.4805038256544725,
+      "prob_conflicto": 3.4802465083836953,
+      "prob_presion": 3.630239884058913,
+      "prob_descanso": 2.513679961759175,
+      "prob_jalar_parcial": 3.3645990744667724,
+      "prob_bloqueo_retencion": 3.2498466811911455,
+      "score_riesgo": 2.562749198815082
+    },
+    "features": [
+      "p_fatiga",
+      "p_estres",
+      "p_tristeza",
+      "p_concentracion",
+      "distractor",
+      "gaze_desviada"
+    ],
+    "targets": [
+      "prob_desvelo",
+      "prob_conflicto",
+      "prob_presion",
+      "prob_descanso",
+      "prob_jalar_parcial",
+      "prob_bloqueo_retencion",
+      "score_riesgo"
+    ]
+  }
+}

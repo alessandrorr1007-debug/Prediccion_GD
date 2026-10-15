@@ -227,6 +227,38 @@ body {
   border-radius: 4px;
 }
 
+/* Tarjeta de Métricas del Modelo en Sidebar */
+.sidebar-model-info {
+  margin-top: 24px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.model-info-heading {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-sidebar-muted);
+  margin-bottom: 2px;
+}
+
+.model-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-sidebar);
+}
+
+.text-emerald-400 { color: #34D399; font-weight: 700; }
+.text-blue-400 { color: #60A5FA; font-weight: 700; }
+
 /* Pie del Sidebar */
 .sidebar-footer {
   padding-top: 16px;
@@ -648,88 +680,115 @@ body {
   font-weight: 600;
 }
 
-/* Acciones de Cámara y Triggers de Prueba */
-.camera-actions-bar {
+/* Acciones Secundarias de Captura en Cabecera */
+.capture-secondary-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.btn-action-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-body);
+  background: #F1F5F9;
+  border: 1px solid var(--border-card);
+  cursor: pointer;
+  transition: all 0.16s ease;
+  text-decoration: none;
+}
+
+.btn-action-ghost:hover {
+  background: #E2E8F0;
+  color: var(--color-blue);
+  border-color: #CBD5E1;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+#captured-image-display {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 5;
+}
+
+/* Barra de Controles: BOTÓN PRINCIPAL DE CAPTURA Y PREDICCIÓN */
+.capture-controls-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-top: 14px;
-  flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
 }
 
-.camera-toggle-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-cam-control {
+.btn-main-capture {
+  flex: 1;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  border-radius: var(--radius-md);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.16s ease;
-  border: 1px solid transparent;
-}
-
-.btn-cam-control.primary {
-  background: var(--color-blue);
+  justify-content: center;
+  gap: 10px;
+  padding: 11px 20px;
+  background: linear-gradient(135deg, #1D7AFC 0%, #2563EB 100%);
   color: #FFFFFF;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+  transition: all 0.2s ease;
 }
 
-.btn-cam-control.primary:hover {
-  background: #1D4ED8;
+.btn-main-capture:hover {
+  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.45);
 }
 
-.btn-cam-control.secondary {
-  background: #F1F5F9;
-  border-color: var(--border-card);
-  color: var(--text-body);
+.btn-main-capture:active {
+  transform: translateY(0);
 }
 
-.btn-cam-control.secondary:hover {
-  background: #E2E8F0;
+.capture-icon {
+  font-size: 17px;
 }
 
-.sim-quick-triggers {
-  display: flex;
+.capture-text {
+  letter-spacing: -0.01em;
+}
+
+.btn-secondary-capture {
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-}
-
-.triggers-label {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-weight: 600;
-}
-
-.trigger-pill {
-  border: 1px solid var(--border-card);
+  padding: 11px 16px;
   background: #FFFFFF;
-  padding: 4px 10px;
-  border-radius: var(--radius-pill);
-  font-size: 11px;
-  font-weight: 500;
   color: var(--text-body);
+  border: 1.5px solid var(--border-card);
+  border-radius: var(--radius-md);
+  font-size: 12.5px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.16s ease;
 }
 
-.trigger-pill:hover {
+.btn-secondary-capture:hover {
   background: var(--bg-card-subtle);
   border-color: var(--border-card-hover);
-}
-
-.trigger-pill.active {
-  background: var(--bg-blue-light);
-  border-color: var(--color-blue);
   color: var(--color-blue);
-  font-weight: 600;
 }
 
 /* ==========================================================================

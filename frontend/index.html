@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sistema de Supervisión Inteligente · Panel de Inferencia de Predicciones</title>
+  <title>Sistema de Supervisión Inteligente · Módulo de Predicción (AulaPredict)</title>
   <link rel="stylesheet" href="/style.css">
   <script src="/app.js" defer></script>
 </head>
@@ -11,42 +11,46 @@
   <div class="app-layout">
     <!-- ====================================================================
          SIDEBAR IZQUIERDO FIJO (#0F294A - Azul Marino Institucional)
+         Enfocado EXCLUSIVAMENTE en el Módulo de Predicción
          ==================================================================== -->
     <aside class="app-sidebar">
-      <div class="sidebar-brand">
-        <div class="brand-emblem" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 2L3 7l9 5 9-5-9-5zM3 17l9 5 9-5M3 12l9 5 9-5" />
-          </svg>
+      <div>
+        <div class="sidebar-brand">
+          <div class="brand-emblem" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 2L3 7l9 5 9-5-9-5zM3 17l9 5 9-5M3 12l9 5 9-5" />
+            </svg>
+          </div>
+          <div class="brand-titles">
+            <h1 class="brand-title">Sistema de Supervisión Inteligente</h1>
+            <span class="brand-subtitle">Módulo de Predicción (AulaPredict)</span>
+          </div>
         </div>
-        <div class="brand-titles">
-          <h1 class="brand-title">Sistema de Supervisión Inteligente</h1>
-          <span class="brand-subtitle">Aula Inteligente para Educación Universitaria</span>
+
+        <!-- Menú Lateral: ÚNICO Módulo Activo -> Predicciones -->
+        <nav class="sidebar-menu" aria-label="Módulo de Predicción">
+          <div class="menu-section-label">MÓDULO ESPECIALIZADO</div>
+
+          <button type="button" class="menu-item active" title="Módulo de Predicción e Inferencia basada en Capturas">
+            <span class="menu-icon">🔮</span>
+            <span class="menu-text">Predicciones</span>
+            <span class="menu-badge-active">ACTIVO</span>
+          </button>
+        </nav>
+
+        <!-- Resumen del Modelo de Predicción -->
+        <div class="sidebar-model-info">
+          <div class="model-info-heading">MOTOR DE PREDICCIÓN</div>
+          <div class="model-stat-row">
+            <span>Precisión Facial:</span>
+            <strong class="text-emerald-400">99.8% Acc.</strong>
+          </div>
+          <div class="model-stat-row">
+            <span>Inferencia Sucesos:</span>
+            <strong class="text-blue-400">R² 0.96 (MAE 3.1%)</strong>
+          </div>
         </div>
       </div>
-
-      <!-- Menú Lateral (3 módulos: Video, Imágenes, Predicciones) -->
-      <nav class="sidebar-menu" aria-label="Módulos de Supervisión">
-        <div class="menu-section-label">MÓDULOS DE ANÁLISIS</div>
-        
-        <button type="button" class="menu-item disabled" title="Módulo de Video (Entrada de flujo)">
-          <span class="menu-icon">🎥</span>
-          <span class="menu-text">Video</span>
-          <span class="menu-badge-subtle">V1</span>
-        </button>
-
-        <button type="button" class="menu-item disabled" title="Módulo de Imágenes (Filtros y CLAHE)">
-          <span class="menu-icon">🖼️</span>
-          <span class="menu-text">Imágenes</span>
-          <span class="menu-badge-subtle">V1</span>
-        </button>
-
-        <button type="button" class="menu-item active" title="Módulo de Predicción e Inferencia en Tiempo Real">
-          <span class="menu-icon">🔮</span>
-          <span class="menu-text">Predicciones</span>
-          <span class="menu-badge-active">ACTIVO</span>
-        </button>
-      </nav>
 
       <!-- Pie del Sidebar -->
       <div class="sidebar-footer">
@@ -54,7 +58,7 @@
           <span class="dot-online"></span>
           <span>Red Local Conectada</span>
         </div>
-        <div class="system-version">AulaPredict Core v2.4</div>
+        <div class="system-version">AulaPredict Core v2.4 (Predicción)</div>
       </div>
     </aside>
 
@@ -65,9 +69,9 @@
       <!-- HEADER SUPERIOR BLANCO -->
       <header class="app-header">
         <div class="header-titles">
-          <div class="view-tag">Cerebro Integrador Multimodal</div>
-          <h2 class="view-title">🎥 Panel de Inferencia de Predicciones</h2>
-          <p class="view-subtitle">Cerebro Integrador de AulaPredict - Análisis de causas previas, comportamiento en vivo y proyección de rendimiento académico para múltiples alumnos</p>
+          <div class="view-tag">Cerebro Integrador de Predicción</div>
+          <h2 class="view-title">📸 Panel de Inferencia de Predicciones</h2>
+          <p class="view-subtitle">Análisis de causas previas, rasgos faciales y proyección académica basada en capturas de aula</p>
         </div>
 
         <div class="header-user-profile">
@@ -81,96 +85,90 @@
       </header>
 
       <!-- CUERPO DEL DASHBOARD -->
-      <div class="dashboard-content">
+      <main class="dashboard-content">
         <!-- ================================================================
-             FILA SUPERIOR (2 COLUMNAS: CÁMARA 48% + SELECCIÓN DE ALUMNOS 52%)
+             FILA SUPERIOR (2 COLUMNAS: CAPTURA 48% + ALUMNOS EN CAPTURA 52%)
              ================================================================ -->
         <div class="top-row-grid">
-          <!-- Tarjeta Izquierda (48%): Visor de Cámara en Tiempo Real -->
+          <!-- Tarjeta Izquierda (48%): Captura de Imagen para Predicción -->
           <section class="card camera-card">
             <div class="card-header-bar">
               <div class="card-title-group">
-                <h3 class="card-title">🎥 Cámara en tiempo real (En vivo)</h3>
-                <span class="live-indicator-chip">
+                <h3 class="card-title">📸 Captura de Imagen para Predicción</h3>
+                <span id="capture-status-indicator" class="live-indicator-chip">
                   <span class="dot-live"></span>
-                  <span>En vivo</span>
+                  <span id="capture-status-text">Cámara Lista</span>
                 </span>
               </div>
 
-              <!-- Selector de Modo de Demostración -->
-              <div class="camera-mode-switch">
-                <button id="btn-mode-webcam" type="button" class="mode-switch-btn active" title="Usa tu cámara web real para detectarte como Estudiante 1">
-                  🎥 Modo Cámara Real
+              <!-- Acciones Secundarias de Captura -->
+              <div class="capture-secondary-actions">
+                <button id="btn-group-classroom" type="button" class="btn-action-ghost" title="Carga una captura grupal de aula con 5 estudiantes analizados por el modelo">
+                  🖼️ Probar con Captura Grupal
                 </button>
-                <button id="btn-mode-classroom" type="button" class="mode-switch-btn" title="Simula un aula con 5 estudiantes simultáneos en encuadre">
-                  👥 Simular Aula (5 Alumnos)
-                </button>
+                <label for="input-upload-image" class="btn-action-ghost cursor-pointer" title="Sube una foto de aula para que el motor detecte rostros y prediga">
+                  📁 Subir Foto
+                </label>
+                <input id="input-upload-image" type="file" accept="image/*" style="display: none;">
               </div>
             </div>
 
-            <!-- Viewport de Video + Canvas HUD -->
+            <!-- Viewport de Captura (Video en vivo / Imagen congelada con Canvas) -->
             <div class="camera-viewport-container">
               <video id="webcam-feed" playsinline autoplay muted></video>
+              <img id="captured-image-display" alt="Captura congelada para predicción" style="display: none;">
               <canvas id="overlay-canvas"></canvas>
 
-              <!-- Placeholder si la cámara no está activa -->
+              <!-- Placeholder / Pantalla de Espera -->
               <div id="camera-placeholder" class="camera-fallback-screen">
                 <div class="cam-icon-circle">
                   <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2v8a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <h4>Cámara Web en Espera</h4>
-                <p>Haz clic en "Iniciar Cámara Web" para seguimiento facial en vivo o usa la simulación de aula.</p>
+                <h4>Encuadra la Cámara Web</h4>
+                <p>Haz clic para iniciar el visor y capturar la imagen de los estudiantes frente a la pantalla.</p>
                 <button id="btn-start-camera" type="button" class="btn-primary-action">
-                  ▶ Iniciar Cámara Web
+                  ▶ Iniciar Visor de Cámara
                 </button>
               </div>
 
               <!-- Telemetría HUD Superior -->
               <div class="hud-telemetry-badge">
                 <span class="dot-rec"></span>
-                <span id="hud-fps-label">LIVE · 30 FPS · HD</span>
+                <span id="hud-fps-label">PIPELINE DE PREDICCIÓN ACTIVO</span>
               </div>
 
-              <!-- Barra Inferior Translúcida: Fecha/Hora a la izquierda y Aula 301 a la derecha -->
+              <!-- Barra Inferior Translúcida: Fecha/Hora y Aula 301 -->
               <div class="camera-overlay-bottom-bar">
                 <div class="cam-timestamp">
-                  <span id="live-datetime">15/10/2026 17:45:00</span>
+                  <span id="live-datetime">15/10/2026 18:00:00</span>
                 </div>
                 <div class="cam-location-tag">
-                  <span>Aula 301</span>
+                  <span id="cam-location-label">Aula 301 · Captura HD</span>
                 </div>
               </div>
             </div>
 
-            <!-- Botonera de Control y Disparadores Rápidos para Exposición -->
-            <div class="camera-actions-bar">
-              <div class="camera-toggle-group">
-                <button id="btn-toggle-cam-stream" type="button" class="btn-cam-control primary">
-                  <span id="cam-toggle-icon">📹</span>
-                  <span id="btn-cam-label">Iniciar Cámara</span>
-                </button>
-                <button id="btn-capture-frame" type="button" class="btn-cam-control secondary" title="Analiza el frame actual con los modelos de imagen">
-                  📸 Capturar Frame
-                </button>
-              </div>
+            <!-- Botonera de Control: BOTÓN PRINCIPAL DE CAPTURA Y PREDICCIÓN -->
+            <div class="capture-controls-toolbar">
+              <button id="btn-capture-predict" type="button" class="btn-main-capture" title="Congela la imagen, detecta rostros de alumnos y ejecuta el modelo de predicción">
+                <span class="capture-icon">📸</span>
+                <span class="capture-text">Capturar Imagen y Predecir</span>
+              </button>
 
-              <div class="sim-quick-triggers">
-                <span class="triggers-label">Prueba Rápida:</span>
-                <button id="btn-trigger-phone" type="button" class="trigger-pill" title="Forzar detección de celular">📱 Celular</button>
-                <button id="btn-trigger-gaze" type="button" class="trigger-pill" title="Forzar mirada fuera de pantalla">👀 Desvío</button>
-                <button id="btn-trigger-focus" type="button" class="trigger-pill active" title="Restablecer a concentración máxima">🎯 Concentrado</button>
-              </div>
+              <button id="btn-new-capture" type="button" class="btn-secondary-capture" title="Vuelve al visor en vivo para tomar una nueva foto">
+                🔄 Nueva Captura
+              </button>
             </div>
           </section>
 
-          <!-- Tarjeta Derecha (52%): Selección y Estado de Alumnos en Aula -->
+          <!-- Tarjeta Derecha (52%): Selección y Estado de Alumnos en la Captura -->
           <section class="card students-selection-card">
             <div class="card-header-bar">
               <div>
-                <h3 class="card-title">🎯 Selección y Estado de Alumnos en Aula</h3>
-                <p class="card-subtitle-note">Haz clic en cualquier alumno para cargar su diagnóstico y proyección en los paneles inferiores</p>
+                <h3 class="card-title">🎯 Selección y Estado de Alumnos en la Captura</h3>
+                <p class="card-subtitle-note">Haz clic en cualquier alumno de la captura para consultar su predicción individual</p>
               </div>
               <div class="students-counter-chip">
                 <span id="students-count-badge">5 Alumnos Detectados</span>
@@ -178,21 +176,21 @@
             </div>
 
             <!-- Cuadrícula de Tarjetas de Alumnos (Grid 2 Columnas) -->
-            <div id="students-grid" class="students-grid-container" role="listbox" aria-label="Estudiantes en el aula">
-              <!-- Renderizado dinámico vía JavaScript -->
+            <div id="students-grid" class="students-grid-container" role="listbox" aria-label="Alumnos detectados en la captura">
+              <!-- Renderizado dinámico vía JavaScript según los alumnos detectados en la foto -->
             </div>
           </section>
         </div>
 
         <!-- ================================================================
-             FILA INFERIOR (3 TARJETAS: PREDICCIÓN INDIVIDUAL DEL ESTUDIANTE)
+             FILA INFERIOR (3 TARJETAS: PREDICCIÓN DEL ESTUDIANTE SELECCIONADO)
              ================================================================ -->
         <div class="bottom-row-grid">
-          <!-- Tarjeta 1 (Izquierda 33%): Predicción de Estado y Emociones en Vivo -->
+          <!-- Tarjeta 1 (Izquierda 33%): Predicción de Estado y Emociones -->
           <section class="card prediction-card emotions-card">
             <div class="card-header-clean">
               <h3 class="card-title-sm">
-                🔮 Predicción de Estado y Emociones en Vivo <span class="selected-student-label">(Estudiante 3)</span>
+                🔮 Predicción de Estado y Emociones <span class="selected-student-label">(Estudiante 1)</span>
               </h3>
               <span class="sub-label">Predicción de Estado y Emociones en Vivo</span>
             </div>
@@ -203,10 +201,10 @@
               <div class="emotion-item">
                 <div class="emotion-title-row">
                   <span class="emo-label">Distracción / Fatiga (😴)</span>
-                  <span id="emo-pct-fatiga" class="emo-val text-coral">48%</span>
+                  <span id="emo-pct-fatiga" class="emo-val text-coral">6%</span>
                 </div>
                 <div class="progress-track">
-                  <div id="emo-bar-fatiga" class="progress-fill fill-coral" style="width: 48%;"></div>
+                  <div id="emo-bar-fatiga" class="progress-fill fill-coral" style="width: 6%;"></div>
                 </div>
               </div>
 
@@ -214,10 +212,10 @@
               <div class="emotion-item">
                 <div class="emotion-title-row">
                   <span class="emo-label">Estrés / Ansiedad (😟)</span>
-                  <span id="emo-pct-estres" class="emo-val text-amber">32%</span>
+                  <span id="emo-pct-estres" class="emo-val text-amber">8%</span>
                 </div>
                 <div class="progress-track">
-                  <div id="emo-bar-estres" class="progress-fill fill-amber" style="width: 32%;"></div>
+                  <div id="emo-bar-estres" class="progress-fill fill-amber" style="width: 8%;"></div>
                 </div>
               </div>
 
@@ -225,10 +223,10 @@
               <div class="emotion-item">
                 <div class="emotion-title-row">
                   <span class="emo-label">Tristeza / Desatención (😢)</span>
-                  <span id="emo-pct-tristeza" class="emo-val text-yellow">12%</span>
+                  <span id="emo-pct-tristeza" class="emo-val text-yellow">4%</span>
                 </div>
                 <div class="progress-track">
-                  <div id="emo-bar-tristeza" class="progress-fill fill-yellow" style="width: 12%;"></div>
+                  <div id="emo-bar-tristeza" class="progress-fill fill-yellow" style="width: 4%;"></div>
                 </div>
               </div>
 
@@ -236,24 +234,24 @@
               <div class="emotion-item">
                 <div class="emotion-title-row">
                   <span class="emo-label">Neutral / Concentración (😊)</span>
-                  <span id="emo-pct-neutral" class="emo-val text-blue">8%</span>
+                  <span id="emo-pct-neutral" class="emo-val text-blue">82%</span>
                 </div>
                 <div class="progress-track">
-                  <div id="emo-bar-neutral" class="progress-fill fill-blue" style="width: 8%;"></div>
+                  <div id="emo-bar-neutral" class="progress-fill fill-blue" style="width: 82%;"></div>
                 </div>
               </div>
             </div>
 
             <!-- Resumen de Estado Emocional Dominante -->
             <div class="dominant-emotion-pill-wrap">
-              <div class="dominant-pill">
+              <div id="dominant-pill-box" class="dominant-pill">
                 <span class="dot-accent-orange"></span>
-                <span>Estado Emocional Dominante: <strong id="dominant-emotion-text">Distracción / Fatiga (😴)</strong></span>
+                <span>Estado Emocional Dominante: <strong id="dominant-emotion-text">Neutral / Concentración (😊)</strong></span>
               </div>
             </div>
 
             <div class="card-footer-badge">
-              <span>✅ Inferencia Bayesiana Activa (Alta Definición)</span>
+              <span>✅ Modelo Facial Entrenado v2.4 (RandomForest + Inferencia Bayesiana)</span>
             </div>
           </section>
 
@@ -261,7 +259,7 @@
           <section class="card prediction-card events-card">
             <div class="card-header-clean">
               <h3 class="card-title-sm">
-                📋 Predicción de Sucesos Probables <span class="selected-student-label">(Estudiante 3)</span>
+                📋 Predicción de Sucesos Probables <span class="selected-student-label">(Estudiante 1)</span>
               </h3>
             </div>
 
@@ -294,19 +292,19 @@
           <section class="card prediction-card academic-card">
             <div class="card-header-clean">
               <h3 class="card-title-sm">
-                📈 Análisis y Proyección Académica <span class="selected-student-label">(Estudiante 3)</span>
+                📈 Análisis y Proyección Académica <span class="selected-student-label">(Estudiante 1)</span>
               </h3>
             </div>
 
             <!-- Banner Superior de Score Heurístico -->
-            <div id="risk-score-banner" class="risk-score-banner bg-risk-high">
+            <div id="risk-score-banner" class="risk-score-banner bg-risk-optimal">
               <div class="score-number-col">
-                <span id="riesgo-score-num" class="score-huge">74</span>
+                <span id="riesgo-score-num" class="score-huge">15</span>
                 <span class="score-den">/ 100</span>
               </div>
               <div class="score-meta-col">
-                <span class="score-label">ÍNDICE HEURÍSTICO</span>
-                <strong id="riesgo-nivel-text" class="score-level-text">Riesgo de Desempeño: ALTO / REQUIERE ATENCIÓN</strong>
+                <span class="score-label">ÍNDICE DE RIESGO ACADÉMICO</span>
+                <strong id="riesgo-nivel-text" class="score-level-text">Riesgo de Desempeño: BAJO / ÓPTIMO</strong>
               </div>
             </div>
 
@@ -315,18 +313,18 @@
               <div class="alert-icon-wrap">⚠️</div>
               <div class="alert-text-wrap">
                 <strong>Riesgo de Desaprobación:</strong>
-                <p id="exam-risk-desc">Probable pérdida de continuidad ('jalar') en el examen parcial si persiste este nivel de distracción.</p>
+                <p id="exam-risk-desc">Bajo riesgo de desaprobación ('jalar'). Proyección favorable para rendir y aprobar el examen parcial con solvencia.</p>
               </div>
             </div>
 
-            <!-- Caja Azul Claro: Asistente Predictivo en Vivo -->
+            <!-- Caja Azul Claro: Asistente Predictivo -->
             <div class="assistant-narrative-box">
               <div class="assistant-header-row">
                 <span class="assistant-sparkle">✨</span>
                 <span class="assistant-title">Asistente Predictivo en Vivo</span>
               </div>
               <p id="assistant-narrative-text" class="assistant-body-text">
-                El Estudiante 3 ingresó con señales de fatiga acumulada y se ha detectado uso sostenido de teléfono celular bajo la mesa. Se predice una falta de retención del tema actual y un alto riesgo de desaprobar ('jalar') el examen parcial en camino si no hay intervención. <strong>Recomendación:</strong> Se sugiere tutoría o acercamiento preventivo del docente.
+                El Estudiante 1 ingresó en un estado emocional neutro y enfocado, manteniendo atención visual constante en la sesión. Se proyecta un dominio sólido de la materia y mínimo riesgo de desaprobar el examen parcial. <strong>Recomendación:</strong> Mantener la dinámica participativa actual y motivar el liderazgo en grupos de estudio.
               </p>
             </div>
 
@@ -335,12 +333,12 @@
             </div>
           </section>
         </div>
-      </div>
+      </main>
     </div>
   </div>
 
   <!-- ======================================================================
-       SECCIÓN TÉCNICA Y CONTRATOS BACKEND (Preserva 100% Compatibilidad con Tests)
+       DRAWER TÉCNICO OCULTO (Preserva 100% Compatibilidad con Tests Automatizados)
        ====================================================================== -->
   <details id="technical-drawer" class="technical-drawer-hidden">
     <summary>⚙️ Controles Técnicos de Integración (Suite de Pruebas)</summary>
