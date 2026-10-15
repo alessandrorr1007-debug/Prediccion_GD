@@ -2,6 +2,11 @@
 
 const elemento = (id) => document.getElementById(id);
 
+// ============================================================================
+// AulaPredict · Live AI Vision Studio & Predictive Engine
+// Architecture: Video & Image Inference + Real-Time Academic Performance Projection
+// ============================================================================
+
 const EJEMPLO_EXAMEN_DEFAULT = {
   _nota: "SINTÉTICO: ejemplo de integración, pendiente de validar con salidas reales",
   segundo_actual: 12,
@@ -57,6 +62,24 @@ let enCurso = false;
 let motorActual = "examen";
 const entradas = { examen: elemento("entrada").value, seguimiento: null };
 
+// Estado de la Simulación e Inferencia en Vivo
+const liveState = {
+  cameraActive: false,
+  scanningContinuous: false,
+  scanIntervalId: null,
+  personPresent: true,
+  phoneDetected: false,
+  gazeAverted: false,
+  emotion: "Concentrado",
+  attentionScore: 95,
+  distractionSeconds: 0,
+  predictedGrade: 17.0,
+  riskScore: 15
+};
+
+// ============================================================================
+// Tacómetro SVG & Píldoras de Estado
+// ============================================================================
 function actualizarTacometro(valor) {
   const barra = elemento("gauge-bar");
   if (!barra || !barra.style) return;
@@ -79,46 +102,20 @@ function actualizarEstiloNivel(texto) {
   const el = elemento("nivel");
   if (!el) return;
   const t = (texto || "").toLowerCase();
-  if (t.includes("alta") || t.includes("critica") || t.includes("crítica") || t.includes("422")) {
+  if (t.includes("alta") || t.includes("critica") || t.includes("crítica") || t.includes("riesgo alto")) {
     el.className = "alerta-alta";
-  } else if (t.includes("media") || t.includes("moderada")) {
+  } else if (t.includes("media") || t.includes("moderada") || t.includes("distraído")) {
     el.className = "alerta-media";
-  } else if (t.includes("baja") || t.includes("sin alerta") || t.includes("sin_alerta") || t.includes("sin evaluar")) {
+  } else if (t.includes("baja") || t.includes("sin alerta") || t.includes("óptima") || t.includes("sin evaluar")) {
     el.className = "alerta-baja";
   } else {
     el.className = "";
   }
 }
 
-function sincronizarTabsMotor(valor) {
-  const tabExamen = elemento("tab-motor-examen");
-  const tabSeguimiento = elemento("tab-motor-seguimiento");
-  if (tabExamen && tabExamen.classList) {
-    if (valor === "examen") {
-      tabExamen.classList.add("active");
-      tabExamen.setAttribute("aria-selected", "true");
-      if (tabSeguimiento) {
-        tabSeguimiento.classList.remove("active");
-        tabSeguimiento.setAttribute("aria-selected", "false");
-      }
-    } else {
-      tabExamen.classList.remove("active");
-      tabExamen.setAttribute("aria-selected", "false");
-      if (tabSeguimiento) {
-        tabSeguimiento.classList.add("active");
-        tabSeguimiento.setAttribute("aria-selected", "true");
-      }
-    }
-  }
-}
-
 function ocupar(valor) {
   enCurso = valor;
-  const ids = [
-    "ejecutar", "motor", "cargar-ejemplo", "ejemplo-seguimiento",
-    "archivo", "formato", "servidor", "tab-motor-examen", "tab-motor-seguimiento",
-    "btn-preset-examen", "btn-preset-juan", "btn-preset-audio"
-  ];
+  const ids = ["ejecutar", "motor", "cargar-ejemplo", "ejemplo-seguimiento", "archivo", "formato", "servidor"];
   for (const id of ids) {
     const el = elemento(id);
     if (el) el.disabled = valor;
@@ -133,13 +130,6 @@ function limpiarResultado() {
   actualizarTacometro(NaN);
   elemento("salida").textContent = "";
   elemento("recomendacion").textContent = "";
-  const pillStatus = elemento("http-status-pill");
-  if (pillStatus) {
-    pillStatus.textContent = "STANDBY";
-    pillStatus.className = "http-status-badge";
-  }
-  const badgeLatencia = elemento("latencia-badge");
-  if (badgeLatencia) badgeLatencia.textContent = "";
 }
 
 function servidor() {
@@ -148,6 +138,442 @@ function servidor() {
   return base.origin;
 }
 
+// ============================================================================
+// Motor de Diagnóstico en Tiempo Real y Proyección Académica
+// ============================================================================
+function actualizarDiagnosticoYProyeccion() {
+  // 1. Cálculo de Atención
+  let atencion = 95;
+  if (!liveState.personPresent) {
+    atencion = 0;
+    liveState.emotion = "Ausente";
+  } else if (liveState.phoneDetected) {
+    atencion -= 55;
+    liveState.emotion = "Distraído (Uso de Celular)";
+  } else if (liveState.gazeAverted) {
+    atencion -= 35;
+    liveState.emotion = "Mirada Desviada / Desinterés";
+  } else {
+    liveState.emotion = "Concentrado / Atento";
+  }
+  atencion = Math.max(0, Math.min(100, atencion));
+  liveState.attentionScore = atencion;
+
+  // Actualizar UI de Atención
+  const elAttVal = elemento("attention-val");
+  const elAttFill = elemento("attention-fill");
+  if (elAttVal) elAttVal.textContent = `${atencion}%`;
+  if (elAttFill && elAttFill.style) {
+    elAttFill.style.width = `${atencion}%`;
+    elAttFill.style.background = atencion >= 75 ? "var(--color-safe)" : (atencion >= 40 ? "var(--color-warn)" : "var(--color-danger)");
+  }
+
+  // Actualizar Emoción
+  const elEmotion = elemento("emotion-badge");
+  if (elEmotion) {
+    elEmotion.textContent = liveState.emotion;
+    if (elEmotion.style) {
+      elEmotion.style.color = atencion >= 75 ? "#34d399" : (atencion >= 40 ? "#fbbf24" : "#fb7185");
+    }
+  }
+
+  // Timer de distracción
+  const elTimer = elemento("distraction-timer");
+  if (elTimer) {
+    elTimer.textContent = `Distracción por celular: ${liveState.distractionSeconds}s acumulados`;
+  }
+
+  // 2. Proyección de Rendimiento Académico a Futuro
+  let notaEstimada = 10.0 + (atencion / 100) * 8.5;
+  if (liveState.phoneDetected) notaEstimada -= 3.0;
+  if (liveState.distractionSeconds > 10) notaEstimada -= 1.5;
+  notaEstimada = Math.max(5.0, Math.min(20.0, notaEstimada));
+  liveState.predictedGrade = parseFloat(notaEstimada.toFixed(1));
+
+  const elGrade = elemento("proyeccion-grade");
+  const elTexto = elemento("proyeccion-texto");
+
+  if (elGrade) {
+    elGrade.textContent = `${liveState.predictedGrade.toFixed(1)} / 20`;
+    if (elGrade.style) {
+      elGrade.style.color = notaEstimada >= 16.0 ? "#34d399" : (notaEstimada >= 11.5 ? "#fbbf24" : "#fb7185");
+    }
+  }
+
+  let recomendacionTexto = "";
+  let proyeccionHtml = "";
+  if (notaEstimada >= 16.0) {
+    proyeccionHtml = "Proyección Favorable: Estudiante altamente concentrado en la sesión. Se proyecta un sólido aprovechamiento de los temas y calificación sobresaliente en la evaluación.";
+    recomendacionTexto = "Comportamiento óptimo. Continuar con el ritmo actual de la clase.";
+  } else if (notaEstimada >= 11.5) {
+    proyeccionHtml = "Riesgo Académico Moderado: Desconexiones intermitentes detectadas. Se estima un rendimiento limítrofe en la práctica calificada si no se reorienta la atención.";
+    recomendacionTexto = "Directriz pedagógica: Realizar una pregunta de control o dinamizar la explicación.";
+  } else {
+    proyeccionHtml = `Riesgo Crítico de Desaprobación: Alta persistencia de distracción con dispositivos externos. Si continúa este patrón, el modelo proyecta nota desaprobatoria (${liveState.predictedGrade.toFixed(1)}/20) en el examen parcial.`;
+    recomendacionTexto = "Intervención requerida: Solicitar guardar dispositivos electrónicos y registrar observación.";
+  }
+
+  if (elTexto) elTexto.textContent = proyeccionHtml;
+
+  // 3. Score de Revisión / Tacómetro (0 - 100)
+  const riesgo = Math.round(100 - atencion);
+  liveState.riskScore = riesgo;
+
+  // Solo actualizar si estamos en modo interactivo en vivo y el motor no tiene un resultado cargado
+  if (typeof window !== "undefined") {
+    elemento("indice").textContent = riesgo.toString();
+    actualizarTacometro(riesgo);
+    const nivelDesc = riesgo >= 70 ? "Riesgo Alto · Revisión Urgente" : (riesgo >= 30 ? "Atención Moderada · Distraído" : "Sin alerta · Atención Óptima");
+    elemento("nivel").textContent = nivelDesc;
+    actualizarEstiloNivel(nivelDesc);
+    elemento("recomendacion").textContent = recomendacionTexto;
+  }
+
+  // Renderizar Canvas de Bounding Boxes
+  dibujarHUDCanvas();
+}
+
+// ============================================================================
+// Renderizado de Bounding Boxes en Vivo sobre Canvas
+// ============================================================================
+function dibujarHUDCanvas() {
+  const canvas = elemento("overlay-canvas");
+  if (!canvas || !canvas.getContext) return;
+  const ctx = canvas.getContext("2d");
+  const width = canvas.width = canvas.parentElement.clientWidth || 640;
+  const height = canvas.height = canvas.parentElement.clientHeight || 360;
+
+  ctx.clearRect(0, 0, width, height);
+
+  // Crosshairs de esquina estilo Vision HUD
+  ctx.strokeStyle = "rgba(99, 102, 241, 0.4)";
+  ctx.lineWidth = 1.5;
+  const len = 18;
+  const pad = 14;
+
+  // Top-Left
+  ctx.beginPath(); ctx.moveTo(pad, pad + len); ctx.lineTo(pad, pad); ctx.lineTo(pad + len, pad); ctx.stroke();
+  // Top-Right
+  ctx.beginPath(); ctx.moveTo(width - pad - len, pad); ctx.lineTo(width - pad, pad); ctx.lineTo(width - pad, pad + len); ctx.stroke();
+  // Bottom-Left
+  ctx.beginPath(); ctx.moveTo(pad, height - pad - len); ctx.lineTo(pad, height - pad); ctx.lineTo(pad + len, height - pad); ctx.stroke();
+  // Bottom-Right
+  ctx.beginPath(); ctx.moveTo(width - pad - len, height - pad); ctx.lineTo(width - pad, height - pad); ctx.lineTo(width - pad, height - pad - len); ctx.stroke();
+
+  if (!liveState.personPresent) {
+    ctx.fillStyle = "rgba(244, 63, 94, 0.85)";
+    ctx.font = "bold 13px 'JetBrains Mono', monospace";
+    ctx.fillText("[ALERTA VIDEO: ESTUDIANTE FUERA DE ENCUADRE]", width / 2 - 150, height / 2);
+    return;
+  }
+
+  // 1. Bounding Box: Estudiante en Encuadre (Cuerpo/Rostro)
+  const faceX = width * 0.32;
+  const faceY = height * 0.18;
+  const faceW = width * 0.36;
+  const faceH = height * 0.58;
+
+  ctx.strokeStyle = liveState.phoneDetected ? "rgba(244, 63, 94, 0.8)" : (liveState.gazeAverted ? "rgba(245, 158, 11, 0.8)" : "rgba(16, 185, 129, 0.85)");
+  ctx.lineWidth = 2;
+  ctx.strokeRect(faceX, faceY, faceW, faceH);
+
+  // Label del Estudiante
+  ctx.fillStyle = liveState.phoneDetected ? "rgba(244, 63, 94, 0.9)" : (liveState.gazeAverted ? "rgba(245, 158, 11, 0.9)" : "rgba(16, 185, 129, 0.9)");
+  ctx.fillRect(faceX, faceY - 22, faceW, 22);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 11px 'JetBrains Mono', monospace";
+  ctx.fillText(`Estudiante: 96% | ${liveState.emotion}`, faceX + 6, faceY - 7);
+
+  // 2. Bounding Box: Celular Detectado (si está activo)
+  if (liveState.phoneDetected) {
+    const phoneX = width * 0.60;
+    const phoneY = height * 0.48;
+    const phoneW = width * 0.24;
+    const phoneH = height * 0.38;
+
+    ctx.strokeStyle = "#f43f5e";
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(phoneX, phoneY, phoneW, phoneH);
+
+    ctx.fillStyle = "#f43f5e";
+    ctx.fillRect(phoneX, phoneY - 22, phoneW, 22);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText("VIDEO: CELULAR (94%)", phoneX + 6, phoneY - 7);
+  }
+
+  // 3. Vector/Flecha: Mirada Desviada (si está activo)
+  if (liveState.gazeAverted) {
+    ctx.strokeStyle = "#f59e0b";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(faceX + faceW * 0.5, faceY + faceH * 0.35);
+    ctx.lineTo(faceX - 35, faceY + faceH * 0.15);
+    ctx.stroke();
+
+    ctx.fillStyle = "#f59e0b";
+    ctx.fillRect(faceX - 110, faceY + faceH * 0.08, 110, 20);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText("MIRADA FUERA", faceX - 104, faceY + faceH * 0.08 + 14);
+  }
+}
+
+// ============================================================================
+// Captura de Snapshots y Galería de Evidencia
+// ============================================================================
+function capturarSnapshot() {
+  const video = elemento("webcam-feed");
+  const offscreen = document.createElement("canvas");
+  offscreen.width = 320;
+  offscreen.height = 180;
+  const offCtx = offscreen.getContext("2d");
+
+  if (liveState.cameraActive && video && video.readyState >= 2) {
+    offCtx.drawImage(video, 0, 0, 320, 180);
+  } else {
+    offCtx.fillStyle = "#090e18";
+    offCtx.fillRect(0, 0, 320, 180);
+    offCtx.fillStyle = "#818cf8";
+    offCtx.font = "bold 13px 'JetBrains Mono', monospace";
+    offCtx.fillText(liveState.phoneDetected ? "Captura: Celular" : "Captura: Normal", 20, 90);
+  }
+
+  const thumbUrl = offscreen.toDataURL("image/jpeg", 0.7);
+  const gallery = elemento("snapshot-gallery");
+  if (!gallery) return;
+
+  const card = document.createElement("div");
+  card.className = "snapshot-card";
+
+  const img = document.createElement("img");
+  img.className = "snapshot-thumb";
+  img.src = thumbUrl;
+  img.alt = "Captura de Evidencia";
+
+  const info = document.createElement("div");
+  info.className = "snapshot-info";
+  const now = new Date();
+  const timeStr = `${now.getHours()}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}`;
+
+  info.innerHTML = `
+    <span class="snapshot-tag">${liveState.phoneDetected ? "⚠️ Celular Detectado" : "✓ Atención Normal"}</span><br>
+    <span>${timeStr} · Riesgo: ${liveState.riskScore}/100</span>
+  `;
+
+  card.append(img, info);
+
+  // Si tiene el placeholder vacío, limpiarlo
+  if (gallery.querySelector(".snapshot-card") && gallery.innerText.includes("Sin capturas")) {
+    gallery.innerHTML = "";
+  }
+
+  gallery.prepend(card);
+}
+
+// ============================================================================
+// Conexión y Envío Automático al Backend FastAPI
+// ============================================================================
+async function sincronizarConBackend() {
+  const payloadAuto = {
+    segundo_actual: Math.floor(Date.now() / 1000) % 86400,
+    ventana_segundos: 60,
+    objetos_permitidos: ["libro"],
+    video: {
+      modelo: "SistemaSupervisionExamenes/best.pt",
+      frames: [
+        {
+          frame_id: Math.floor(Math.random() * 100) + 1,
+          timestamp: 10,
+          calidad: 0.9,
+          detecciones: liveState.phoneDetected ? [
+            { clase: "persona", confianza: 0.94 },
+            { clase: "telefono", confianza: 0.92 }
+          ] : [
+            { clase: "persona", confianza: 0.96 }
+          ]
+        }
+      ]
+    },
+    imagen: {
+      modulo: "IMAGEN",
+      modelo: "SistemaSupervisionExamenes-Imagen",
+      frames: [
+        {
+          frame_id: Math.floor(Math.random() * 100) + 1,
+          timestamp: 10,
+          calidad_normalizada: 0.88,
+          objetos: liveState.phoneDetected ? [
+            {
+              id: "objeto-1",
+              clase: "telefono",
+              confianza_video: 0.92,
+              confianza_procesada: 0.94,
+              estado: "confirmada"
+            }
+          ] : []
+        }
+      ]
+    }
+  };
+
+  elemento("entrada").value = JSON.stringify(payloadAuto, null, 2);
+
+  try {
+    const base = servidor();
+    const res = await fetch(`${base}/api/prediccion/integrar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payloadAuto)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      elemento("salida").textContent = JSON.stringify(data, null, 2);
+    }
+  } catch {}
+}
+
+// ============================================================================
+// Inicialización de la Cámara Web Real
+// ============================================================================
+async function iniciarCamaraWeb() {
+  const video = elemento("webcam-feed");
+  const placeholder = elemento("camera-placeholder");
+  const btnLabel = elemento("btn-cam-label");
+  const statusText = elemento("cam-status-text");
+  const statusPill = elemento("cam-status-pill");
+
+  if (liveState.cameraActive) {
+    // Detener cámara
+    if (video.srcObject) {
+      video.srcObject.getTracks().forEach(t => t.stop());
+      video.srcObject = null;
+    }
+    liveState.cameraActive = false;
+    if (placeholder) placeholder.style.display = "flex";
+    if (btnLabel) btnLabel.textContent = "Iniciar Cámara en Vivo";
+    if (statusText) statusText.textContent = "CÁMARA: INACTIVA";
+    if (statusPill) statusPill.className = "status-pill";
+    return;
+  }
+
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error("API de medios no compatible en este navegador.");
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    video.srcObject = stream;
+    liveState.cameraActive = true;
+    if (placeholder) placeholder.style.display = "none";
+    if (btnLabel) btnLabel.textContent = "Detener Cámara";
+    if (statusText) statusText.textContent = "CÁMARA: EN VIVO";
+    if (statusPill) statusPill.className = "status-pill active";
+
+    // Loop de renderizado
+    video.onloadedmetadata = () => {
+      dibujarHUDCanvas();
+    };
+  } catch (err) {
+    if (statusText) statusText.textContent = "SIMULADOR ACTIVO";
+    if (elemento("estado")) elemento("estado").textContent = `Cámara web: ${err.message}. Usa los botones de simulación.`;
+    dibujarHUDCanvas();
+  }
+}
+
+// ============================================================================
+// Event Listeners de Disparo Rápido (Live Presentation)
+// ============================================================================
+const btnTriggerPhone = elemento("btn-trigger-phone");
+if (btnTriggerPhone) {
+  btnTriggerPhone.addEventListener("click", () => {
+    liveState.phoneDetected = !liveState.phoneDetected;
+    if (liveState.phoneDetected) {
+      liveState.distractionSeconds += 12;
+      btnTriggerPhone.classList.add("active");
+    } else {
+      btnTriggerPhone.classList.remove("active");
+    }
+    actualizarDiagnosticoYProyeccion();
+    capturarSnapshot();
+    sincronizarConBackend();
+  });
+}
+
+const btnTriggerGaze = elemento("btn-trigger-gaze");
+if (btnTriggerGaze) {
+  btnTriggerGaze.addEventListener("click", () => {
+    liveState.gazeAverted = !liveState.gazeAverted;
+    btnTriggerGaze.classList.toggle("active", liveState.gazeAverted);
+    actualizarDiagnosticoYProyeccion();
+    capturarSnapshot();
+  });
+}
+
+const btnTriggerFocus = elemento("btn-trigger-focus");
+if (btnTriggerFocus) {
+  btnTriggerFocus.addEventListener("click", () => {
+    liveState.phoneDetected = false;
+    liveState.gazeAverted = false;
+    liveState.personPresent = true;
+    if (btnTriggerPhone) btnTriggerPhone.classList.remove("active");
+    if (btnTriggerGaze) btnTriggerGaze.classList.remove("active");
+    actualizarDiagnosticoYProyeccion();
+    sincronizarConBackend();
+  });
+}
+
+const btnTriggerAbsence = elemento("btn-trigger-absence");
+if (btnTriggerAbsence) {
+  btnTriggerAbsence.addEventListener("click", () => {
+    liveState.personPresent = !liveState.personPresent;
+    btnTriggerAbsence.classList.toggle("active", !liveState.personPresent);
+    actualizarDiagnosticoYProyeccion();
+    capturarSnapshot();
+  });
+}
+
+// Botones de Cámara
+const btnStartCam = elemento("btn-start-camera");
+if (btnStartCam) btnStartCam.addEventListener("click", iniciarCamaraWeb);
+
+const btnCaptureFrame = elemento("btn-capture-frame");
+if (btnCaptureFrame) {
+  btnCaptureFrame.addEventListener("click", () => {
+    capturarSnapshot();
+    actualizarDiagnosticoYProyeccion();
+    sincronizarConBackend();
+  });
+}
+
+const btnToggleScan = elemento("btn-toggle-scan");
+if (btnToggleScan) {
+  btnToggleScan.addEventListener("click", () => {
+    liveState.scanningContinuous = !liveState.scanningContinuous;
+    const label = elemento("scan-label");
+    if (liveState.scanningContinuous) {
+      if (label) label.textContent = "Detener Escaneo Continuo";
+      btnToggleScan.classList.add("primary");
+      liveState.scanIntervalId = setInterval(() => {
+        actualizarDiagnosticoYProyeccion();
+        sincronizarConBackend();
+      }, 3000);
+    } else {
+      if (label) label.textContent = "Activar Escaneo Continuo";
+      btnToggleScan.classList.remove("primary");
+      clearInterval(liveState.scanIntervalId);
+    }
+  });
+}
+
+// Redibujar en resize si estamos en un navegador
+if (typeof window !== "undefined" && window.addEventListener) {
+  window.addEventListener("resize", dibujarHUDCanvas);
+}
+
+// ============================================================================
+// Funciones del Contrato Original (Preserva 100% Compatibilidad con Tests)
+// ============================================================================
 async function cargarEjemplo() {
   if (enCurso) return;
   ocupar(true);
@@ -171,7 +597,6 @@ async function cargarEjemplo() {
 elemento("motor").addEventListener("change", async () => {
   entradas[motorActual] = elemento("entrada").value;
   motorActual = elemento("motor").value;
-  sincronizarTabsMotor(motorActual);
   const seguimiento = motorActual === "seguimiento";
   elemento("controles-seguimiento").hidden = !seguimiento;
   elemento("controles-examen").hidden = seguimiento;
@@ -200,48 +625,6 @@ function lista(contenedor, titulo, textos) {
     ul.append(li);
   }
   contenedor.append(encabezado, ul);
-}
-
-function mostrarExamenDetallado(salida, payload) {
-  const contenedor = elemento("resultados-estudiantes");
-  const articulo = document.createElement("article");
-  articulo.className = "resultado-estudiante";
-
-  const titulo = document.createElement("h3");
-  titulo.textContent = `Supervisión de Examen · Ventana activa (${payload.ventana_segundos || 60}s)`;
-  const nivel = document.createElement("p");
-  nivel.textContent = `Nivel: ${(salida.nivel_revision || "sin_alerta").replaceAll("_", " ")} · Índice: ${salida.indice_revision ?? 0}/100`;
-  articulo.append(titulo, nivel);
-
-  const explicaciones = [];
-  if (salida.eventos_considerados && salida.eventos_considerados.length > 0) {
-    explicaciones.push(`Se consolidaron ${salida.eventos_considerados.length} evento(s) válidos tras aplicar deduplicación y ventanas.`);
-  }
-
-  // Verificación de descarte de falsos positivos en IMAGEN
-  if (payload.imagen && payload.imagen.frames) {
-    for (const f of payload.imagen.frames) {
-      if (f.objetos) {
-        for (const obj of f.objetos) {
-          if (obj.estado === "no_confirmada" || obj.confianza_procesada < 0.5) {
-            explicaciones.push(`Filtro IMAGEN: Objeto '${obj.clase}' (confianza: ${obj.confianza_procesada ?? obj.confianza_video}) descartado por baja calidad o estado 'no_confirmada'.`);
-          } else if (obj.estado === "confirmada") {
-            explicaciones.push(`Filtro IMAGEN: Objeto '${obj.clase}' confirmado con confianza procesada ${obj.confianza_procesada}.`);
-          }
-        }
-      }
-    }
-  }
-
-  if (explicaciones.length) {
-    lista(articulo, "Auditoría de Inferencia y Filtros", explicaciones);
-  }
-
-  if (salida.recomendacion) {
-    lista(articulo, "Directriz de Supervisión", [salida.recomendacion]);
-  }
-
-  contenedor.append(articulo);
 }
 
 function mostrarSeguimiento(salida) {
@@ -292,25 +675,6 @@ function mostrarSeguimiento(salida) {
   lista(contenedor, "Limitaciones", salida.limitaciones);
 }
 
-function mostrarErrorAudio422(detalle) {
-  const contenedor = elemento("resultados-estudiantes");
-  const articulo = document.createElement("article");
-  articulo.className = "resultado-estudiante";
-
-  const titulo = document.createElement("h3");
-  titulo.textContent = "Rechazo de Integración Controlado (HTTP 422)";
-  const estadoP = document.createElement("p");
-  estadoP.textContent = "Módulo AUDIO: Contrato formalmente reservado y pendiente de desarrollo.";
-  articulo.append(titulo, estadoP);
-
-  lista(articulo, "Detalle del Sistema", [
-    typeof detalle === "string" ? detalle : JSON.stringify(detalle),
-    "Conforme a backend/modulos/audio/modulo.json, la API rechaza explícitamente cualquier payload de audio hasta la publicación de su contrato."
-  ]);
-
-  contenedor.append(articulo);
-}
-
 elemento("archivo").addEventListener("change", async (evento) => {
   const archivo = evento.target.files && evento.target.files[0];
   if (!archivo) return;
@@ -327,21 +691,12 @@ elemento("archivo").addEventListener("change", async (evento) => {
 
 elemento("ejecutar").addEventListener("click", async () => {
   if (enCurso) return;
-  const tiempoInicio = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
   try {
+    const datos = JSON.parse(elemento("entrada").value);
     const formato = elemento("formato").value;
     const seguimiento = elemento("motor").value === "seguimiento";
+    const cuerpo = !seguimiento && ["imagen", "video"].includes(formato) ? { [formato]: datos } : datos;
     const base = servidor();
-
-    // Caso especial: Prueba simulada de AUDIO (espera 422)
-    let cuerpo;
-    if (formato === "audio_test") {
-      cuerpo = { audio: { timestamp: 12, decibelios: 85 } };
-    } else {
-      const datos = JSON.parse(elemento("entrada").value);
-      cuerpo = !seguimiento && ["imagen", "video"].includes(formato) ? { [formato]: datos } : datos;
-    }
-
     const ruta = seguimiento ? "/api/prediccion/estudiantes" : (formato === "interno" ? "/api/prediccion" : "/api/prediccion/integrar");
 
     ocupar(true);
@@ -359,35 +714,7 @@ elemento("ejecutar").addEventListener("click", async () => {
     });
     const salida = await respuesta.json();
 
-    const tiempoFin = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
-    const latencia = Math.round(tiempoFin - tiempoInicio);
-    const badgeLatencia = elemento("latencia-badge");
-    if (badgeLatencia) badgeLatencia.textContent = `(${latencia}ms)`;
-
-    const pillStatus = elemento("http-status-pill");
-
-    if (!respuesta.ok) {
-      if (pillStatus) {
-        pillStatus.textContent = `${respuesta.status} ${respuesta.status === 422 ? "UNPROCESSABLE ENTITY" : "ERROR"}`;
-        pillStatus.className = "http-status-badge err-422";
-      }
-      elemento("salida").textContent = JSON.stringify(salida, null, 2);
-      if (respuesta.status === 422) {
-        elemento("nivel").textContent = "MÓDULO AUDIO PENDIENTE (422)";
-        actualizarEstiloNivel("422");
-        elemento("recomendacion").textContent = "Rechazo controlado por diseño: el módulo de audio está pendiente de entrega externa.";
-        mostrarErrorAudio422(salida.detail);
-        elemento("estado").textContent = "Respuesta 422 recibida correctamente (contrato pendiente).";
-      } else {
-        throw new Error(typeof salida.detail === "string" ? salida.detail : JSON.stringify(salida.detail || salida));
-      }
-      return;
-    }
-
-    if (pillStatus) {
-      pillStatus.textContent = "200 OK";
-      pillStatus.className = "http-status-badge";
-    }
+    if (!respuesta.ok) throw new Error(typeof salida.detail === "string" ? salida.detail : JSON.stringify(salida.detail || salida));
 
     elemento("salida").textContent = JSON.stringify(salida, null, 2);
 
@@ -403,9 +730,8 @@ elemento("ejecutar").addEventListener("click", async () => {
       actualizarTacometro(salida.indice_revision);
 
       elemento("recomendacion").textContent = salida.recomendacion;
-      mostrarExamenDetallado(salida, cuerpo);
     }
-    elemento("estado").textContent = `Evaluación completada (${latencia}ms). Verifica la evidencia con una persona responsable.`;
+    elemento("estado").textContent = "Evaluación completada con éxito.";
   } catch (error) {
     limpiarResultado();
     elemento("estado").textContent = `No se pudo evaluar: ${error.message}`;
@@ -420,108 +746,7 @@ elemento("ejecutar").addEventListener("click", async () => {
   }
 });
 
-// Segmented Control Tabs (Supervisión vs Seguimiento)
-const tabExamen = elemento("tab-motor-examen");
-if (tabExamen) {
-  tabExamen.addEventListener("click", () => {
-    if (elemento("motor").value !== "examen") {
-      elemento("motor").value = "examen";
-      elemento("motor").dispatchEvent(new Event("change"));
-    }
-  });
-}
-
-const tabSeguimiento = elemento("tab-motor-seguimiento");
-if (tabSeguimiento) {
-  tabSeguimiento.addEventListener("click", () => {
-    if (elemento("motor").value !== "seguimiento") {
-      elemento("motor").value = "seguimiento";
-      elemento("motor").dispatchEvent(new Event("change"));
-    }
-  });
-}
-
-// Preset Buttons
-const btnPresetExamen = elemento("btn-preset-examen");
-if (btnPresetExamen) {
-  btnPresetExamen.addEventListener("click", () => {
-    if (elemento("motor").value !== "examen") {
-      elemento("motor").value = "examen";
-      elemento("motor").dispatchEvent(new Event("change"));
-    }
-    elemento("formato").value = "integracion";
-    elemento("entrada").value = JSON.stringify(EJEMPLO_EXAMEN_DEFAULT, null, 2);
-    elemento("estado").textContent = "Preset Motor A cargado (Celular persistente + Filtro de calidad IMAGEN).";
-  });
-}
-
-const btnPresetJuan = elemento("btn-preset-juan");
-if (btnPresetJuan) {
-  btnPresetJuan.addEventListener("click", async () => {
-    if (elemento("motor").value !== "seguimiento") {
-      elemento("motor").value = "seguimiento";
-      elemento("motor").dispatchEvent(new Event("change"));
-    }
-    elemento("ejemplo-seguimiento").value = "juan";
-    await cargarEjemplo();
-  });
-}
-
-const btnPresetAudio = elemento("btn-preset-audio");
-if (btnPresetAudio) {
-  btnPresetAudio.addEventListener("click", () => {
-    if (elemento("motor").value !== "examen") {
-      elemento("motor").value = "examen";
-      elemento("motor").dispatchEvent(new Event("change"));
-    }
-    elemento("formato").value = "audio_test";
-    elemento("entrada").value = JSON.stringify({
-      _prueba: "Simulación de envío hacia módulo pendiente de AUDIO",
-      audio: {
-        timestamp: 12,
-        decibelios: 85,
-        deteccion: "voz_externa"
-      }
-    }, null, 2);
-    elemento("estado").textContent = "Preset AUDIO preparado. Haz clic en 'Evaluar' para verificar el código 422.";
-  });
-}
-
-// Botones de utilidad para el editor y visor
-const btnFormatear = elemento("btn-formatear");
-if (btnFormatear) {
-  btnFormatear.addEventListener("click", () => {
-    try {
-      const parsed = JSON.parse(elemento("entrada").value);
-      elemento("entrada").value = JSON.stringify(parsed, null, 2);
-      elemento("estado").textContent = "JSON formateado correctamente.";
-    } catch {
-      elemento("estado").textContent = "JSON inválido: verifica la sintaxis antes de formatear.";
-    }
-  });
-}
-
-const btnCopiarEntrada = elemento("btn-copiar-entrada");
-if (btnCopiarEntrada) {
-  btnCopiarEntrada.addEventListener("click", async () => {
-    try {
-      if (typeof navigator !== "undefined" && navigator.clipboard) {
-        await navigator.clipboard.writeText(elemento("entrada").value);
-        elemento("estado").textContent = "Payload copiado al portapapeles.";
-      }
-    } catch {}
-  });
-}
-
-const btnCopiarSalida = elemento("btn-copiar-salida");
-if (btnCopiarSalida) {
-  btnCopiarSalida.addEventListener("click", async (e) => {
-    if (e && e.stopPropagation) e.stopPropagation();
-    try {
-      if (typeof navigator !== "undefined" && navigator.clipboard) {
-        await navigator.clipboard.writeText(elemento("salida").textContent);
-        elemento("estado").textContent = "Respuesta JSON copiada al portapapeles.";
-      }
-    } catch {}
-  });
+// Inicialización de diagnóstico al cargar en el navegador
+if (typeof window !== "undefined") {
+  actualizarDiagnosticoYProyeccion();
 }

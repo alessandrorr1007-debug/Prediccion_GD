@@ -3,231 +3,282 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AulaPredict · Prediccion_GD (White-Box Engine & Explicabilidad)</title>
+  <title>AulaPredict · Live AI Studio (Visión en Vivo & Predicción Académica)</title>
   <link rel="stylesheet" href="/style.css">
   <script src="/app.js" defer></script>
 </head>
 <body>
-  <!-- A. Top Navigation & Estado de Módulos Externos -->
+  <!-- Top Navigation & Estado del Sistema -->
   <header>
-    <div class="nav-brand-section">
-      <div class="brand-icon-box" aria-hidden="true">
+    <div class="brand-cluster">
+      <div class="brand-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
       </div>
-      <span class="marca">AulaPredict</span>
-      <div class="brand-tag-whitebox">
-        <span class="badge-core">Prediccion_GD · White-Box Engine</span>
-        <span class="badge-stateless">Stateless Mode (In-Memory)</span>
-      </div>
+      <span class="marca">AulaPredict Live Studio</span>
+      <span class="badge-studio">Vision AI · Real-Time</span>
     </div>
 
-    <!-- Píldoras de Estado de Integración Externa -->
-    <div class="nav-health-cluster">
-      <div class="health-pill active" title="Detecciones por fotograma con clase, confianza y timestamp">
-        <span class="dot-led green"></span>
+    <!-- Píldoras de Estado de Modelos -->
+    <div class="pills-cluster">
+      <div id="cam-status-pill" class="status-pill">
+        <span class="dot-led amber"></span>
+        <span id="cam-status-text">CÁMARA: INACTIVA</span>
+      </div>
+      <div class="status-pill active" title="Detección de objetos, celular y postura">
+        <span class="dot-led"></span>
         <span>VIDEO: Activo</span>
       </div>
-      <div class="health-pill active" title="Filtro de calidad de iluminación y verificación de objetos">
-        <span class="dot-led green"></span>
+      <div class="status-pill active" title="Análisis de estados cognitivos e iluminación">
+        <span class="dot-led"></span>
         <span>IMAGEN: Activo</span>
       </div>
-      <div class="health-pill pending" title="Módulo pendiente de contrato y repositorio">
+      <div class="status-pill" title="Módulo pendiente de integración externa">
         <span class="dot-led amber"></span>
-        <span>AUDIO: Pendiente (422)</span>
+        <span>AUDIO: Pendiente</span>
       </div>
-      <a href="/docs" target="_blank" class="nav-doc-link">Swagger API</a>
     </div>
   </header>
 
   <main>
-    <div class="dashboard-grid">
-      <!-- B. Columna Izquierda (45%): Ingesta y Configuración del Motor -->
-      <section class="panel-card" aria-labelledby="entrada-titulo">
-        <div class="panel-header-bar">
-          <h2 id="entrada-titulo" class="panel-title">
-            <span class="step-chip">1</span>
-            Recibir e Integrar Señales
+    <div class="studio-grid">
+      <!-- ====================================================================
+           PANEL IZQUIERDO: Live Vision Studio (Cámara + Bounding Boxes HUD)
+           ==================================================================== -->
+      <section class="studio-panel">
+        <div class="panel-header-row">
+          <h2 class="panel-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+            Visor de Visión Computacional en Tiempo Real
           </h2>
-          <span class="badge-stateless">Ingesta de Telemetría</span>
+          <span class="badge-studio" id="hud-engine-status">VIDEO + IMAGEN</span>
         </div>
 
-        <!-- Selector de Motor Analítico (Tabs con descripción técnica) -->
-        <label class="field-label">Motor de Análisis</label>
-        <div class="motor-tabs-container" role="tablist">
-          <button id="tab-motor-examen" type="button" class="motor-tab-card active" role="tab" aria-selected="true">
-            <span class="motor-tab-title">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-              Motor A: Examen en Vivo
-            </span>
-            <span class="motor-endpoint-pill">POST /api/prediccion/integrar</span>
-            <span class="motor-tab-desc">Detección en ventanas, objetos permitidos vs. prohibidos, deduplicación y filtro de calidad de imagen. Anónimo.</span>
-          </button>
+        <!-- Viewport de Video + Canvas HUD -->
+        <div class="camera-viewport">
+          <video id="webcam-feed" playsinline autoplay muted></video>
+          <canvas id="overlay-canvas"></canvas>
 
-          <button id="tab-motor-seguimiento" type="button" class="motor-tab-card" role="tab" aria-selected="false">
-            <span class="motor-tab-title">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-              Motor B: Seguimiento Académico
-            </span>
-            <span class="motor-endpoint-pill">POST /api/prediccion/estudiantes</span>
-            <span class="motor-tab-desc">Cruce de telemetría con asistencia, tareas pendientes, tutorías y exámenes próximos. Requiere asociación explícita.</span>
-          </button>
-        </div>
-
-        <!-- Native Select (Preservado para compatibilidad de suite de tests) -->
-        <select id="motor" aria-hidden="true" tabindex="-1">
-          <option value="examen" selected>Supervisión de exámenes</option>
-          <option value="seguimiento">Seguimiento por estudiante · demo sintética local</option>
-        </select>
-
-        <!-- Servidor Endpoint -->
-        <div class="form-field">
-          <label for="servidor" class="field-label">Dirección del Servicio API</label>
-          <input id="servidor" type="url" class="field-input" placeholder="http://localhost:8001">
-        </div>
-
-        <!-- Formato de Entrada (Motor A) -->
-        <div id="controles-examen" class="form-field">
-          <label for="formato" class="field-label">Formato de Contrato</label>
-          <select id="formato" class="field-select">
-            <option value="integracion">Entrada conjunta (IMAGEN + VIDEO)</option>
-            <option value="imagen">Exportación de IMAGEN (Objetos verificados)</option>
-            <option value="video">Alerta o fotogramas de VIDEO</option>
-            <option value="interno">Eventos normalizados del motor</option>
-            <option value="audio_test">Simulación AUDIO (Prueba HTTP 422)</option>
-          </select>
-        </div>
-
-        <!-- Subpanel Seguimiento (Motor B) -->
-        <div id="controles-seguimiento" hidden>
-          <label for="ejemplo-seguimiento" class="field-label">Escenario Sintético de Demostración</label>
-          <select id="ejemplo-seguimiento" class="field-select">
-            <option value="juan">Juan Pérez · Concurrencia de factores de riesgo (Score 90)</option>
-            <option value="sin_alerta">Escenario de control · Sin alerta</option>
-            <option value="identidad_desconocida">Identidad desconocida · Observaciones sin atribuir</option>
-            <option value="insuficientes">Muestra insuficiente · Datos incompletos</option>
-            <option value="contradictorio">Observaciones contradictorias entre módulos</option>
-            <option value="duplicados">Telemetría redundante · Eventos duplicados</option>
-            <option value="aislado">Observación aislada sin persistencia</option>
-            <option value="cambio_patron">Desviación en observaciones históricas</option>
-          </select>
-          <button id="cargar-ejemplo" type="button">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-            Cargar escenario sintético
-          </button>
-        </div>
-
-        <!-- Cargador Rápido de Presets -->
-        <div class="presets-strip">
-          <button id="btn-preset-examen" type="button" class="btn-preset accent" title="Carga un caso de teléfono verificado y objeto no confirmado por calidad">
-            ⚡ Motor A (Celular + Filtro Calidad)
-          </button>
-          <button id="btn-preset-juan" type="button" class="btn-preset accent" title="Carga la demo de Juan Pérez con concurrencia de factores">
-            ⚡ Motor B (Demo Juan Pérez 90/100)
-          </button>
-          <button id="btn-preset-audio" type="button" class="btn-preset warn" title="Prueba el envío de audio para verificar el rechazo controlado HTTP 422">
-            ⚠️ Simular AUDIO (Test 422)
-          </button>
-        </div>
-
-        <!-- Importar Archivo Externo -->
-        <div class="file-upload-strip">
-          <div class="file-upload-title">
-            <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
-            <span>Importar JSON del equipo</span>
+          <!-- Placeholder si la cámara no está activa -->
+          <div id="camera-placeholder" class="camera-placeholder">
+            <svg viewBox="0 0 24 24"><path d="M9.4 10.5l4.77-4.77A6.98 6.98 0 0 0 12 5C8.13 5 5 8.13 5 12c0 1.54.5 2.96 1.34 4.12l1.45-1.45A4.98 4.98 0 0 1 7 12c0-2.76 2.24-5 5-5 .86 0 1.66.22 2.36.6L9.4 10.5zM21 12c0-1.54-.5-2.96-1.34-4.12l-1.45 1.45c.49.8.79 1.73.79 2.67 0 2.76-2.24 5-5 5-.86 0-1.66-.22-2.36-.6l4.96-4.96c.25.7.4 1.46.4 2.26 0 3.87-3.13 7-7 7-1.54 0-2.96-.5-4.12-1.34L3.27 21.73 2 20.46l18.46-18.46 1.27 1.27L19.4 5.6A6.98 6.98 0 0 1 21 12z"/></svg>
+            <p><strong>Cámara web no iniciada</strong><br>Haz clic en "Iniciar Cámara" o utiliza los disparadores de simulación.</p>
           </div>
-          <input id="archivo" type="file" accept=".json,application/json">
-        </div>
 
-        <!-- Editor Monaco/CodeMirror Style -->
-        <div class="code-editor-shell">
-          <div class="code-editor-header">
-            <div class="code-editor-tab">
-              <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
-              <span>telemetria_payload.json</span>
+          <!-- Telemetría HUD superpuesta -->
+          <div class="hud-telemetry-top">
+            <div class="hud-badge live-rec">
+              <span class="dot-led"></span>
+              <span id="hud-fps-text">LIVE · 30 FPS</span>
             </div>
-            <div class="editor-tools">
-              <button id="btn-formatear" type="button" class="btn-tool">{ } Formatear</button>
-              <button id="btn-copiar-entrada" type="button" class="btn-tool">Copiar</button>
+            <div class="hud-badge">
+              <span id="hud-latency-text">Inferencia: ~18ms</span>
             </div>
           </div>
-          <textarea id="entrada" rows="16" spellcheck="false" aria-describedby="ayuda"></textarea>
         </div>
 
-        <!-- Aviso técnico -->
-        <p id="ayuda" class="ayuda">
-          El ejemplo inicial es sintético. Si combinas fechas de IMAGEN con VIDEO, indica <code>imagen.origen_temporal</code>. Las métricas de calidad no se convierten automáticamente a 0–1.
-        </p>
+        <!-- Controles de la Cámara -->
+        <div class="camera-controls-bar">
+          <button id="btn-start-camera" type="button" class="btn-cam-action primary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+            <span id="btn-cam-label">Iniciar Cámara en Vivo</span>
+          </button>
+          <button id="btn-capture-frame" type="button" class="btn-cam-action">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
+            <span>Tomar Captura y Predecir</span>
+          </button>
+          <button id="btn-toggle-scan" type="button" class="btn-cam-action">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+            <span id="scan-label">Activar Escaneo Continuo</span>
+          </button>
+        </div>
 
-        <!-- CTA Principal -->
-        <button id="ejecutar" type="button">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-          <span>Evaluar Señales y Generar Evidencia</span>
-          <span id="latencia-badge" class="latency-meter"></span>
-        </button>
-        <p id="estado" role="status" aria-live="polite"></p>
+        <!-- Panel de Disparo Rápido (Demo Controls para exposición) -->
+        <div class="demo-trigger-panel">
+          <div class="demo-trigger-label">
+            <span>Disparadores de Simulación Rápida (Live Demo)</span>
+            <span>Haz clic para forzar estados</span>
+          </div>
+          <div class="trigger-buttons-grid">
+            <button id="btn-trigger-phone" type="button" class="btn-trigger">
+              📱 Celular en Mano
+            </button>
+            <button id="btn-trigger-gaze" type="button" class="btn-trigger">
+              👀 Mirada Desviada
+            </button>
+            <button id="btn-trigger-focus" type="button" class="btn-trigger active-safe">
+              🧠 Concentrado / Atento
+            </button>
+            <button id="btn-trigger-absence" type="button" class="btn-trigger">
+              👤 Fuera de Encuadre
+            </button>
+          </div>
+        </div>
+
+        <!-- Línea de Tiempo de Evidencia (Snapshots) -->
+        <div class="snapshots-container">
+          <div class="snapshots-title">Línea de Tiempo de Capturas (Snapshots con Detección)</div>
+          <div id="snapshot-gallery" class="snapshots-scroll-row">
+            <div class="snapshot-card">
+              <div style="height:75px; background:#070a12; display:flex; align-items:center; justify-content:center; color:#475569;">
+                Sin capturas
+              </div>
+              <div class="snapshot-info">
+                <span>Esperando eventos...</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
-      <!-- C. Columna Derecha (55%): Auditoría de Evidencia y Reglas Explicables -->
-      <section class="panel-card" aria-labelledby="salida-titulo">
-        <div class="panel-header-bar">
-          <h2 id="salida-titulo" class="panel-title">
-            <span class="step-chip">2</span>
-            Auditoría de Evidencia y Explicabilidad
+      <!-- ====================================================================
+           PANEL DERECHO: El Cerebro de "PREDICCIÓN" (Proyecciones Académicas)
+           ==================================================================== -->
+      <section class="studio-panel">
+        <div class="panel-header-row">
+          <h2 class="panel-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+            Predicción y Diagnóstico Académico en Vivo
           </h2>
-          <span class="badge-core">White-Box Breakdown</span>
+          <span class="badge-studio">White-Box Heuristics</span>
         </div>
 
-        <!-- Tacómetro SVG e Índice Heurístico (/100) -->
-        <div class="metric-tacometer-card">
+        <!-- 1. Diagnóstico de Comportamiento en Tiempo Real -->
+        <div class="realtime-diagnosis-box">
+          <div class="diag-metric-card">
+            <div class="diag-metric-label">% Nivel de Atención en Clase</div>
+            <div id="attention-val" class="diag-metric-val">95%</div>
+            <div class="progress-bar-bg">
+              <div id="attention-fill" class="progress-bar-fill" style="width: 95%;"></div>
+            </div>
+          </div>
+          <div class="diag-metric-card">
+            <div class="diag-metric-label">Estado Cognitivo (Módulo Imagen)</div>
+            <div id="emotion-badge" class="diag-metric-val" style="font-size:14px; color:#34d399; margin-top:4px;">
+              Concentrado / Atento
+            </div>
+            <div id="distraction-timer" style="font-size:10.5px; font-family:var(--font-mono); color:#94a3b8; margin-top:8px;">
+              Distracción por celular: 0s acumulados
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Tacómetro Circular SVG / Índice Heurístico de Revisión (/100) -->
+        <div class="tacometer-kpi-card">
           <div class="gauge-cluster" aria-hidden="true">
             <svg class="gauge-svg" viewBox="0 0 120 120">
               <circle class="gauge-bg-circle" cx="60" cy="60" r="50"></circle>
               <circle id="gauge-bar" class="gauge-progress-circle" cx="60" cy="60" r="50"></circle>
             </svg>
             <div class="gauge-center-text">
-              <strong id="indice">—</strong>
-              <span class="gauge-scale-max">/ 100</span>
+              <strong id="indice">15</strong>
+              <span class="gauge-max">/ 100</span>
             </div>
           </div>
 
-          <div class="metric-details-cluster">
-            <span id="nivel">Sin evaluar</span>
-            <p id="descripcion-indice">Índice heurístico de revisión / 100. No es una probabilidad.</p>
+          <div class="kpi-info-col">
+            <span id="nivel" class="alerta-baja">Sin alerta · Atención Óptima</span>
+            <p id="descripcion-indice">Índice heurístico de revisión. No constituye una probabilidad ni una sanción automática.</p>
           </div>
         </div>
 
-        <!-- Directriz Asistida -->
+        <!-- 3. Motor de Predicción Académica (Proyección a Futuro) -->
+        <div class="academic-projection-box">
+          <div class="projection-header">
+            <span class="projection-label">Proyección de Rendimiento en Examen Parcial</span>
+            <span id="proyeccion-grade" class="projection-grade">17.0 / 20</span>
+          </div>
+          <p id="proyeccion-texto">
+            <strong>Proyección Positiva:</strong> Estudiante enfocado en la sesión. Se proyecta un alto aprovechamiento de los temas explicados y desempeño favorable en la evaluación.
+          </p>
+        </div>
+
+        <!-- Directriz Docente -->
         <div class="directive-box">
           <div class="directive-label">Directriz de Intervención Docente</div>
-          <p id="recomendacion">Carga los resultados y evalúa las señales para ver su explicación.</p>
+          <p id="recomendacion">Continuar con la clase habitual. No se requiere intervención.</p>
         </div>
 
-        <!-- Desglose de Reglas Explicables y Evidencia -->
+        <!-- Desglose de Reglas y Evidencias -->
         <div id="resultados-estudiantes" aria-live="polite"></div>
 
-        <!-- Consola de Respuesta Raw con Status Code -->
-        <details class="raw-console-details" open>
-          <summary class="raw-console-summary">
-            <div class="summary-title-group">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
-              <span>Respuesta Completa del Servicio</span>
-              <span id="http-status-pill" class="http-status-badge">200 OK</span>
-            </div>
-            <button id="btn-copiar-salida" type="button" class="btn-tool">Copiar JSON</button>
+        <!-- ==================================================================
+             Inspector Técnico / Cajón Colapsable (Preserva el Contrato de Tests)
+             ================================================================== -->
+        <details id="technical-drawer" class="technical-drawer">
+          <summary class="technical-summary">
+            <span>⚙️ Inspector Técnico de Integración JSON (Contrato Backend)</span>
+            <span style="font-size:10px; color:#818cf8;">Ver Payload API</span>
           </summary>
-          <pre id="salida" tabindex="0">La respuesta del servicio aparecerá aquí.</pre>
-        </details>
+          <div class="technical-body">
+            <div>
+              <label for="servidor" style="font-size:11px; font-family:var(--font-mono); color:#94a3b8;">Servidor API</label>
+              <input id="servidor" type="url" class="tech-input" placeholder="http://localhost:8001">
+            </div>
 
-        <!-- Footer Ético y de Gobernanza -->
-        <div class="ethical-banner-footer">
-          <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
-          <div>
-            <strong>Auditoría Ética Asistida (Human-in-the-Loop):</strong>
-            Siempre requiere revisión colegiada de un docente o tutor. Las detecciones de video nunca se asignan por suposición visual ni proximidad. Emociones e identidad de IMAGEN no forman parte del contrato actual.
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+              <div>
+                <label for="motor" style="font-size:11px; font-family:var(--font-mono); color:#94a3b8;">Motor</label>
+                <select id="motor" class="tech-select">
+                  <option value="examen" selected>Supervisión de exámenes</option>
+                  <option value="seguimiento">Seguimiento por estudiante · demo sintética local</option>
+                </select>
+              </div>
+              <div id="controles-examen">
+                <label for="formato" style="font-size:11px; font-family:var(--font-mono); color:#94a3b8;">Formato</label>
+                <select id="formato" class="tech-select">
+                  <option value="integracion">Entrada conjunta (imagen / video)</option>
+                  <option value="imagen">Exportación de IMAGEN</option>
+                  <option value="video">Alerta o fotogramas de VIDEO</option>
+                  <option value="interno">Eventos normalizados del motor</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="controles-seguimiento" hidden>
+              <label for="ejemplo-seguimiento" style="font-size:11px; font-family:var(--font-mono); color:#94a3b8;">Escenario</label>
+              <select id="ejemplo-seguimiento" class="tech-select">
+                <option value="juan">Juan Pérez · concurrencia de factores</option>
+                <option value="sin_alerta">Sin alerta</option>
+                <option value="identidad_desconocida">Identidad desconocida</option>
+                <option value="insuficientes">Datos insuficientes</option>
+                <option value="contradictorio">Observaciones contradictorias</option>
+                <option value="duplicados">Eventos duplicados</option>
+                <option value="aislado">Observación aislada</option>
+                <option value="cambio_patron">Cambio en observaciones históricas</option>
+              </select>
+              <button id="cargar-ejemplo" type="button" style="margin-top:6px; padding:4px 8px; font-size:11px;">Cargar ejemplo sintético</button>
+            </div>
+
+            <div>
+              <label for="archivo" style="font-size:11px; font-family:var(--font-mono); color:#94a3b8;">Importar archivo JSON</label>
+              <input id="archivo" type="file" accept=".json,application/json" style="font-size:11px;">
+            </div>
+
+            <div>
+              <label for="entrada" style="font-size:11px; font-family:var(--font-mono); color:#94a3b8;">JSON enviado al backend</label>
+              <textarea id="entrada" rows="6" spellcheck="false" aria-describedby="ayuda"></textarea>
+            </div>
+
+            <p id="ayuda" class="ayuda">El ejemplo inicial es sintético. Si combinas fechas de IMAGEN con VIDEO, indica imagen.origen_temporal.</p>
+
+            <button id="ejecutar" type="button" style="padding:6px 12px; font-size:11px; font-weight:600; background:#4f46e5; border:none; border-radius:4px; color:#fff; cursor:pointer;">
+              Evaluar señales
+            </button>
+            <p id="estado" role="status" aria-live="polite"></p>
+
+            <div>
+              <span style="font-size:11px; font-family:var(--font-mono); color:#94a3b8;">Respuesta del Servicio</span>
+              <pre id="salida" tabindex="0">La respuesta del servicio aparecerá aquí.</pre>
+            </div>
           </div>
-        </div>
+        </details>
       </section>
     </div>
+
+    <!-- Footer Ético -->
+    <footer class="ethical-footer">
+      <strong>AulaPredict Live Vision Studio:</strong> Proyecciones asistidas basadas en telemetría de visión en tiempo real y reglas heurísticas explicables. Siempre requiere revisión humana colegiada; el sistema no emite sanciones ni reemplaza el criterio docente.
+    </footer>
   </main>
 </body>
 </html>
