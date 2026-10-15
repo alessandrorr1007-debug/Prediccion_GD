@@ -2,15 +2,55 @@
 
 const elemento = (id) => document.getElementById(id);
 
-const ejemplo = {
+const EJEMPLO_EXAMEN_DEFAULT = {
   _nota: "SINTÉTICO: ejemplo de integración, pendiente de validar con salidas reales",
   segundo_actual: 12,
+  ventana_segundos: 60,
   objetos_permitidos: ["libro"],
-  video: { frames: [{ frame_id: 80, timestamp: 10, detecciones: [{ clase: "telefono", confianza: 0.82 }] }] },
-  imagen: { frames: [{ frame_id: 80, timestamp: 10, objetos: [{ id: "objeto-1", clase: "telefono", confianza_procesada: 0.88, estado: "confirmada" }] }] }
+  video: {
+    modelo: "SistemaSupervisionExamenes/best.pt",
+    frames: [
+      {
+        frame_id: 80,
+        timestamp: 10,
+        calidad: 0.9,
+        detecciones: [
+          { clase: "persona", confianza: 0.91 },
+          { clase: "telefono", confianza: 0.82 }
+        ]
+      }
+    ]
+  },
+  imagen: {
+    modulo: "IMAGEN",
+    modelo: "SistemaSupervisionExamenes-Imagen",
+    frames: [
+      {
+        frame_id: 80,
+        timestamp: 10,
+        calidad_normalizada: 0.85,
+        objetos: [
+          {
+            id: "objeto-1",
+            clase: "telefono",
+            confianza_video: 0.82,
+            confianza_procesada: 0.88,
+            estado: "confirmada"
+          },
+          {
+            id: "objeto-2",
+            clase: "reloj",
+            confianza_video: 0.40,
+            confianza_procesada: 0.20,
+            estado: "no_confirmada"
+          }
+        ]
+      }
+    ]
+  }
 };
 
-elemento("entrada").value = JSON.stringify(ejemplo, null, 2);
+elemento("entrada").value = JSON.stringify(EJEMPLO_EXAMEN_DEFAULT, null, 2);
 elemento("servidor").value = location.protocol === "file:" ? "http://localhost:8001" : location.origin;
 
 let enCurso = false;
@@ -39,7 +79,7 @@ function actualizarEstiloNivel(texto) {
   const el = elemento("nivel");
   if (!el) return;
   const t = (texto || "").toLowerCase();
-  if (t.includes("alta") || t.includes("critica") || t.includes("crítica")) {
+  if (t.includes("alta") || t.includes("critica") || t.includes("crítica") || t.includes("422")) {
     el.className = "alerta-alta";
   } else if (t.includes("media") || t.includes("moderada")) {
     el.className = "alerta-media";
@@ -76,7 +116,8 @@ function ocupar(valor) {
   enCurso = valor;
   const ids = [
     "ejecutar", "motor", "cargar-ejemplo", "ejemplo-seguimiento",
-    "archivo", "formato", "servidor", "tab-motor-examen", "tab-motor-seguimiento"
+    "archivo", "formato", "servidor", "tab-motor-examen", "tab-motor-seguimiento",
+    "btn-preset-examen", "btn-preset-juan", "btn-preset-audio"
   ];
   for (const id of ids) {
     const el = elemento(id);
@@ -92,6 +133,13 @@ function limpiarResultado() {
   actualizarTacometro(NaN);
   elemento("salida").textContent = "";
   elemento("recomendacion").textContent = "";
+  const pillStatus = elemento("http-status-pill");
+  if (pillStatus) {
+    pillStatus.textContent = "STANDBY";
+    pillStatus.className = "http-status-badge";
+  }
+  const badgeLatencia = elemento("latencia-badge");
+  if (badgeLatencia) badgeLatencia.textContent = "";
 }
 
 function servidor() {
@@ -111,10 +159,10 @@ async function cargarEjemplo() {
     if (!res.ok) throw new Error(typeof datos.detail === "string" ? datos.detail : "No se pudo cargar el ejemplo.");
     elemento("entrada").value = JSON.stringify(datos, null, 2);
     entradas.seguimiento = elemento("entrada").value;
-    elemento("estado").textContent = "Ejemplo SINTÉTICO cargado. Puedes editarlo y evaluar.";
+    elemento("estado").textContent = "Escenario SINTÉTICO cargado. Puedes editarlo y evaluar.";
   } catch (error) {
     elemento("entrada").value = "";
-    elemento("estado").textContent = `No se pudo cargar: ${error.message}. También puedes importar un JSON sintético de ejemplos/.`;
+    elemento("estado").textContent = `No se pudo cargar: ${error.message}.`;
   } finally {
     ocupar(false);
   }
@@ -154,11 +202,53 @@ function lista(contenedor, titulo, textos) {
   contenedor.append(encabezado, ul);
 }
 
+function mostrarExamenDetallado(salida, payload) {
+  const contenedor = elemento("resultados-estudiantes");
+  const articulo = document.createElement("article");
+  articulo.className = "resultado-estudiante";
+
+  const titulo = document.createElement("h3");
+  titulo.textContent = `Supervisión de Examen · Ventana activa (${payload.ventana_segundos || 60}s)`;
+  const nivel = document.createElement("p");
+  nivel.textContent = `Nivel: ${(salida.nivel_revision || "sin_alerta").replaceAll("_", " ")} · Índice: ${salida.indice_revision ?? 0}/100`;
+  articulo.append(titulo, nivel);
+
+  const explicaciones = [];
+  if (salida.eventos_considerados && salida.eventos_considerados.length > 0) {
+    explicaciones.push(`Se consolidaron ${salida.eventos_considerados.length} evento(s) válidos tras aplicar deduplicación y ventanas.`);
+  }
+
+  // Verificación de descarte de falsos positivos en IMAGEN
+  if (payload.imagen && payload.imagen.frames) {
+    for (const f of payload.imagen.frames) {
+      if (f.objetos) {
+        for (const obj of f.objetos) {
+          if (obj.estado === "no_confirmada" || obj.confianza_procesada < 0.5) {
+            explicaciones.push(`Filtro IMAGEN: Objeto '${obj.clase}' (confianza: ${obj.confianza_procesada ?? obj.confianza_video}) descartado por baja calidad o estado 'no_confirmada'.`);
+          } else if (obj.estado === "confirmada") {
+            explicaciones.push(`Filtro IMAGEN: Objeto '${obj.clase}' confirmado con confianza procesada ${obj.confianza_procesada}.`);
+          }
+        }
+      }
+    }
+  }
+
+  if (explicaciones.length) {
+    lista(articulo, "Auditoría de Inferencia y Filtros", explicaciones);
+  }
+
+  if (salida.recomendacion) {
+    lista(articulo, "Directriz de Supervisión", [salida.recomendacion]);
+  }
+
+  contenedor.append(articulo);
+}
+
 function mostrarSeguimiento(salida) {
   const contenedor = elemento("resultados-estudiantes");
   const validos = salida.resultados.filter(r => r.indice_prioridad !== null);
   const maximo = validos.reduce((a, b) => !a || b.indice_prioridad > a.indice_prioridad ? b : a, null);
-  
+
   const scoreVal = maximo ? maximo.indice_prioridad.toString() : "—";
   elemento("indice").textContent = scoreVal;
   actualizarTacometro(scoreVal);
@@ -202,6 +292,25 @@ function mostrarSeguimiento(salida) {
   lista(contenedor, "Limitaciones", salida.limitaciones);
 }
 
+function mostrarErrorAudio422(detalle) {
+  const contenedor = elemento("resultados-estudiantes");
+  const articulo = document.createElement("article");
+  articulo.className = "resultado-estudiante";
+
+  const titulo = document.createElement("h3");
+  titulo.textContent = "Rechazo de Integración Controlado (HTTP 422)";
+  const estadoP = document.createElement("p");
+  estadoP.textContent = "Módulo AUDIO: Contrato formalmente reservado y pendiente de desarrollo.";
+  articulo.append(titulo, estadoP);
+
+  lista(articulo, "Detalle del Sistema", [
+    typeof detalle === "string" ? detalle : JSON.stringify(detalle),
+    "Conforme a backend/modulos/audio/modulo.json, la API rechaza explícitamente cualquier payload de audio hasta la publicación de su contrato."
+  ]);
+
+  contenedor.append(articulo);
+}
+
 elemento("archivo").addEventListener("change", async (evento) => {
   const archivo = evento.target.files && evento.target.files[0];
   if (!archivo) return;
@@ -218,17 +327,26 @@ elemento("archivo").addEventListener("change", async (evento) => {
 
 elemento("ejecutar").addEventListener("click", async () => {
   if (enCurso) return;
+  const tiempoInicio = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
   try {
-    const datos = JSON.parse(elemento("entrada").value);
     const formato = elemento("formato").value;
     const seguimiento = elemento("motor").value === "seguimiento";
-    const cuerpo = !seguimiento && ["imagen", "video"].includes(formato) ? { [formato]: datos } : datos;
     const base = servidor();
+
+    // Caso especial: Prueba simulada de AUDIO (espera 422)
+    let cuerpo;
+    if (formato === "audio_test") {
+      cuerpo = { audio: { timestamp: 12, decibelios: 85 } };
+    } else {
+      const datos = JSON.parse(elemento("entrada").value);
+      cuerpo = !seguimiento && ["imagen", "video"].includes(formato) ? { [formato]: datos } : datos;
+    }
+
     const ruta = seguimiento ? "/api/prediccion/estudiantes" : (formato === "interno" ? "/api/prediccion" : "/api/prediccion/integrar");
 
     ocupar(true);
     limpiarResultado();
-    elemento("estado").textContent = "Evaluando señales y reglas heurísticas…";
+    elemento("estado").textContent = "Evaluando señales y correlación de reglas...";
     elemento("nivel").textContent = "Evaluando";
     actualizarEstiloNivel("Evaluando");
     elemento("indice").textContent = "—";
@@ -240,7 +358,36 @@ elemento("ejecutar").addEventListener("click", async () => {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cuerpo)
     });
     const salida = await respuesta.json();
-    if (!respuesta.ok) throw new Error(typeof salida.detail === "string" ? salida.detail : JSON.stringify(salida.detail || salida));
+
+    const tiempoFin = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+    const latencia = Math.round(tiempoFin - tiempoInicio);
+    const badgeLatencia = elemento("latencia-badge");
+    if (badgeLatencia) badgeLatencia.textContent = `(${latencia}ms)`;
+
+    const pillStatus = elemento("http-status-pill");
+
+    if (!respuesta.ok) {
+      if (pillStatus) {
+        pillStatus.textContent = `${respuesta.status} ${respuesta.status === 422 ? "UNPROCESSABLE ENTITY" : "ERROR"}`;
+        pillStatus.className = "http-status-badge err-422";
+      }
+      elemento("salida").textContent = JSON.stringify(salida, null, 2);
+      if (respuesta.status === 422) {
+        elemento("nivel").textContent = "MÓDULO AUDIO PENDIENTE (422)";
+        actualizarEstiloNivel("422");
+        elemento("recomendacion").textContent = "Rechazo controlado por diseño: el módulo de audio está pendiente de entrega externa.";
+        mostrarErrorAudio422(salida.detail);
+        elemento("estado").textContent = "Respuesta 422 recibida correctamente (contrato pendiente).";
+      } else {
+        throw new Error(typeof salida.detail === "string" ? salida.detail : JSON.stringify(salida.detail || salida));
+      }
+      return;
+    }
+
+    if (pillStatus) {
+      pillStatus.textContent = "200 OK";
+      pillStatus.className = "http-status-badge";
+    }
 
     elemento("salida").textContent = JSON.stringify(salida, null, 2);
 
@@ -250,14 +397,15 @@ elemento("ejecutar").addEventListener("click", async () => {
       const nivelTexto = (salida.nivel_revision || "datos_insuficientes").replaceAll("_", " ");
       elemento("nivel").textContent = nivelTexto;
       actualizarEstiloNivel(nivelTexto);
-      
+
       const scoreStr = salida.indice_revision == null ? "—" : salida.indice_revision.toString();
       elemento("indice").textContent = scoreStr;
       actualizarTacometro(salida.indice_revision);
 
       elemento("recomendacion").textContent = salida.recomendacion;
+      mostrarExamenDetallado(salida, cuerpo);
     }
-    elemento("estado").textContent = "Evaluación completada. Verifica la evidencia con una persona responsable.";
+    elemento("estado").textContent = `Evaluación completada (${latencia}ms). Verifica la evidencia con una persona responsable.`;
   } catch (error) {
     limpiarResultado();
     elemento("estado").textContent = `No se pudo evaluar: ${error.message}`;
@@ -290,6 +438,52 @@ if (tabSeguimiento) {
       elemento("motor").value = "seguimiento";
       elemento("motor").dispatchEvent(new Event("change"));
     }
+  });
+}
+
+// Preset Buttons
+const btnPresetExamen = elemento("btn-preset-examen");
+if (btnPresetExamen) {
+  btnPresetExamen.addEventListener("click", () => {
+    if (elemento("motor").value !== "examen") {
+      elemento("motor").value = "examen";
+      elemento("motor").dispatchEvent(new Event("change"));
+    }
+    elemento("formato").value = "integracion";
+    elemento("entrada").value = JSON.stringify(EJEMPLO_EXAMEN_DEFAULT, null, 2);
+    elemento("estado").textContent = "Preset Motor A cargado (Celular persistente + Filtro de calidad IMAGEN).";
+  });
+}
+
+const btnPresetJuan = elemento("btn-preset-juan");
+if (btnPresetJuan) {
+  btnPresetJuan.addEventListener("click", async () => {
+    if (elemento("motor").value !== "seguimiento") {
+      elemento("motor").value = "seguimiento";
+      elemento("motor").dispatchEvent(new Event("change"));
+    }
+    elemento("ejemplo-seguimiento").value = "juan";
+    await cargarEjemplo();
+  });
+}
+
+const btnPresetAudio = elemento("btn-preset-audio");
+if (btnPresetAudio) {
+  btnPresetAudio.addEventListener("click", () => {
+    if (elemento("motor").value !== "examen") {
+      elemento("motor").value = "examen";
+      elemento("motor").dispatchEvent(new Event("change"));
+    }
+    elemento("formato").value = "audio_test";
+    elemento("entrada").value = JSON.stringify({
+      _prueba: "Simulación de envío hacia módulo pendiente de AUDIO",
+      audio: {
+        timestamp: 12,
+        decibelios: 85,
+        deteccion: "voz_externa"
+      }
+    }, null, 2);
+    elemento("estado").textContent = "Preset AUDIO preparado. Haz clic en 'Evaluar' para verificar el código 422.";
   });
 }
 
