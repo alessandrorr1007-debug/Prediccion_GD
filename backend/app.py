@@ -1,15 +1,19 @@
-"""Entrada única: python -m uvicorn backend.app:app --port 8001."""
 import json
 import os
+import sys
 from pathlib import Path
+
+RAIZ = Path(__file__).resolve().parent.parent
+if str(RAIZ) not in sys.path:
+    sys.path.insert(0, str(RAIZ))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from backend.modulos.prediccion.api import router as motor_router
+from backend.modulos.prediccion.seguimiento_api import router as seguimiento_router
 
-RAIZ = Path(__file__).resolve().parent.parent
 app = FastAPI(title="AulaPredict · Predicción", version="3.1.0")
 origenes_frontend = os.getenv(
     "FRONTEND_ORIGINS",
@@ -19,9 +23,10 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[origen.strip() for origen in origenes_frontend if origen.strip()],
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_headers=["*"],
 )
 app.include_router(motor_router, prefix="/api")
+app.include_router(seguimiento_router, prefix="/api")
 
 
 @app.get("/api/modulos")
@@ -40,3 +45,8 @@ def modulos():
 
 
 app.mount("/", StaticFiles(directory=RAIZ / "frontend", html=True), name="prueba-local")
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("backend.app:app", host="127.0.0.1", port=8001, reload=False)

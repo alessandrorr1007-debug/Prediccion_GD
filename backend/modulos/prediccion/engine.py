@@ -1,12 +1,12 @@
 """Motor explicable y sin estado. Los índices son heurísticos, no probabilidades."""
 from collections import defaultdict
 from math import isfinite
+from backend.modulos.video.adapter import ALIAS
 
 MODALIDADES = {"imagen", "video", "audio"}
 PESOS = {"telefono": .85, "audifonos": .8, "libro": .7,
          "cuaderno": .7, "reloj": .5, "multiples_personas": .65,
          "voz_adicional": .65, "consulta_externa": .8}
-ALIAS = {"celular": "telefono", "phone": "telefono", "airpods": "audifonos"}
 CONTEXTUALES = {"persona", "laptop", "mochila", "silencio", "sin_alerta"}
 
 

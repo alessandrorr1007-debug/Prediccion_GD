@@ -1,6 +1,8 @@
 {
   "nombre": "video",
-  "estado": "repositorio_recibido_con_adaptador",
+  "estado": "adaptador_alerta_v1_pendiente_validacion_real",
+  "formatos_aceptados": ["frames", "alerta_VIDEO_schema_version_1"],
+  "validacion": "Pruebas con ejemplo sintético; falta validar una salida real del equipo de VIDEO",
   "responsable": "equipo de video",
   "repositorio": "https://github.com/cesarcabanillas1921-bit/SistemaSupervisionExamenes",
   "artefactos": ["backend/modulos/video/adapter.py"],

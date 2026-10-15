@@ -32,3 +32,33 @@ desktop.ini
 .idea/
 *.swp
 *.swo
+entrenamiento/datos/
+entrenamiento/runs/
+data/
+
+# Artefactos de entrenamiento e inferencia, fuera de la entrega
+models/
+modelos/
+training/
+entrenamiento/
+notebooks/
+reports/
+datasets/
+*.pt
+*.pth
+*.onnx
+*.npz
+*.npy
+*.pkl
+*.pickle
+*.joblib
+*.safetensors
+*.ckpt
+*.parquet
+_entrada_*
+_archivo/
+PREDICCION_ARCHIVO/
+pyrightconfig.json
+
+# La plantilla de configuración sí forma parte del proyecto
+!.env.example

@@ -1,6 +1,8 @@
 """Convierte la exportación JSON de IMAGEN al contrato de PREDICCIÓN."""
 from datetime import datetime
 from math import isfinite
+from hashlib import sha256
+import json
 
 from backend.modulos.video.adapter import ALIAS
 
@@ -20,16 +22,22 @@ def _numero(valor, campo, minimo=0, maximo=1):
     return numero
 
 
-def _segundos(frames):
+def _segundos(frames, origen_temporal=None, exigir_origen_temporal=False):
     valores = [frame.get("segundo", frame.get("timestamp")) for frame in frames]
     if all(isinstance(valor, (int, float)) and not isinstance(valor, bool) for valor in valores):
         return [_numero(valor, "timestamp", 0, 86400) for valor in valores]
+    if not all(isinstance(valor, str) and valor.strip() for valor in valores):
+        raise ValueError("imagen.timestamp debe contener segundos o fechas ISO consistentes; no se admiten vacíos ni mezclas")
+    if exigir_origen_temporal and origen_temporal is None:
+        raise ValueError("imagen.origen_temporal: se requiere una fecha ISO explícita para sincronizar con VIDEO")
     try:
         fechas = [datetime.fromisoformat(str(valor).replace("Z", "+00:00")) for valor in valores]
+        origen = (datetime.fromisoformat(str(origen_temporal).replace("Z", "+00:00"))
+                  if origen_temporal is not None else min(fechas))
+        segundos = [(fecha - origen).total_seconds() for fecha in fechas]
     except (TypeError, ValueError):
-        raise ValueError("imagen.frames[].timestamp debe ser numérico o una fecha ISO consistente") from None
-    origen = min(fechas)
-    return [(fecha - origen).total_seconds() for fecha in fechas]
+        raise ValueError("imagen.timestamp y origen_temporal deben ser fechas ISO con zonas horarias consistentes") from None
+    return [_numero(valor, "timestamp (segundos; máximo 86400)", 0, 86400) for valor in segundos]
 
 
 def _confianza(objeto):
@@ -39,19 +47,32 @@ def _confianza(objeto):
     raise ValueError("Cada objeto de imagen requiere una confianza")
 
 
-def adaptar_imagen(datos):
+def adaptar_imagen(datos, *, exigir_origen_temporal=False):
     if not isinstance(datos, dict):
         raise ValueError("imagen debe ser un objeto")
-    frames = datos.get("frames", [])
+    if "frames" in datos:
+        frames = datos["frames"]
+    elif all(campo in datos for campo in ("frame_id", "timestamp", "objetos")):
+        frames = [datos]
+    else:
+        raise ValueError("imagen requiere frames o un fotograma con frame_id, timestamp y objetos")
     if not isinstance(frames, list):
         raise ValueError("imagen.frames debe ser una lista")
     if not all(isinstance(frame, dict) for frame in frames):
         raise ValueError("Cada elemento de imagen.frames debe ser un objeto")
-    segundos = _segundos(frames) if frames else []
+    sesion_id = datos.get("sesion_id")
+    if sesion_id is not None and (not isinstance(sesion_id, str) or not sesion_id.strip()):
+        raise ValueError("imagen.sesion_id debe ser un texto no vacío")
+    segundos = _segundos(frames, datos.get("origen_temporal"), exigir_origen_temporal) if frames else []
     modelo = str(datos.get("modelo", "SistemaSupervisionExamenes-Imagen"))[:200]
     eventos = []
     for indice_frame, (frame, segundo) in enumerate(zip(frames, segundos)):
         frame_id = str(frame.get("frame_id", indice_frame))
+        # El productor reutiliza IDs por frame: aislar origen, tiempo y sesión.
+        if "origen" in frame or sesion_id is not None:
+            contexto_id = json.dumps([sesion_id, frame.get("origen"),
+                                      frame.get("segundo", frame.get("timestamp"))], ensure_ascii=False)
+            frame_id = f"{sha256(contexto_id.encode('utf-8')).hexdigest()[:24]}:{frame_id}"
         calidad = frame.get("calidad_normalizada", 1)
         calidad = _numero(calidad, "calidad_normalizada")
         objetos = frame.get("objetos", [])

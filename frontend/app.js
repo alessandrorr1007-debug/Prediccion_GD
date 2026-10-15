@@ -1,245 +1,154 @@
-const localHost = ['localhost', '127.0.0.1', ''].includes(window.location.hostname);
-const API_BASE = window.location.port === '8001'
-  ? ''
-  : localHost
-    ? 'http://127.0.0.1:8001'
-    : 'https://prediccion-backend-dwq9.onrender.com';
-
-const elements = {
-  connectionDot: document.querySelector('#connection-dot'),
-  connectionText: document.querySelector('#connection-text'),
-  videoFile: document.querySelector('#video-file'),
-  imageFile: document.querySelector('#image-file'),
-  videoSource: document.querySelector('#video-source'),
-  imageSource: document.querySelector('#image-source'),
-  videoStatus: document.querySelector('#video-status'),
-  imageStatus: document.querySelector('#image-status'),
-  allowed: document.querySelector('#allowed'),
-  analyze: document.querySelector('#analyze'),
-  demo: document.querySelector('#demo'),
-  reset: document.querySelector('#reset'),
-  feedback: document.querySelector('#feedback'),
-  emptyResult: document.querySelector('#empty-result'),
-  predictionResult: document.querySelector('#prediction-result'),
-};
-
-const state = {video: null, imagen: null};
-
-const demoPayload = {
+"use strict";
+const elemento = (id) => document.getElementById(id);
+const ejemplo = {
+  _nota: "SINTÉTICO: ejemplo de integración, pendiente de validar con salidas reales",
   segundo_actual: 12,
-  objetos_permitidos: ['libro'],
-  video: {
-    modelo: 'SistemaSupervisionExamenes/best.pt',
-    frames: [{
-      frame_id: 80,
-      timestamp: 10,
-      calidad: 0.9,
-      detecciones: [
-        {clase: 'persona', confianza: 0.91},
-        {clase: 'telefono', confianza: 0.82},
-      ],
-    }],
-  },
-  imagen: {
-    modelo: 'SistemaSupervisionExamenes-Imagen',
-    frames: [{
-      frame_id: 80,
-      timestamp: 10,
-      calidad_normalizada: 0.85,
-      objetos: [{
-        id: 'objeto-1',
-        clase: 'telefono',
-        confianza_video: 0.82,
-        confianza_procesada: 0.88,
-        estado: 'confirmada',
-      }],
-    }],
-  },
+  objetos_permitidos: ["libro"],
+  video: { frames: [{ frame_id: 80, timestamp: 10, detecciones: [{ clase: "telefono", confianza: 0.82 }] }] },
+  imagen: { frames: [{ frame_id: 80, timestamp: 10, objetos: [{ id: "objeto-1", clase: "telefono", confianza_procesada: 0.88, estado: "confirmada" }] }] }
 };
-
-function currentPayload() {
-  const payload = {};
-  const allowed = elements.allowed.value.split(',').map(item => item.trim()).filter(Boolean);
-  if (allowed.length) payload.objetos_permitidos = allowed;
-  if (state.video) payload.video = state.video;
-  if (state.imagen) payload.imagen = state.imagen;
-  return payload;
+elemento("entrada").value = JSON.stringify(ejemplo, null, 2);
+elemento("servidor").value = location.protocol === "file:" ? "http://localhost:8001" : location.origin;
+let enCurso = false;
+let motorActual = "examen";
+const entradas = { examen: elemento("entrada").value, seguimiento: null };
+function ocupar(valor) {
+  enCurso = valor;
+  for (const id of ["ejecutar", "motor", "cargar-ejemplo", "ejemplo-seguimiento", "archivo", "formato", "servidor"]) elemento(id).disabled = valor;
 }
-
-function setConnection(online) {
-  elements.connectionDot.className = online ? 'online' : 'offline';
-  elements.connectionText.textContent = online ? 'Sistema disponible' : 'Sin conexión';
+function limpiarResultado() {
+  elemento("resultados-estudiantes").replaceChildren();
+  elemento("nivel").textContent = "Sin evaluar";
+  elemento("indice").textContent = "—";
+  elemento("salida").textContent = "";
+  elemento("recomendacion").textContent = "";
 }
-
-function moduleLabel(name) {
-  return {imagen: 'Imagen', video: 'Video', audio: 'Audio', prediccion: 'Predicción'}[name] || name;
+function servidor() {
+  const base = new URL(elemento("servidor").value);
+  if (!["http:", "https:"].includes(base.protocol)) throw new Error("Usa una dirección HTTP o HTTPS.");
+  return base.origin;
 }
-
-async function checkConnection() {
+async function cargarEjemplo() {
+  if (enCurso) return;
+  ocupar(true);
+  limpiarResultado();
   try {
-    const response = await fetch(`${API_BASE}/api/salud`);
-    if (!response.ok) throw new Error('No se pudo consultar el sistema');
-    setConnection(true);
+    const caso = elemento("ejemplo-seguimiento").value;
+    const res = await fetch(`${servidor()}/api/prediccion/estudiantes/ejemplos/${encodeURIComponent(caso)}`, { cache: "no-store" });
+    const datos = await res.json();
+    if (!res.ok) throw new Error(typeof datos.detail === "string" ? datos.detail : "No se pudo cargar el ejemplo.");
+    elemento("entrada").value = JSON.stringify(datos, null, 2);
+    entradas.seguimiento = elemento("entrada").value;
+    elemento("estado").textContent = "Ejemplo SINTÉTICO cargado. Puedes editarlo y evaluar.";
   } catch (error) {
-    setConnection(false);
-    elements.feedback.textContent = error.message;
+    elemento("entrada").value = "";
+    elemento("estado").textContent = `No se pudo cargar: ${error.message}. También puedes importar un JSON sintético de ejemplos/.`;
+  } finally { ocupar(false); }
+}
+elemento("motor").addEventListener("change", async () => {
+  entradas[motorActual] = elemento("entrada").value;
+  motorActual = elemento("motor").value;
+  const seguimiento = motorActual === "seguimiento";
+  elemento("controles-seguimiento").hidden = !seguimiento;
+  elemento("controles-examen").hidden = seguimiento;
+  elemento("descripcion-indice").textContent = seguimiento
+    ? "Prioridad heurística de seguimiento máxima entre las sesiones evaluadas / 100. No predice notas ni diagnósticos."
+    : "Índice heurístico de revisión / 100. No es una probabilidad.";
+  elemento("ayuda").textContent = seguimiento
+    ? "Solo demostraciones simulado=true. No cargues datos reales: falta autenticación. La identidad requiere una referencia explícita revisada."
+    : "Si combinas fechas de IMAGEN con VIDEO, indica imagen.origen_temporal. La calidad no se normaliza automáticamente.";
+  limpiarResultado();
+  elemento("estado").textContent = "";
+  elemento("entrada").value = entradas[motorActual] || "";
+  if (seguimiento && !entradas.seguimiento) await cargarEjemplo();
+});
+elemento("cargar-ejemplo").addEventListener("click", cargarEjemplo);
+function lista(contenedor, titulo, textos) {
+  if (!textos.length) return;
+  const encabezado = document.createElement("h4"); encabezado.textContent = titulo;
+  const ul = document.createElement("ul");
+  for (const texto of textos) { const li = document.createElement("li"); li.textContent = texto; ul.append(li); }
+  contenedor.append(encabezado, ul);
+}
+function mostrarSeguimiento(salida) {
+  const contenedor = elemento("resultados-estudiantes");
+  const validos = salida.resultados.filter(r => r.indice_prioridad !== null);
+  const maximo = validos.reduce((a, b) => !a || b.indice_prioridad > a.indice_prioridad ? b : a, null);
+  elemento("indice").textContent = maximo ? maximo.indice_prioridad.toString() : "—";
+  elemento("nivel").textContent = `DEMO SINTÉTICA · ${maximo ? maximo.nivel_revision : "datos insuficientes"}`;
+  elemento("recomendacion").textContent = "Prioridades para revisión humana. Los avisos son sugerencias: no se envían mensajes ni se guardan historiales.";
+  for (const r of salida.resultados) {
+    const articulo = document.createElement("article"); articulo.className = "resultado-estudiante";
+    const titulo = document.createElement("h3"); titulo.textContent = `${r.nombre || r.estudiante_id} · ${r.sesion_id}`;
+    const nivel = document.createElement("p"); nivel.textContent = `${r.actividad} · ${r.nivel_revision.replaceAll("_", " ")} · prioridad ${r.indice_prioridad ?? "sin datos"}`;
+    articulo.append(titulo, nivel);
+    lista(articulo, "Reglas activadas", r.reglas_activadas.map(x => `${x.regla} (+${x.puntos}): ${x.explicacion} Referencias: ${x.referencias.join(", ")}`));
+    if (!r.reglas_activadas.length) lista(articulo, "Reglas", ["No se activaron reglas de alerta."]);
+    for (const [modulo, evidencias] of Object.entries(r.evidencia_por_modulo)) {
+      lista(articulo, `Evidencia · ${modulo}`, evidencias.map(e => {
+        const tiempo = e.fecha_hora || e.fecha || "";
+        const dato = e.valor ?? e.estado ?? "";
+        return `${e.id || e.tipo} · ${dato}${e.presente === false ? " (ausencia explícita)" : ""} · ${tiempo} · origen: ${e.origen}${e.confianza != null ? ` · confianza: ${e.confianza} · calidad: ${e.calidad}` : ""}`;
+      }));
+    }
+    lista(articulo, "Datos faltantes", r.datos_faltantes);
+    lista(articulo, "Contradicciones por resolver", r.contradicciones);
+    lista(articulo, "Límites de esta evaluación", r.limitaciones);
+    lista(articulo, "Recomendaciones", r.recomendaciones);
+    lista(articulo, "Destinatarios sugeridos", r.avisar_a.length ? r.avisar_a : ["Sin aviso automático; siempre revisión humana."]);
+    contenedor.append(articulo);
   }
+  lista(contenedor, "Observaciones sin atribuir", salida.observaciones_sin_atribuir.map(o => `${o.modulo} · ${o.id}: ${o.motivo}`));
+  lista(contenedor, "Observaciones descartadas", salida.observaciones_descartadas.map(o => `${o.modulo} · ${o.id}: ${o.motivo}`));
+  lista(contenedor, "Control de duplicados", [`${salida.duplicados_omitidos} retransmisiones idénticas omitidas.`]);
+  lista(contenedor, "Limitaciones", salida.limitaciones);
 }
-
-function normalizeSource(data, type) {
-  const source = data[type] || data;
-  if (source && Array.isArray(source.frames)) return source;
-  throw new Error(`El archivo no contiene resultados válidos de ${type.toUpperCase()}.`);
-}
-
-async function loadFile(file, type) {
-  if (!file) return;
+elemento("archivo").addEventListener("change", async (evento) => {
+  const archivo = evento.target.files[0];
+  if (!archivo) return;
   try {
-    const data = JSON.parse(await file.text());
-    state[type] = normalizeSource(data, type);
-    const frameCount = state[type].frames.length;
-    const status = type === 'video' ? elements.videoStatus : elements.imageStatus;
-    const source = type === 'video' ? elements.videoSource : elements.imageSource;
-    status.textContent = `${file.name} · ${frameCount} ${frameCount === 1 ? 'fotograma' : 'fotogramas'}`;
-    source.classList.add('loaded');
-    elements.feedback.textContent = 'Archivo cargado correctamente.';
-  } catch (error) {
-    elements.feedback.textContent = error.message;
-  }
-}
-
-function setDemo() {
-  state.video = structuredClone(demoPayload.video);
-  state.imagen = structuredClone(demoPayload.imagen);
-  elements.allowed.value = 'libro';
-  elements.videoStatus.textContent = 'Demostración · 1 fotograma';
-  elements.imageStatus.textContent = 'Demostración · 1 fotograma';
-  elements.videoSource.classList.add('loaded');
-  elements.imageSource.classList.add('loaded');
-  elements.feedback.textContent = 'Caso de demostración listo para analizar.';
-}
-
-function clearAll() {
-  state.video = null;
-  state.imagen = null;
-  elements.videoFile.value = '';
-  elements.imageFile.value = '';
-  elements.allowed.value = '';
-  elements.videoStatus.textContent = 'Seleccionar archivo JSON';
-  elements.imageStatus.textContent = 'Seleccionar archivo JSON';
-  elements.videoSource.classList.remove('loaded');
-  elements.imageSource.classList.remove('loaded');
-  elements.feedback.textContent = 'Carga al menos un resultado para comenzar.';
-  elements.emptyResult.hidden = false;
-  elements.predictionResult.hidden = true;
-}
-
-function riskText(level) {
-  return {
-    alto: 'Las señales requieren atención prioritaria y revisión de la evidencia.',
-    moderado: 'Se encontraron señales que conviene revisar antes de tomar una decisión.',
-    bajo: 'Las señales detectadas presentan un nivel bajo de revisión.',
-    datos_insuficientes: 'No hay información válida suficiente para generar una evaluación.',
-  }[level] || 'Resultado disponible para revisión.';
-}
-
-function renderModalities(data) {
-  const target = document.querySelector('#modalities');
-  target.replaceChildren();
-  for (const name of ['imagen', 'video', 'audio']) {
-    const chip = document.createElement('span');
-    const available = data.modalidades_disponibles.includes(name);
-    chip.className = available ? 'chip available' : 'chip missing';
-    chip.textContent = `${available ? '✓' : '○'} ${moduleLabel(name)}`;
-    target.append(chip);
-  }
-}
-
-function renderEvidence(items) {
-  const target = document.querySelector('#evidence');
-  target.replaceChildren();
-  if (!items.length) {
-    const empty = document.createElement('p');
-    empty.className = 'no-evidence';
-    empty.textContent = 'No se encontraron señales que requieran revisión.';
-    target.append(empty);
-    return;
-  }
-  for (const item of items) {
-    const row = document.createElement('div');
-    row.className = 'evidence-item';
-    const icon = document.createElement('span');
-    icon.className = 'evidence-icon';
-    icon.textContent = '!';
-    const copy = document.createElement('div');
-    const title = document.createElement('strong');
-    title.textContent = item.senal.replaceAll('_', ' ');
-    const detail = document.createElement('small');
-    detail.textContent = `${item.modalidades.map(moduleLabel).join(' + ')} · ${item.explicacion}`;
-    copy.append(title, detail);
-    const score = document.createElement('strong');
-    score.className = 'evidence-score';
-    score.textContent = item.indice.toFixed(1);
-    row.append(icon, copy, score);
-    target.append(row);
-  }
-}
-
-function renderResult(data) {
-  const value = data.indice_revision ?? 0;
-  const level = data.nivel_revision;
-  const ring = document.querySelector('#score-ring');
-  ring.style.setProperty('--score', `${value}%`);
-  ring.dataset.level = level;
-  document.querySelector('#score').textContent = value.toFixed(1);
-  const badge = document.querySelector('#risk-badge');
-  badge.className = `risk-badge ${level}`;
-  badge.textContent = level.replaceAll('_', ' ');
-  document.querySelector('#risk-title').textContent = level === 'datos_insuficientes' ? 'Información insuficiente' : `Revisión ${level}`;
-  document.querySelector('#risk-description').textContent = riskText(level);
-  document.querySelector('#source-count').textContent = data.integracion.fuentes_recibidas.length;
-  document.querySelector('#event-count').textContent = data.integracion.eventos_generados;
-  document.querySelector('#evidence-count').textContent = data.evidencia.length;
-  document.querySelector('#recommendation').textContent = data.recomendacion;
-  document.querySelector('#result-time').textContent = `Actualizado ${new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`;
-  renderModalities(data);
-  renderEvidence(data.evidencia);
-  elements.emptyResult.hidden = true;
-  elements.predictionResult.hidden = false;
-}
-
-async function analyze() {
-  const body = currentPayload();
-  if (!body.video && !body.imagen) {
-    elements.feedback.textContent = 'Carga un resultado de VIDEO o IMAGEN antes de continuar.';
-    return;
-  }
-  elements.analyze.disabled = true;
-  elements.analyze.textContent = 'Analizando…';
-  elements.feedback.textContent = 'Integrando señales y evaluando evidencia…';
+    if (archivo.size > 2 * 1024 * 1024) throw new Error("El JSON supera 2 MB.");
+    const texto = await archivo.text();
+    JSON.parse(texto);
+    elemento("entrada").value = texto;
+    elemento("estado").textContent = `Archivo cargado: ${archivo.name}. Selecciona su formato antes de evaluar.`;
+  } catch (error) { elemento("estado").textContent = error.message; }
+});
+elemento("ejecutar").addEventListener("click", async () => {
+  if (enCurso) return;
   try {
-    const response = await fetch(`${API_BASE}/api/prediccion/integrar`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(body),
+    const datos = JSON.parse(elemento("entrada").value);
+    const formato = elemento("formato").value;
+    const seguimiento = elemento("motor").value === "seguimiento";
+    const cuerpo = !seguimiento && ["imagen", "video"].includes(formato) ? { [formato]: datos } : datos;
+    const base = servidor();
+    const ruta = seguimiento ? "/api/prediccion/estudiantes" : (formato === "interno" ? "/api/prediccion" : "/api/prediccion/integrar");
+    ocupar(true);
+    limpiarResultado();
+    elemento("estado").textContent = "Evaluando señales…";
+    elemento("nivel").textContent = "Evaluando";
+    elemento("indice").textContent = "—";
+    elemento("recomendacion").textContent = "";
+    elemento("salida").textContent = "";
+    const respuesta = await fetch(`${base}${ruta}`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cuerpo)
     });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || 'No se pudo generar la predicción.');
-    renderResult(data);
-    elements.feedback.textContent = 'Predicción generada correctamente.';
+    const salida = await respuesta.json();
+    if (!respuesta.ok) throw new Error(typeof salida.detail === "string" ? salida.detail : JSON.stringify(salida.detail || salida));
+    elemento("salida").textContent = JSON.stringify(salida, null, 2);
+    if (seguimiento) mostrarSeguimiento(salida);
+    else {
+      elemento("nivel").textContent = (salida.nivel_revision || "datos_insuficientes").replaceAll("_", " ");
+      elemento("indice").textContent = salida.indice_revision == null ? "—" : salida.indice_revision.toLocaleString("es-PE");
+      elemento("recomendacion").textContent = salida.recomendacion;
+    }
+    elemento("estado").textContent = "Evaluación completada. Verifica la evidencia con una persona responsable.";
   } catch (error) {
-    elements.feedback.textContent = error.message;
-  } finally {
-    elements.analyze.disabled = false;
-    elements.analyze.innerHTML = 'Generar predicción <span>→</span>';
-  }
-}
-
-elements.videoFile.addEventListener('change', () => loadFile(elements.videoFile.files[0], 'video'));
-elements.imageFile.addEventListener('change', () => loadFile(elements.imageFile.files[0], 'imagen'));
-elements.demo.addEventListener('click', setDemo);
-elements.reset.addEventListener('click', clearAll);
-elements.analyze.addEventListener('click', analyze);
-
-clearAll();
-checkConnection();
+    limpiarResultado();
+    elemento("estado").textContent = `No se pudo evaluar: ${error.message}`;
+    elemento("nivel").textContent = "Sin resultado válido";
+    elemento("indice").textContent = "—";
+    elemento("recomendacion").textContent = "Corrige la entrada y vuelve a evaluar.";
+    elemento("salida").textContent = "";
+  } finally { ocupar(false); }
+});

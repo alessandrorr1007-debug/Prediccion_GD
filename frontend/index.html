@@ -3,99 +3,70 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Panel de predicción multimodal AulaPredict">
-  <title>AulaPredict · Centro de predicción</title>
-  <link rel="stylesheet" href="style.css">
+  <title>AulaPredict · Integración de resultados</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="/" aria-label="AulaPredict">
-      <span class="brand-mark">AP</span>
-      <span><strong>AulaPredict</strong><small>Centro de predicción</small></span>
-    </a>
-    <span class="connection"><i id="connection-dot"></i><span id="connection-text">Conectando…</span></span>
-  </header>
-
+  <header><span class="marca">AulaPredict</span><span>PREDICCIÓN / INTEGRACIÓN</span></header>
   <main>
-    <section class="hero">
-      <div>
-        <span class="eyebrow">PREDICCIÓN MULTIMODAL</span>
-        <h1>Convierte señales en decisiones informadas.</h1>
-        <p>Integra los resultados de imagen y video, revisa la evidencia y obtén una recomendación clara para el docente.</p>
-      </div>
+    <section class="introduccion">
+      <p class="etiqueta">RESULTADOS EXTERNOS · REGLAS EXPLICABLES</p>
+      <h1>De las señales a la revisión humana</h1>
+      <p>Dos motores independientes: supervisión de exámenes y seguimiento académico por estudiante. Recibe resultados externos; no entrena modelos ni analiza medios. AUDIO está pendiente.</p>
     </section>
-
-    <div class="layout">
-      <section class="card input-card">
-        <div class="section-heading">
-          <span class="step">01</span>
-          <div><h2>Resultados de los equipos</h2><p>Carga los archivos JSON exportados por cada módulo.</p></div>
+    <div class="paneles">
+      <section aria-labelledby="entrada-titulo">
+        <h2 id="entrada-titulo">1. Recibir resultados</h2>
+        <label for="servidor">Dirección del servicio</label>
+        <input id="servidor" type="url" placeholder="http://localhost:8001">
+        <label for="motor">Motor de análisis</label>
+        <select id="motor">
+          <option value="examen">Supervisión de exámenes</option>
+          <option value="seguimiento">Seguimiento por estudiante · demo sintética local</option>
+        </select>
+        <div id="controles-seguimiento" hidden>
+          <label for="ejemplo-seguimiento">Escenario sintético</label>
+          <select id="ejemplo-seguimiento">
+            <option value="juan">Juan Pérez · concurrencia de factores</option>
+            <option value="sin_alerta">Sin alerta</option>
+            <option value="identidad_desconocida">Identidad desconocida</option>
+            <option value="insuficientes">Datos insuficientes</option>
+            <option value="contradictorio">Observaciones contradictorias</option>
+            <option value="duplicados">Eventos duplicados</option>
+            <option value="aislado">Observación aislada</option>
+            <option value="cambio_patron">Cambio en observaciones históricas</option>
+          </select>
+          <button id="cargar-ejemplo" type="button">Cargar ejemplo sintético</button>
+          <p class="ayuda">Solo datos ficticios. La identidad requiere una asociación revisada por evento y sesión. No hay autenticación ni almacenamiento; no cargues datos reales. Disponible solo mediante conexión local directa.</p>
         </div>
-
-        <div class="sources">
-          <label class="source" id="video-source">
-            <input type="file" id="video-file" accept="application/json,.json">
-            <span class="source-icon video-icon">▶</span>
-            <span class="source-copy"><strong>Resultado de VIDEO</strong><small id="video-status">Seleccionar archivo JSON</small></span>
-            <span class="source-action">Cargar</span>
-          </label>
-          <label class="source" id="image-source">
-            <input type="file" id="image-file" accept="application/json,.json">
-            <span class="source-icon image-icon">◇</span>
-            <span class="source-copy"><strong>Resultado de IMAGEN</strong><small id="image-status">Seleccionar archivo JSON</small></span>
-            <span class="source-action">Cargar</span>
-          </label>
-          <div class="source disabled">
-            <span class="source-icon audio-icon">◖</span>
-            <span class="source-copy"><strong>Resultado de AUDIO</strong><small>Pendiente de integración</small></span>
-            <span class="source-action">Próximamente</span>
-          </div>
+        <div id="controles-examen">
+        <label for="formato">Formato de entrada</label>
+        <select id="formato">
+          <option value="integracion">Entrada conjunta (imagen / video)</option>
+          <option value="imagen">Exportación de IMAGEN</option>
+          <option value="video">Alerta o fotogramas de VIDEO</option>
+          <option value="interno">Eventos normalizados del motor</option>
+        </select>
         </div>
-
-        <label class="allowed-label" for="allowed">Materiales permitidos en el examen</label>
-        <input class="allowed-input" id="allowed" placeholder="Ejemplo: libro, cuaderno" autocomplete="off">
-
-        <div class="buttons">
-          <button class="primary" id="analyze">Generar predicción <span>→</span></button>
-          <button class="secondary" id="demo">Usar demostración</button>
-          <button class="text-button" id="reset">Limpiar</button>
-        </div>
-        <p class="feedback" id="feedback">Carga al menos un resultado para comenzar.</p>
+        <label for="archivo">Importar JSON del equipo</label>
+        <input id="archivo" type="file" accept=".json,application/json">
+        <label for="entrada">JSON editable</label>
+        <textarea id="entrada" rows="20" spellcheck="false" aria-describedby="ayuda"></textarea>
+        <p id="ayuda" class="ayuda">El ejemplo inicial es sintético. Si combinas fechas de IMAGEN con VIDEO, indica imagen.origen_temporal. Las métricas de calidad no se convierten automáticamente a 0–1.</p>
+        <button id="ejecutar" type="button">Evaluar señales</button>
+        <p id="estado" role="status" aria-live="polite"></p>
       </section>
-
-      <section class="card result-card" aria-live="polite">
-        <div id="empty-result" class="empty-result">
-          <span class="empty-icon">⌁</span>
-          <h2>La predicción aparecerá aquí</h2>
-          <p>Usa resultados reales de los equipos o carga el caso de demostración.</p>
-        </div>
-
-        <div id="prediction-result" hidden>
-          <div class="section-heading result-heading">
-            <span class="step">02</span>
-            <div><h2>Resultado de la sesión</h2><p id="result-time">Análisis completado</p></div>
-          </div>
-
-          <div class="score-block">
-            <div class="score-ring" id="score-ring"><div><strong id="score">0</strong><small>/ 100</small></div></div>
-            <div class="score-copy"><span class="risk-badge" id="risk-badge">Sin datos</span><h3 id="risk-title">Nivel de revisión</h3><p id="risk-description"></p></div>
-          </div>
-
-          <div class="metrics">
-            <div><small>Fuentes recibidas</small><strong id="source-count">0</strong></div>
-            <div><small>Eventos procesados</small><strong id="event-count">0</strong></div>
-            <div><small>Evidencias</small><strong id="evidence-count">0</strong></div>
-          </div>
-
-          <div class="result-section"><h3>Modalidades</h3><div class="chips" id="modalities"></div></div>
-          <div class="result-section"><h3>Evidencia encontrada</h3><div class="evidence-list" id="evidence"></div></div>
-          <div class="recommendation"><span>Recomendación</span><p id="recommendation"></p></div>
-        </div>
+      <section aria-labelledby="salida-titulo">
+        <h2 id="salida-titulo">2. Revisar evidencia</h2>
+        <div class="resumen"><span id="nivel">Sin evaluar</span><strong id="indice">—</strong><p id="descripcion-indice">Índice heurístico de revisión / 100. No es una probabilidad.</p></div>
+        <p id="recomendacion">Carga los resultados y evalúa las señales para ver su explicación.</p>
+        <div id="resultados-estudiantes" aria-live="polite"></div>
+        <h3>Respuesta completa</h3>
+        <pre id="salida" tabindex="0">La respuesta del servicio aparecerá aquí.</pre>
       </section>
     </div>
+    <footer>Siempre requiere revisión humana. No constituye un diagnóstico ni una sanción. Emociones e identidad de IMAGEN aún no están disponibles en el contrato recibido.</footer>
   </main>
-
-  <footer><span>AulaPredict · Equipo de Predicción</span><span>La decisión final siempre corresponde a una persona.</span></footer>
-  <script src="app.js"></script>
 </body>
 </html>

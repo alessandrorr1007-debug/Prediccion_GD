@@ -1,0 +1,51 @@
+{
+  "_nota": "SINTÉTICO, no proviene de una captura real. Esquema de exportacion.py en eddc6234; pendiente de validación por IMAGEN.",
+  "modulo": "IMAGEN",
+  "fuente": "VIDEO (SistemaSupervisionExamenes)",
+  "generado": "2026-10-15T10:00:02",
+  "total_frames": 1,
+  "frames": [
+    {
+      "frame_id": 0,
+      "origen": "alerta_telefono_2026-10-15_10-00-00.jpg",
+      "timestamp": "2026-10-15 10:00:00",
+      "ancho": 640,
+      "alto": 480,
+      "alerta_video": {"objeto": "telefono", "fecha": "2026-10-15 10:00:00", "objeto_redetectado": true},
+      "calidad": {
+        "capturado": {"brillo": 100.0, "contraste": 35.0, "nitidez": 90.0, "ruido": 2.5, "entropia": 6.0},
+        "mejorado": {"brillo": 115.0, "contraste": 40.0, "nitidez": 120.0, "ruido": 2.0, "entropia": 6.3}
+      },
+      "resumen": {
+        "detecciones_video": 1,
+        "confirmadas": 1,
+        "no_confirmadas": 0,
+        "objetos_no_permitidos_video": ["telefono"],
+        "recuperadas": 0,
+        "no_detectadas": 0,
+        "comparacion_video": {
+          "detecciones_antes": 1, "detecciones_despues": 1,
+          "confianza_media_antes": 0.82, "confianza_media_despues": 0.88,
+          "mantenidas": 1, "perdidas": 0, "solo_tras_procesamiento": 0,
+          "variacion_confianza_mantenidas": 0.06
+        }
+      },
+      "objetos": [
+        {
+          "id": 0, "clase": "telefono", "x1": 100, "y1": 100, "x2": 140, "y2": 180,
+          "confianza_video": 0.82, "confianza_capturada": 0.82, "confianza_procesada": 0.88,
+          "variacion_confianza": 0.06, "estado": "confirmada", "iou_verificacion": 0.9,
+          "caracteristicas": {
+            "ancho_px": 40, "alto_px": 80, "area_px": 3200, "area_relativa": 0.01042,
+            "centro_x": 0.1875, "centro_y": 0.2917, "zona": "superior-izquierda", "relacion_aspecto": 0.5,
+            "area_contorno": 2800.0, "perimetro": 230.0, "circularidad": 0.6651,
+            "solidez": 0.95, "relleno_caja": 0.875, "vertices_aprox": 4,
+            "color_dominante": "negro", "brillo_region": 35.0, "contraste_region": 12.0,
+            "nitidez_region": 120.0, "densidad_bordes": 0.15,
+            "persona_asociada": null, "proporcion_dentro_persona": 0.0, "distancia_a_persona": null
+          }
+        }
+      ]
+    }
+  ]
+}

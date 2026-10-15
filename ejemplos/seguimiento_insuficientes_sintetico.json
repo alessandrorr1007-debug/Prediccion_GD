@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "simulado": true,
+  "descripcion": "SINTÉTICO: estudiante inscrito, sin observaciones ni historial académico disponible.",
+  "estudiantes": [
+    {
+      "estudiante_id": "demo-juan",
+      "nombre": "Juan Pérez",
+      "sesiones": [
+        "demo-01"
+      ]
+    }
+  ],
+  "sesiones": [
+    {
+      "sesion_id": "demo-01",
+      "actividad": "clase",
+      "inicio": "2026-10-15T10:00:00-05:00",
+      "segundo_actual": 60,
+      "objetos_permitidos": []
+    }
+  ],
+  "observaciones": [],
+  "historial": [],
+  "asociaciones": [],
+  "contextos": []
+}

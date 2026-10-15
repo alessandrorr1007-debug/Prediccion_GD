@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "simulado": true,
+  "descripcion": "SINTÉTICO: detecciones sin vínculo verificado; no se atribuyen a Juan.",
+  "estudiantes": [
+    {
+      "estudiante_id": "demo-juan",
+      "nombre": "Juan Pérez",
+      "sesiones": [
+        "demo-01"
+      ]
+    }
+  ],
+  "sesiones": [
+    {
+      "sesion_id": "demo-01",
+      "actividad": "clase",
+      "inicio": "2026-10-15T10:00:00-05:00",
+      "segundo_actual": 60,
+      "objetos_permitidos": []
+    }
+  ],
+  "observaciones": [
+    {
+      "id": "video:demo-1",
+      "sesion_id": "demo-01",
+      "modulo": "video",
+      "segundo": 10,
+      "fecha_hora": "2026-10-15T10:00:10-05:00",
+      "origen": "observacion_VIDEO_SINTETICA",
+      "tipo": "objeto",
+      "valor": "telefono",
+      "presente": true,
+      "confianza": 0.92,
+      "calidad": 0.8,
+      "evidencia_id": "captura-demo-1"
+    },
+    {
+      "id": "video:demo-2",
+      "sesion_id": "demo-01",
+      "modulo": "video",
+      "segundo": 20,
+      "fecha_hora": "2026-10-15T10:00:20-05:00",
+      "origen": "observacion_VIDEO_SINTETICA",
+      "tipo": "objeto",
+      "valor": "telefono",
+      "presente": true,
+      "confianza": 0.92,
+      "calidad": 0.8,
+      "evidencia_id": "captura-demo-2"
+    },
+    {
+      "id": "video:demo-3",
+      "sesion_id": "demo-01",
+      "modulo": "video",
+      "segundo": 30,
+      "fecha_hora": "2026-10-15T10:00:30-05:00",
+      "origen": "observacion_VIDEO_SINTETICA",
+      "tipo": "objeto",
+      "valor": "telefono",
+      "presente": true,
+      "confianza": 0.92,
+      "calidad": 0.8,
+      "evidencia_id": "captura-demo-3"
+    }
+  ],
+  "historial": [],
+  "asociaciones": [],
+  "contextos": []
+}

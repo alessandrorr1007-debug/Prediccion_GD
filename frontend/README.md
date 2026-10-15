@@ -1,15 +1,23 @@
-# AulaPredict · Frontend
+# Frontend de integración
 
-Interfaz estática para probar la integración de IMAGEN, VIDEO y PREDICCIÓN mediante JSON.
+Interfaz de PREDICCIÓN para importar o editar JSON de IMAGEN/VIDEO y consultar evidencia.
+Sirve desde FastAPI en http://localhost:8001; permite configurar la dirección del servicio.
 
-## Conexión
+Formatos: entrada conjunta para `/api/prediccion/integrar`, exportación IMAGEN,
+alerta/fotogramas VIDEO y eventos normalizados para `/api/prediccion`.
+Para JSON sueltos de un módulo selecciona su formato: la interfaz crea el envoltorio correspondiente.
 
-- Servida por el backend en el puerto `8001`, usa rutas `/api` del mismo origen.
-- Abierta localmente desde otro servidor, usa `http://127.0.0.1:8001`.
-- Desplegada en Render, usa `https://prediccion-backend-dwq9.onrender.com`.
+No solicita cámara ni micrófono, ni sube medios para inferencia. AUDIO sigue pendiente.
+El ejemplo inicial es sintético; el índice es heurístico y exige revisión humana.
 
-El backend debe incluir el dominio del sitio en `FRONTEND_ORIGINS`. El valor predeterminado ya permite `https://prediccion-frontend.onrender.com`.
+El selector de motor permite **Supervisión de exámenes** o **Seguimiento por estudiante**.
+El segundo carga ocho ejemplos desde `/api/prediccion/estudiantes/ejemplos/{caso}`,
+envía `/api/prediccion/estudiantes` y presenta evidencias por módulo/contexto,
+identidad, reglas, datos faltantes, contradicciones, prioridad y recomendaciones.
+Conserva entradas separadas al alternar motores; no guarda datos en el navegador.
+Solo demo sintética local: no cargar datos reales ni exponer mediante proxies/túneles.
+El POST B carece de autenticación y rechaza accesos remotos. Los avisos solo se sugieren.
 
-## Render
-
-Crear un **Static Site** con la rama `main`, sin comando de compilación y con `.` como directorio público.
+Pruebas funcionales del controlador con API real y DOM mínimo:
+`node --test tests/test_frontend.cjs`. No sustituyen revisión visual en navegador.
+La interfaz anterior se conserva en el respaldo externo descrito en `docs/ORDEN_Y_ARCHIVO.md`.

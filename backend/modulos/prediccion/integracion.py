@@ -14,7 +14,7 @@ def integrar_fuentes(datos):
         eventos.extend(adaptar_video(datos["video"]))
         fuentes.append("video")
     if datos.get("imagen") is not None:
-        eventos.extend(adaptar_imagen(datos["imagen"]))
+        eventos.extend(adaptar_imagen(datos["imagen"], exigir_origen_temporal=datos.get("video") is not None))
         fuentes.append("imagen")
     if datos.get("audio") is not None:
         raise ValueError("El adaptador de audio está pendiente hasta recibir su repositorio y contrato")

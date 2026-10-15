@@ -1,0 +1,54 @@
+{
+  "_nota": "SINTÉTICO: reproduce el contrato de modulos/registro.py; pendiente de validar con una salida real de VIDEO.",
+  "schema_version": 1,
+  "modulo": "VIDEO",
+  "evento_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "clase": "telefono",
+  "fecha_captura": "2026-10-15T10:00:02.000-05:00",
+  "frame_id": 20,
+  "origen": "aula.mp4",
+  "timestamp": 2.0,
+  "ancho": 320,
+  "alto": 240,
+  "coordenadas": "xyxy_pixeles_imagen_original",
+  "imagen": "alerta_telefono_2026-10-15_10-00-02_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg",
+  "persona_id": 1,
+  "evento": {
+    "evento_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "tipo": "celular_visible",
+    "tiempo_video_seg": 2.0,
+    "confirmacion_video_seg": 2.4,
+    "inicio_video_seg": 2.0,
+    "evidencia_seg": 0.4,
+    "fotogramas": 5,
+    "persona_id": 1,
+    "persona": {"clase": "persona", "confianza": 0.9, "x1": 0, "y1": 0, "x2": 100, "y2": 200, "persona_id": 1, "munecas": []},
+    "telefono": {"clase": "telefono", "confianza": 0.9, "x1": 45, "y1": 90, "x2": 65, "y2": 120, "telefono_id": 1},
+    "telefono_id": 1,
+    "muneca": null,
+    "distancia_muneca_px": null,
+    "asociacion": "proximidad",
+    "tiempo_hasta_confirmacion_seg": 0.4
+  },
+  "detecciones": [
+    {"clase": "persona", "confianza": 0.9, "x1": 0, "y1": 0, "x2": 100, "y2": 200},
+    {"clase": "telefono", "confianza": 0.9, "x1": 45, "y1": 90, "x2": 65, "y2": 120, "telefono_id": 1}
+  ],
+  "personas_seguidas": [
+    {"clase": "persona", "confianza": 0.9, "x1": 0, "y1": 0, "x2": 100, "y2": 200, "persona_id": 1, "munecas": []}
+  ],
+  "modelos": {"yolov8n.pt": "0000000000000000000000000000000000000000000000000000000000000000"},
+  "parametros": {
+    "TIEMPO_ALERTA": 0.4,
+    "MIN_FOTOGRAMAS_CONFIRMACION": 3,
+    "TOLERANCIA_PERDIDA_SEG": 1.5,
+    "TOLERANCIA_SEGUIMIENTO_SEG": 3.0,
+    "MAX_INTERVALO_EVIDENCIA_SEG": 0.75,
+    "HILOS_CPU": 4,
+    "TAMANO_INFERENCIA": 640,
+    "IOU_SEGUIMIENTO": 0.2,
+    "IOU_TELEFONO": 0.1,
+    "UMBRAL": {"persona": 0.4, "mochila": 0.15, "telefono": 0.25, "audifonos": 0.15, "reloj": 0.15, "cuaderno": 0.8, "libro": 0.8, "laptop": 0.25},
+    "usar_pose": false
+  }
+}

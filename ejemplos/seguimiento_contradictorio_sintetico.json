@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "simulado": true,
+  "descripcion": "SINTÉTICO: una muestra opuesta correlacionada y estados de tarea contradictorios; se excluyen.",
+  "estudiantes": [
+    {
+      "estudiante_id": "demo-juan",
+      "nombre": "Juan Pérez",
+      "sesiones": [
+        "demo-01"
+      ]
+    }
+  ],
+  "sesiones": [
+    {
+      "sesion_id": "demo-01",
+      "actividad": "clase",
+      "inicio": "2026-10-15T10:00:00-05:00",
+      "segundo_actual": 60,
+      "objetos_permitidos": []
+    }
+  ],
+  "observaciones": [
+    {
+      "id": "video:demo-1",
+      "sesion_id": "demo-01",
+      "modulo": "video",
+      "segundo": 10,
+      "fecha_hora": "2026-10-15T10:00:10-05:00",
+      "origen": "observacion_VIDEO_SINTETICA",
+      "tipo": "objeto",
+      "valor": "telefono",
+      "presente": true,
+      "confianza": 0.92,
+      "calidad": 0.8,
+      "evidencia_id": "captura-demo-1"
+    },
+    {
+      "id": "video:demo-2",
+      "sesion_id": "demo-01",
+      "modulo": "video",
+      "segundo": 20,
+      "fecha_hora": "2026-10-15T10:00:20-05:00",
+      "origen": "observacion_VIDEO_SINTETICA",
+      "tipo": "objeto",
+      "valor": "telefono",
+      "presente": true,
+      "confianza": 0.92,
+      "calidad": 0.8,
+      "evidencia_id": "captura-demo-2"
+    },
+    {
+      "id": "video:demo-3",
+      "sesion_id": "demo-01",
+      "modulo": "video",
+      "segundo": 30,
+      "fecha_hora": "2026-10-15T10:00:30-05:00",
+      "origen": "observacion_VIDEO_SINTETICA",
+      "tipo": "objeto",
+      "valor": "telefono",
+      "presente": true,
+      "confianza": 0.92,
+      "calidad": 0.8,
+      "evidencia_id": "captura-demo-3"
+    },
+    {
+      "id": "imagen:demo-opuesta",
+      "sesion_id": "demo-01",
+      "modulo": "imagen",
+      "segundo": 10,
+      "fecha_hora": "2026-10-15T10:00:10-05:00",
+      "origen": "observacion_IMAGEN_SINTETICA",
+      "tipo": "objeto",
+      "valor": "telefono",
+      "presente": false,
+      "confianza": 0.92,
+      "calidad": 0.8,
+      "evidencia_id": "captura-demo-1"
+    }
+  ],
+  "historial": [],
+  "asociaciones": [
+    {
+      "observacion_id": "video:demo-1",
+      "modulo": "video",
+      "sesion_id": "demo-01",
+      "estudiante_id": "demo-juan",
+      "metodo": "revision_manual",
+      "referencia": "revision_SINTETICA_captura_1",
+      "verificada": true,
+      "confianza": 0.99
+    },
+    {
+      "observacion_id": "video:demo-2",
+      "modulo": "video",
+      "sesion_id": "demo-01",
+      "estudiante_id": "demo-juan",
+      "metodo": "revision_manual",
+      "referencia": "revision_SINTETICA_captura_2",
+      "verificada": true,
+      "confianza": 0.99
+    },
+    {
+      "observacion_id": "video:demo-3",
+      "modulo": "video",
+      "sesion_id": "demo-01",
+      "estudiante_id": "demo-juan",
+      "metodo": "revision_manual",
+      "referencia": "revision_SINTETICA_captura_3",
+      "verificada": true,
+      "confianza": 0.99
+    },
+    {
+      "observacion_id": "imagen:demo-opuesta",
+      "modulo": "imagen",
+      "sesion_id": "demo-01",
+      "estudiante_id": "demo-juan",
+      "metodo": "revision_manual",
+      "referencia": "revision_SINTETICA_captura_1",
+      "verificada": true,
+      "confianza": 0.99
+    }
+  ],
+  "contextos": [
+    {
+      "estudiante_id": "demo-juan",
+      "sesion_id": "demo-01",
+      "origen": "historial_academico_SINTETICO",
+      "asistencia": [
+        {
+          "id": "asistencia-10",
+          "fecha": "2026-10-10",
+          "estado": "presente"
+        },
+        {
+          "id": "asistencia-11",
+          "fecha": "2026-10-11",
+          "estado": "presente"
+        },
+        {
+          "id": "asistencia-12",
+          "fecha": "2026-10-12",
+          "estado": "presente"
+        },
+        {
+          "id": "asistencia-13",
+          "fecha": "2026-10-13",
+          "estado": "presente"
+        },
+        {
+          "id": "asistencia-14",
+          "fecha": "2026-10-14",
+          "estado": "presente"
+        }
+      ],
+      "tareas": [
+        {
+          "id": "tarea-1",
+          "fecha": "2026-10-14",
+          "estado": "pendiente"
+        },
+        {
+          "id": "tarea-1",
+          "fecha": "2026-10-14",
+          "estado": "entregada"
+        }
+      ],
+      "reuniones": [],
+      "evaluacion_proxima": false
+    }
+  ]
+}
