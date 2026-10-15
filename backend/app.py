@@ -44,6 +44,48 @@ def modulos():
     return {"modulos": salida}
 
 
+from fastapi import HTTPException, Request
+from starlette.concurrency import run_in_threadpool
+from backend.modulos.vision_service import procesar_frame, _obtener_ruta_modelo
+
+
+@app.get("/api/vision/estado")
+def vision_estado():
+    ruta_yolo = _obtener_ruta_modelo()
+    return {
+        "estado": "listo",
+        "modelo_yolo_disponible": bool(ruta_yolo and ruta_yolo.is_file()),
+        "ruta_modelo_yolo": str(ruta_yolo) if ruta_yolo else None,
+        "mejora_imagen": "CLAHE + Unsharp + Contraste activo",
+        "seguimiento_facial": "HaarCascade + Geometría + Landmarks",
+        "emociones": ["alegria", "neutral", "tristeza", "estres", "fatiga"],
+        "prediccion_academica": "Escala 0-20 explicable"
+    }
+
+
+@app.post("/api/vision/analizar")
+async def vision_analizar(request: Request):
+    try:
+        cuerpo = await request.json()
+    except Exception:
+        raise HTTPException(400, "Cuerpo JSON inválido")
+
+    imagen_b64 = cuerpo.get("imagen_b64")
+    if not imagen_b64 or not isinstance(imagen_b64, str):
+        raise HTTPException(422, "Se requiere imagen_b64 en formato base64")
+
+    modo = cuerpo.get("modo", "en_vivo")
+    aplicar_mejora = bool(cuerpo.get("aplicar_mejora", True))
+    segundos = float(cuerpo.get("segundos_distraccion", 0.0))
+
+    try:
+        return await run_in_threadpool(
+            procesar_frame, imagen_b64, modo, aplicar_mejora, segundos
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Error en procesamiento de visión: {str(e)}")
+
+
 app.mount("/", StaticFiles(directory=RAIZ / "frontend", html=True), name="prueba-local")
 
 

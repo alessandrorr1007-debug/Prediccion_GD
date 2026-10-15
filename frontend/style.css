@@ -712,6 +712,411 @@ span#nivel.alerta-alta {
 }
 
 /* ==========================================================================
+   Modo Selector, Toggle de Mejora y Calidad de Imagen (Módulo IMAGEN)
+   ========================================================================== */
+.panel-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mode-pill-selector {
+  display: inline-flex;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  padding: 2px;
+  gap: 2px;
+}
+
+.mode-pill {
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.mode-pill.active {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.3), rgba(99, 102, 241, 0.3));
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  color: #38bdf8;
+  font-weight: 600;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+}
+
+.enhancement-toggle-wrap {
+  display: flex;
+  align-items: center;
+}
+
+.switch-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(45, 212, 191, 0.3);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--transition-fast);
+}
+
+.switch-pill:hover {
+  background: rgba(19, 78, 74, 0.3);
+  border-color: rgba(45, 212, 191, 0.6);
+}
+
+.switch-pill input {
+  display: none;
+}
+
+.switch-slider {
+  width: 28px;
+  height: 16px;
+  background: #334155;
+  border-radius: 999px;
+  position: relative;
+  transition: all var(--transition-fast);
+}
+
+.switch-slider::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border-radius: 50%;
+  transition: all var(--transition-fast);
+}
+
+.switch-pill input:checked + .switch-slider {
+  background: #0d9488;
+  box-shadow: 0 0 8px rgba(20, 184, 166, 0.6);
+}
+
+.switch-pill input:checked + .switch-slider::after {
+  transform: translateX(12px);
+}
+
+.switch-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #ccfbf1;
+  letter-spacing: 0.2px;
+}
+
+/* Barra de Métricas de Calidad de Imagen */
+.quality-metrics-bar {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: rgba(3, 7, 18, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  z-index: 10;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.quality-metric-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+}
+
+.q-label {
+  color: var(--text-muted);
+}
+
+.q-val {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: #38bdf8;
+}
+
+/* Vista de Comparación Antes / Después en Frame HD */
+.comparison-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: #030712;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.comparison-overlay img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+}
+
+.comp-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(13, 148, 136, 0.9);
+  color: #ccfbf1;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(45, 212, 191, 0.5);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.btn-close-comp {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(15, 23, 42, 0.85);
+  color: #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-close-comp:hover {
+  background: rgba(239, 68, 68, 0.8);
+  border-color: #ef4444;
+  color: #fff;
+}
+
+/* ==========================================================================
+   Panel de Emociones con Porcentajes en Vivo (5 Emociones Normalizadas)
+   ========================================================================== */
+.emotions-card-section {
+  background: rgba(11, 17, 32, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.section-subheading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.dominant-tag {
+  background: rgba(14, 165, 233, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.emotions-bars-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.emotion-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.emotion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.emotion-name {
+  color: var(--text-secondary);
+}
+
+.emotion-pct {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.bar-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(15, 23, 42, 0.8);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bar-alegria {
+  background: linear-gradient(90deg, #059669, #10b981);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+}
+
+.bar-neutral {
+  background: linear-gradient(90deg, #0284c7, #06b6d4);
+  box-shadow: 0 0 8px rgba(6, 182, 212, 0.4);
+}
+
+.bar-tristeza {
+  background: linear-gradient(90deg, #4338ca, #6366f1);
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.4);
+}
+
+.bar-estres {
+  background: linear-gradient(90deg, #d97706, #f59e0b);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+}
+
+.bar-fatiga {
+  background: linear-gradient(90deg, #db2777, #f43f5e);
+  box-shadow: 0 0 8px rgba(244, 63, 94, 0.4);
+}
+
+/* ==========================================================================
+   Motor de Predicción Profunda (Psicológica, Conductual y Académica)
+   ========================================================================== */
+.deep-predictions-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.deep-prediction-card {
+  background: rgba(9, 14, 26, 0.75);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color var(--transition-fast);
+}
+
+.personal-prediction {
+  border-left: 3px solid #818cf8;
+}
+
+.video-prediction {
+  border-left: 3px solid #38bdf8;
+}
+
+.deep-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deep-card-icon {
+  font-size: 14px;
+}
+
+.deep-card-title {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.deep-card-content {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.status-stable {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
+.status-safe {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.status-alert {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.status-critical {
+  background: rgba(244, 63, 94, 0.2);
+  color: #f43f5e;
+  border: 1px solid rgba(244, 63, 94, 0.4);
+}
+
+/* Escala Visual de Calificación (Examen Parcial 0 - 20) */
+.grade-meter-scale {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px 0 8px;
+}
+
+.grade-meter-track {
+  width: 100%;
+  height: 8px;
+  background: linear-gradient(90deg, #f43f5e 0%, #fbbf24 45%, #10b981 85%);
+  border-radius: var(--radius-full);
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.grade-meter-fill {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 4px;
+  background: #ffffff;
+  border-radius: 2px;
+  box-shadow: 0 0 10px #ffffff, 0 0 4px #38bdf8;
+  transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.grade-meter-labels {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
    Collapsible Technical Drawer (Preserva el contrato para la suite de tests)
    ========================================================================== */
 .technical-drawer {

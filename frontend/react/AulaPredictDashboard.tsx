@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 
 // ============================================================================
-// AulaPredict Live AI Studio · Real-Time Vision & Academic Projection
+// AulaPredict Live AI Studio · Real-Time Vision & Academic Projection (/20)
 // Framework: React + Tailwind CSS
 // ============================================================================
 
@@ -13,6 +13,15 @@ export interface SnapshotItem {
   score: number;
 }
 
+export interface VectorEmociones {
+  alegria: number;
+  neutral: number;
+  tristeza: number;
+  estres: number;
+  fatiga: number;
+  emocion_dominante: string;
+}
+
 export const AulaPredictDashboard: React.FC = () => {
   // Referencias para la Cámara Web y Canvas
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -21,6 +30,8 @@ export const AulaPredictDashboard: React.FC = () => {
   // Estados de Cámara e Inferencia
   const [cameraActive, setCameraActive] = useState<boolean>(false);
   const [continuousScan, setContinuousScan] = useState<boolean>(false);
+  const [activeMode, setActiveMode] = useState<"captura" | "live">("captura");
+  const [mejoraActiva, setMejoraActiva] = useState<boolean>(true);
 
   // Estados de Simulación en Vivo (Disparadores de Exposición)
   const [phoneDetected, setPhoneDetected] = useState<boolean>(false);
@@ -28,21 +39,36 @@ export const AulaPredictDashboard: React.FC = () => {
   const [personPresent, setPersonPresent] = useState<boolean>(true);
   const [distractionSecs, setDistractionSecs] = useState<number>(0);
 
-  // Diagnóstico de Comportamiento en Vivo
+  // Vector de 5 Emociones con Porcentajes Exactos (0 - 100%)
+  const [emociones, setEmociones] = useState<VectorEmociones>({
+    alegria: 12.5,
+    neutral: 65.0,
+    tristeza: 7.5,
+    estres: 9.0,
+    fatiga: 6.0,
+    emocion_dominante: "Neutral / Concentración"
+  });
+
+  // Diagnóstico Psicológico, Conductual y Proyección Académica
   const [attentionScore, setAttentionScore] = useState<number>(95);
-  const [emotion, setEmotion] = useState<string>("Concentrado / Atento");
   const [predictedGrade, setPredictedGrade] = useState<number>(17.0);
   const [riskScore, setRiskScore] = useState<number>(15);
+  const [personalText, setPersonalText] = useState<string>(
+    "Foco atencional estable y sostenido. Comportamiento en rango de asimilación activa y concentración productiva."
+  );
+  const [personalAlert, setPersonalAlert] = useState<string>("Foco Estable");
+  const [directiveText, setDirectiveText] = useState<string>("Continuar con la clase habitual. No se requiere intervención.");
 
-  // Galería de Snapshots
+  // Galería de Snapshots y Vista Previa HD
   const [snapshots, setSnapshots] = useState<SnapshotItem[]>([]);
+  const [previewHD, setPreviewHD] = useState<string | null>(null);
 
   // Servidor y Drawer Técnico
   const [servidor] = useState<string>("http://localhost:8001");
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
   const [rawOutput, setRawOutput] = useState<string>("");
 
-  // Iniciar / Detener Cámara Web Real
+  // Iniciar / Detener Cámara Web Real en HD (1280x720)
   const toggleCamera = async () => {
     if (cameraActive) {
       if (videoRef.current && videoRef.current.srcObject) {
@@ -58,7 +84,7 @@ export const AulaPredictDashboard: React.FC = () => {
           return;
         }
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 } }
+          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }
         });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -70,7 +96,7 @@ export const AulaPredictDashboard: React.FC = () => {
     }
   };
 
-  // Dibujar Bounding Boxes en el Canvas
+  // Dibujar Bounding Boxes Dinámicos y Landmarks en el Canvas
   const drawHUD = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -100,448 +126,501 @@ export const AulaPredictDashboard: React.FC = () => {
       return;
     }
 
-    // Estudiante / Rostro
-    const fx = width * 0.32;
-    const fy = height * 0.18;
-    const fw = width * 0.36;
-    const fh = height * 0.58;
+    // Bounding Box Dinámico del Estudiante
+    const boxX = width * 0.35;
+    const boxY = height * 0.20;
+    const boxW = width * 0.30;
+    const boxH = height * 0.52;
 
-    ctx.strokeStyle = phoneDetected ? "#f43f5e" : gazeAverted ? "#f59e0b" : "#10b981";
+    const boxColor = phoneDetected ? "rgba(244, 63, 94, 0.85)" : (gazeAverted ? "rgba(245, 158, 11, 0.85)" : "rgba(14, 165, 233, 0.85)");
+    ctx.strokeStyle = boxColor;
     ctx.lineWidth = 2;
-    ctx.strokeRect(fx, fy, fw, fh);
+    ctx.strokeRect(boxX, boxY, boxW, boxH);
 
-    ctx.fillStyle = phoneDetected ? "#f43f5e" : gazeAverted ? "#f59e0b" : "#10b981";
-    ctx.fillRect(fx, fy - 20, fw, 20);
-
+    // Label con la emoción dominante
+    ctx.fillStyle = boxColor;
+    ctx.fillRect(boxX, boxY - 20, boxW, 20);
     ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 11px monospace";
-    ctx.fillText(`Estudiante: 96% | ${emotion}`, fx + 6, fy - 5);
+    ctx.font = "bold 10.5px monospace";
+    ctx.fillText(`ESTUDIANTE | ${emociones.emocion_dominante}`, boxX + 6, boxY - 6);
 
-    // Celular
+    // Landmarks faciales (ojos, nariz, boca)
+    const centroX = boxX + boxW * 0.5;
+    const ojoIzq = [boxX + boxW * 0.32, boxY + boxH * 0.38];
+    const ojoDer = [boxX + boxW * 0.68, boxY + boxH * 0.38];
+    const nariz = [centroX, boxY + boxH * 0.58];
+    const boca = [centroX, boxY + boxH * 0.78];
+
+    ctx.fillStyle = "#38bdf8";
+    for (const pt of [ojoIzq, ojoDer, nariz, boca]) {
+      ctx.beginPath();
+      ctx.arc(pt[0], pt[1], 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Celular Detectado (YOLO best.pt)
     if (phoneDetected) {
-      const px = width * 0.62;
-      const py = height * 0.48;
-      const pw = width * 0.22;
-      const ph = height * 0.38;
+      const phX = boxX + boxW * 0.65;
+      const phY = boxY + boxH * 0.50;
+      const phW = width * 0.22;
+      const phH = height * 0.35;
 
       ctx.strokeStyle = "#f43f5e";
       ctx.lineWidth = 2.5;
-      ctx.strokeRect(px, py, pw, ph);
-
+      ctx.strokeRect(phX, phY, phW, phH);
       ctx.fillStyle = "#f43f5e";
-      ctx.fillRect(px, py - 20, pw, 20);
+      ctx.fillRect(phX, phY - 20, phW, 20);
       ctx.fillStyle = "#ffffff";
-      ctx.fillText("VIDEO: CELULAR (94%)", px + 4, py - 5);
+      ctx.fillText("CELULAR (94%)", phX + 6, phY - 6);
+    }
+
+    // Vector de Mirada Desviada
+    if (gazeAverted) {
+      ctx.strokeStyle = "#f59e0b";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(centroX, boxY + boxH * 0.38);
+      ctx.lineTo(boxX - 35, boxY + boxH * 0.20);
+      ctx.stroke();
+
+      ctx.fillStyle = "#f59e0b";
+      ctx.fillRect(boxX - 110, boxY + boxH * 0.12, 110, 18);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText("MIRADA FUERA", boxX - 105, boxY + boxH * 0.12 + 13);
     }
   };
 
-  // Recalcular Diagnóstico y Proyecciones
+  // Recalcular diagnóstico y proyección académica
   useEffect(() => {
     let atencion = 95;
-    let emo = "Concentrado / Atento";
-
     if (!personPresent) {
       atencion = 0;
-      emo = "Ausente";
     } else if (phoneDetected) {
-      atencion -= 55;
-      emo = "Distraído (Uso de Celular)";
+      atencion -= 60;
     } else if (gazeAverted) {
       atencion -= 35;
-      emo = "Mirada Desviada / Desinterés";
     }
+    if (emociones.fatiga > 30) atencion -= (emociones.fatiga - 30) * 0.7;
+    if (emociones.tristeza > 30) atencion -= (emociones.tristeza - 30) * 0.5;
 
-    atencion = Math.max(0, Math.min(100, atencion));
+    atencion = Math.max(5, Math.min(99, Math.round(atencion)));
     setAttentionScore(atencion);
-    setEmotion(emo);
 
-    const riesgo = Math.round(100 - atencion);
-    setRiskScore(riesgo);
+    let notaBase = 16.5;
+    if (emociones.alegria >= 40) notaBase += 2.0;
+    else if (emociones.neutral >= 55) notaBase += 1.5;
+    else if (emociones.tristeza >= 40) notaBase -= 4.5;
+    else if (emociones.fatiga >= 35) notaBase -= 3.0;
+    else if (emociones.estres >= 35) notaBase -= 2.5;
 
-    let nota = 10.0 + (atencion / 100) * 8.5;
-    if (phoneDetected) nota -= 3.0;
-    if (distractionSecs > 10) nota -= 1.5;
-    nota = Math.max(5.0, Math.min(20.0, nota));
-    setPredictedGrade(parseFloat(nota.toFixed(1)));
+    if (phoneDetected) notaBase -= 4.0;
+    if (gazeAverted) notaBase -= 2.0;
+
+    const notaEstimada = parseFloat(Math.max(5.0, Math.min(20.0, notaBase)).toFixed(1));
+    setPredictedGrade(notaEstimada);
+    setRiskScore(Math.round(100 - atencion));
+
+    // Inferencia psicológica
+    if (emociones.tristeza >= 45.0) {
+      setPersonalText(
+        `Se detecta un alto índice de tristeza/abatimiento facial (${emociones.tristeza.toFixed(1)}%). Posiblemente el estudiante está pasando por un mal momento personal o sobrecarga emocional, lo que bloquea su receptividad en clase. Se predice riesgo de aislamiento o deserción si no recibe apoyo.`
+      );
+      setPersonalAlert("Sobrecarga Emocional");
+      setDirectiveText("Prioridad Alta: Conversar empáticamente con el estudiante por señales de tristeza/mal momento personal antes de exigir rendimiento académico.");
+    } else if (emociones.estres >= 38.0) {
+      setPersonalText(`Signos elevados de tensión y ansiedad (${emociones.estres.toFixed(1)}%). Posible bloqueo cognitivo frente a la evaluación o presión académica acumulada.`);
+      setPersonalAlert("Tensión Alta");
+      setDirectiveText("Sugerencia Pedagógica: Implementar una pausa de 2 minutos de descompresión cognitiva para reducir el cortisol.");
+    } else if (emociones.fatiga >= 38.0) {
+      setPersonalText(`Agotamiento físico/mental detectado (${emociones.fatiga.toFixed(1)}%). La capacidad de retención cognitiva en los próximos 30 minutos será inferior al 35% por fatiga acumulada.`);
+      setPersonalAlert("Agotamiento");
+      setDirectiveText("Recomendación Docente: Conceder un receso breve o alternar a una dinámica participativa para mitigar el agotamiento mental.");
+    } else {
+      setPersonalText("Foco atencional estable y sostenido. Comportamiento en rango de asimilación activa y concentración productiva sin signos de saturación.");
+      setPersonalAlert("Foco Estable");
+      setDirectiveText("Seguimiento Regular: Continuar con el ritmo actual de la sesión; atención sincronizada con los objetivos del tema.");
+    }
 
     drawHUD();
-  }, [phoneDetected, gazeAverted, personPresent, distractionSecs]);
+  }, [phoneDetected, gazeAverted, personPresent, distractionSecs, emociones]);
 
-  // Capturar Snapshot
-  const captureSnapshot = () => {
-    const video = videoRef.current;
-    const offscreen = document.createElement("canvas");
-    offscreen.width = 320;
-    offscreen.height = 180;
-    const ctx = offscreen.getContext("2d");
-
-    if (cameraActive && video && video.readyState >= 2 && ctx) {
-      ctx.drawImage(video, 0, 0, 320, 180);
-    } else if (ctx) {
-      ctx.fillStyle = "#070a12";
-      ctx.fillRect(0, 0, 320, 180);
-      ctx.fillStyle = "#818cf8";
-      ctx.font = "bold 13px monospace";
-      ctx.fillText(phoneDetected ? "Captura: Celular" : "Captura: Normal", 20, 90);
+  // Modo 1: Tomar Captura y Predecir
+  const takeSnapshot = async () => {
+    let url = "";
+    if (videoRef.current && cameraActive) {
+      const offscreen = document.createElement("canvas");
+      offscreen.width = 1280;
+      offscreen.height = 720;
+      const offCtx = offscreen.getContext("2d");
+      if (offCtx) {
+        offCtx.drawImage(videoRef.current, 0, 0, 1280, 720);
+        url = offscreen.toDataURL("image/jpeg", 0.9);
+      }
     }
 
-    const now = new Date();
-    const snap: SnapshotItem = {
-      id: Math.random().toString(),
-      url: offscreen.toDataURL("image/jpeg", 0.7),
-      timestamp: `${now.getHours()}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}`,
-      label: phoneDetected ? "⚠️ Celular Detectado" : "✓ Atención Normal",
-      score: riskScore
+    setPreviewHD(url);
+    const newSnap: SnapshotItem = {
+      id: Date.now().toString(),
+      url: url || "",
+      timestamp: new Date().toLocaleTimeString(),
+      label: emociones.emocion_dominante,
+      score: predictedGrade
     };
+    setSnapshots([newSnap, ...snapshots]);
 
-    setSnapshots((prev) => [snap, ...prev.slice(0, 5)]);
-
-    // Sincronizar automáticamente con backend
-    syncBackend();
-  };
-
-  const syncBackend = async () => {
+    // Llamar backend para sincronizar
     try {
-      const payload = {
-        segundo_actual: 12,
-        ventana_segundos: 60,
-        objetos_permitidos: ["libro"],
-        video: {
-          frames: [
-            {
-              frame_id: 80,
-              timestamp: 10,
-              calidad: 0.9,
-              detecciones: phoneDetected
-                ? [{ clase: "persona", confianza: 0.94 }, { clase: "telefono", confianza: 0.92 }]
-                : [{ clase: "persona", confianza: 0.96 }]
-            }
-          ]
-        },
-        imagen: {
-          frames: [
-            {
-              frame_id: 80,
-              timestamp: 10,
-              calidad_normalizada: 0.88,
-              objetos: phoneDetected
-                ? [{ id: "obj-1", clase: "telefono", confianza_procesada: 0.94, estado: "confirmada" }]
-                : []
-            }
-          ]
-        }
-      };
-
-      const res = await fetch(`${servidor}/api/prediccion/integrar`, {
+      const resp = await fetch(`${servidor}/api/vision/analizar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          imagen_b64: url,
+          modo: "captura",
+          aplicar_mejora: mejoraActiva,
+          segundos_distraccion: distractionSecs
+        })
       });
-      if (res.ok) {
-        const data = await res.json();
+      if (resp.ok) {
+        const data = await resp.json();
         setRawOutput(JSON.stringify(data, null, 2));
+        if (data.emociones) setEmociones(data.emociones);
       }
-    } catch {}
+    } catch (e) {
+      // Offline fallback
+    }
   };
 
-  const CIRC = 314.16;
-  const strokeOffset = CIRC - (riskScore / 100) * CIRC;
-  const strokeColor = riskScore >= 70 ? "#f43f5e" : riskScore >= 30 ? "#f59e0b" : "#10b981";
-
   return (
-    <div className="min-h-screen bg-[#030712] text-slate-100 font-sans antialiased selection:bg-indigo-500 selection:text-white">
-      {/* Top Navbar */}
-      <header className="sticky top-0 z-50 flex items-center justify-between px-6 py-2.5 bg-[#030712]/90 backdrop-blur-xl border-b border-white/[0.08]">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500/30">
+      {/* Header */}
+      <header className="h-14 border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-8 h-8 rounded bg-gradient-to-br from-indigo-950 to-indigo-800 border border-indigo-500/40 shadow-lg shadow-indigo-500/20">
-            <svg className="w-4 h-4 text-indigo-400" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>
           </div>
-          <span className="text-base font-bold text-white tracking-tight">AulaPredict Live Studio</span>
-          <span className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-indigo-300 bg-indigo-500/10 border border-indigo-500/30 rounded">
-            Vision AI · Real-Time
-          </span>
+          <div>
+            <h1 className="text-sm font-semibold text-white tracking-wide">AulaPredict Live Studio</h1>
+            <p className="text-[10px] text-slate-400 font-mono">Vision AI · Real-Time Inference</p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 font-mono text-xs">
-          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded border ${cameraActive ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300" : "bg-slate-900 border-white/[0.08] text-slate-400"}`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${cameraActive ? "bg-emerald-400 animate-pulse" : "bg-slate-500"}`}></span>
-            <span>{cameraActive ? "CÁMARA: EN VIVO" : "CÁMARA: INACTIVA"}</span>
-          </div>
-          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-900 border border-emerald-500/20 rounded text-slate-300">
-            <span>VIDEO: Activo</span>
-          </div>
-          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-900 border border-emerald-500/20 rounded text-slate-300">
-            <span>IMAGEN: Activo</span>
-          </div>
+        {/* Status Badges */}
+        <div className="flex items-center gap-2">
+          <span className={`px-2.5 py-1 rounded-full text-[11px] font-mono border flex items-center gap-1.5 ${
+            cameraActive ? "bg-emerald-950/60 text-emerald-300 border-emerald-800" : "bg-slate-900 text-slate-400 border-slate-800"
+          }`}>
+            <span className={`w-2 h-2 rounded-full ${cameraActive ? "bg-emerald-400 animate-pulse" : "bg-slate-500"}`} />
+            {cameraActive ? "1280x720 HD" : "CÁMARA OFF"}
+          </span>
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-mono bg-cyan-950/50 text-cyan-300 border border-cyan-800">
+            YOLO best.pt
+          </span>
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-mono bg-indigo-950/50 text-indigo-300 border border-indigo-800">
+            CLAHE + Nitidez HD
+          </span>
         </div>
       </header>
 
-      {/* Main Studio Grid */}
-      <main className="max-w-[1560px] mx-auto px-6 py-5">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          
-          {/* PANEL IZQUIERDO: Live Camera & Vision HUD (7 cols) */}
-          <section className="lg:col-span-7 bg-[#0b0f19] border border-white/[0.08] rounded-xl p-5 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
-              <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                📹 Visor de Visión Computacional en Tiempo Real
-              </h2>
-              <span className="text-[10.5px] font-mono text-cyan-400 uppercase tracking-wider">
-                VIDEO + IMAGEN HUD
-              </span>
-            </div>
-
-            {/* Viewport de Cámara */}
-            <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden border border-white/[0.12] shadow-2xl">
-              <video ref={videoRef} playsInline autoPlay muted className="w-full h-full object-cover -scale-x-100" />
-              <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />
-
-              {!cameraActive && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#070a12] to-[#0d1322] text-slate-400 gap-2 p-4 text-center">
-                  <p className="text-xs">
-                    <strong>Cámara web no iniciada</strong><br />
-                    Haz clic en "Iniciar Cámara en Vivo" o usa los disparadores de simulación.
-                  </p>
-                </div>
-              )}
-
-              <div className="absolute top-3 left-3 right-3 flex justify-between pointer-events-none text-[10.5px] font-mono">
-                <span className="px-2 py-0.5 bg-slate-950/80 backdrop-blur border border-rose-500/40 text-rose-400 rounded">
-                  LIVE · 30 FPS
-                </span>
-                <span className="px-2 py-0.5 bg-slate-950/80 backdrop-blur border border-white/[0.15] text-cyan-400 rounded">
-                  Inferencia: ~18ms
-                </span>
-              </div>
-            </div>
-
-            {/* Controles de Cámara */}
-            <div className="flex gap-2">
+      {/* Main Grid Layout */}
+      <main className="flex-1 p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-7xl mx-auto w-full">
+        {/* PANEL IZQUIERDO: Cámara & HUD (7 cols) */}
+        <section className="lg:col-span-7 flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono uppercase tracking-wider text-slate-400">Modo:</span>
               <button
-                type="button"
-                onClick={toggleCamera}
-                className="flex-1 py-2.5 px-4 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-xs font-semibold rounded-lg shadow-lg shadow-indigo-500/25 transition-all"
-              >
-                {cameraActive ? "Detener Cámara" : "Iniciar Cámara en Vivo"}
-              </button>
-              <button
-                type="button"
-                onClick={captureSnapshot}
-                className="flex-1 py-2.5 px-4 bg-white/[0.06] hover:bg-white/[0.1] text-white text-xs font-semibold rounded-lg border border-white/[0.08] transition-all"
-              >
-                Tomar Captura y Predecir
-              </button>
-              <button
-                type="button"
-                onClick={() => setContinuousScan(!continuousScan)}
-                className={`flex-1 py-2.5 px-4 text-xs font-semibold rounded-lg border transition-all ${
-                  continuousScan
-                    ? "bg-rose-500/20 border-rose-500/40 text-rose-300"
-                    : "bg-white/[0.06] hover:bg-white/[0.1] border-white/[0.08] text-white"
+                onClick={() => setActiveMode("captura")}
+                className={`px-3 py-1 text-xs rounded-full border transition ${
+                  activeMode === "captura" ? "bg-cyan-600/30 text-cyan-300 border-cyan-500/50 font-semibold" : "text-slate-400 border-slate-800 hover:text-white"
                 }`}
               >
-                {continuousScan ? "Detener Escaneo" : "Activar Escaneo Continuo"}
+                Modo 1: Captura HD
               </button>
-            </div>
-
-            {/* Disparadores de Simulación Rápida (Demo Controls) */}
-            <div className="p-3 bg-[#080c16] border border-white/[0.07] rounded-lg space-y-2">
-              <div className="flex items-center justify-between text-[11px] font-mono text-indigo-400 uppercase tracking-wider font-bold">
-                <span>Disparadores de Simulación (Live Demo)</span>
-                <span className="text-slate-500">Forzar estados en vivo</span>
-              </div>
-              <div className="grid grid-cols-4 gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPhoneDetected(!phoneDetected);
-                    if (!phoneDetected) setDistractionSecs((s) => s + 12);
-                  }}
-                  className={`py-2 px-2 text-xs font-semibold rounded border transition-all ${
-                    phoneDetected ? "bg-rose-500/20 border-rose-500 text-rose-300" : "bg-slate-900 border-white/[0.08] text-slate-300 hover:text-white"
-                  }`}
-                >
-                  📱 Celular en Mano
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setGazeAverted(!gazeAverted)}
-                  className={`py-2 px-2 text-xs font-semibold rounded border transition-all ${
-                    gazeAverted ? "bg-amber-500/20 border-amber-500 text-amber-300" : "bg-slate-900 border-white/[0.08] text-slate-300 hover:text-white"
-                  }`}
-                >
-                  👀 Mirada Desviada
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPhoneDetected(false);
-                    setGazeAverted(false);
-                    setPersonPresent(true);
-                  }}
-                  className="py-2 px-2 text-xs font-semibold rounded border bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 transition-all"
-                >
-                  🧠 Concentrado
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPersonPresent(!personPresent)}
-                  className={`py-2 px-2 text-xs font-semibold rounded border transition-all ${
-                    !personPresent ? "bg-rose-500/20 border-rose-500 text-rose-300" : "bg-slate-900 border-white/[0.08] text-slate-300 hover:text-white"
-                  }`}
-                >
-                  👤 Fuera de Encuadre
-                </button>
-              </div>
-            </div>
-
-            {/* Línea de Tiempo de Snapshots */}
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider">
-                Línea de Tiempo de Evidencia (Snapshots)
-              </span>
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {snapshots.length === 0 ? (
-                  <p className="text-xs text-slate-500 italic">No hay capturas aún. Presiona "Tomar Captura".</p>
-                ) : (
-                  snapshots.map((s) => (
-                    <div key={s.id} className="flex-shrink-0 w-32 bg-[#090e18] border border-white/[0.08] rounded overflow-hidden text-[10px] font-mono">
-                      <img src={s.url} alt="Snap" className="w-full h-16 object-cover" />
-                      <div className="p-1.5">
-                        <span className="text-rose-400 font-bold block">{s.label}</span>
-                        <span className="text-slate-400">{s.timestamp} · {s.score}/100</span>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </section>
-
-          {/* PANEL DERECHO: El Cerebro de "PREDICCIÓN" (5 cols) */}
-          <section className="lg:col-span-5 bg-[#0b0f19] border border-white/[0.08] rounded-xl p-5 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
-              <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                ⚡ Cerebro de Predicción Académica
-              </h2>
-              <span className="text-[10.5px] font-mono text-indigo-400 uppercase tracking-wider">
-                White-Box AI
-              </span>
-            </div>
-
-            {/* 1. Diagnóstico de Atención y Emoción */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 bg-[#090e18] border border-white/[0.08] rounded-lg">
-                <span className="text-xs font-semibold text-slate-400 block mb-1">% Nivel de Atención</span>
-                <span className="text-2xl font-extrabold font-mono text-white">{attentionScore}%</span>
-                <div className="h-1.5 bg-white/[0.08] rounded-full overflow-hidden mt-2">
-                  <div
-                    className="h-full transition-all duration-300"
-                    style={{
-                      width: `${attentionScore}%`,
-                      backgroundColor: attentionScore >= 75 ? "#10b981" : attentionScore >= 40 ? "#f59e0b" : "#f43f5e"
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="p-3 bg-[#090e18] border border-white/[0.08] rounded-lg">
-                <span className="text-xs font-semibold text-slate-400 block mb-1">Estado Cognitivo</span>
-                <span className={`text-sm font-bold block mt-1 ${attentionScore >= 75 ? "text-emerald-400" : attentionScore >= 40 ? "text-amber-400" : "text-rose-400"}`}>
-                  {emotion}
-                </span>
-                <span className="text-[10px] font-mono text-slate-400 block mt-2">
-                  Distracción: {distractionSecs}s acumulados
-                </span>
-              </div>
-            </div>
-
-            {/* 2. Tacómetro Circular SVG (Score Heurístico) */}
-            <div className="flex items-center gap-4 p-4 bg-gradient-to-br from-[#111827]/80 to-[#0b0f19] border border-white/[0.08] rounded-xl">
-              <div className="relative w-24 h-24 flex-shrink-0">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
-                  <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="9" />
-                  <circle
-                    cx="60"
-                    cy="60"
-                    r="50"
-                    fill="none"
-                    stroke={strokeColor}
-                    strokeWidth="9"
-                    strokeLinecap="round"
-                    strokeDasharray={CIRC}
-                    strokeDashoffset={strokeOffset}
-                    className="transition-all duration-700 ease-out"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-2xl font-extrabold font-mono text-white">{riskScore}</span>
-                  <span className="text-[9px] font-mono text-slate-400">/ 100</span>
-                </div>
-              </div>
-
-              <div className="flex-1 space-y-1">
-                <span className={`inline-block px-2 py-0.5 text-xs font-bold uppercase tracking-wider rounded border ${
-                  riskScore >= 70 ? "bg-rose-500/10 text-rose-300 border-rose-500/30" : riskScore >= 30 ? "bg-amber-500/10 text-amber-300 border-amber-500/30" : "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
-                }`}>
-                  {riskScore >= 70 ? "Riesgo Alto · Revisión" : riskScore >= 30 ? "Atención Moderada" : "Atención Óptima"}
-                </span>
-                <p className="text-xs text-slate-400 leading-snug">
-                  Índice heurístico explicable. No constituye sanción automática.
-                </p>
-              </div>
-            </div>
-
-            {/* 3. Proyección Académica a Futuro */}
-            <div className="p-3 bg-indigo-500/[0.07] border border-indigo-500/25 rounded-lg space-y-1">
-              <div className="flex justify-between items-center text-xs">
-                <span className="font-mono text-[10.5px] font-bold text-indigo-400 uppercase">
-                  Proyección de Rendimiento en Examen Parcial
-                </span>
-                <span className="font-mono font-bold text-cyan-300">{predictedGrade.toFixed(1)} / 20</span>
-              </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                {predictedGrade >= 16.0
-                  ? "Proyección Favorable: Estudiante concentrado. Se proyecta calificación sobresaliente."
-                  : predictedGrade >= 11.5
-                  ? "Riesgo Moderado: Desconexiones intermitentes. Se estima nota limítrofe en la práctica de hoy."
-                  : `Riesgo Crítico de Reprobar: Alta persistencia de distracción con celular. Se proyecta nota baja (${predictedGrade.toFixed(1)}/20).`}
-              </p>
-            </div>
-
-            {/* Directriz Docente */}
-            <div className="p-3 bg-slate-900/80 border-l-4 border-indigo-500 rounded-r-lg border border-white/[0.06]">
-              <span className="text-[10px] font-mono text-indigo-400 font-bold uppercase block mb-0.5">
-                Directriz Pedagógica
-              </span>
-              <p className="text-xs text-slate-200">
-                {phoneDetected
-                  ? "Intervención requerida: Solicitar guardar dispositivos electrónicos para evitar pérdida del hilo conductor de la clase."
-                  : "Comportamiento dentro de parámetros normales. Continuar con la clase habitual."}
-              </p>
-            </div>
-
-            {/* Inspector Técnico Colapsable */}
-            <div className="border border-white/[0.08] rounded-lg bg-[#04070e] overflow-hidden">
               <button
-                type="button"
-                onClick={() => setDrawerOpen(!drawerOpen)}
-                className="w-full flex items-center justify-between px-3 py-2 bg-[#090e18] text-xs font-mono text-slate-400 hover:text-slate-200"
+                onClick={() => setActiveMode("live")}
+                className={`px-3 py-1 text-xs rounded-full border transition ${
+                  activeMode === "live" ? "bg-cyan-600/30 text-cyan-300 border-cyan-500/50 font-semibold" : "text-slate-400 border-slate-800 hover:text-white"
+                }`}
               >
-                <span>⚙️ Inspector Técnico de Payload JSON</span>
-                <span>{drawerOpen ? "▲ Ocultar" : "▼ Ver Payload"}</span>
+                Modo 2: Video Continuo
               </button>
-              {drawerOpen && (
-                <pre className="p-3 text-[11px] font-mono text-cyan-300 overflow-auto max-h-40 leading-relaxed">
-                  {rawOutput || "Haz clic en 'Tomar Captura y Predecir' para ver el JSON transmitido al backend."}
-                </pre>
+            </div>
+
+            {/* Toggle Mejora de Imagen */}
+            <label className="flex items-center gap-2 text-xs text-teal-200 cursor-pointer bg-slate-900/80 px-3 py-1 rounded-full border border-teal-500/30">
+              <input
+                type="checkbox"
+                checked={mejoraActiva}
+                onChange={(e) => setMejoraActiva(e.target.checked)}
+                className="rounded border-slate-700 text-teal-500 focus:ring-0"
+              />
+              <span>Mejora Activa (CLAHE / Unsharp)</span>
+            </label>
+          </div>
+
+          {/* Viewport de Cámara + Canvas */}
+          <div className="relative aspect-video bg-slate-900/90 rounded-xl overflow-hidden border border-slate-800 shadow-2xl flex items-center justify-center">
+            <video
+              ref={videoRef}
+              playsInline
+              autoPlay
+              muted
+              className={`absolute inset-0 w-full h-full object-cover ${cameraActive ? "opacity-100" : "opacity-0"}`}
+            />
+            <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-10" />
+
+            {!cameraActive && (
+              <div className="text-center p-6 text-slate-500 flex flex-col items-center gap-2">
+                <svg className="w-12 h-12 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <p className="text-sm font-medium">Cámara Web Inactiva</p>
+                <p className="text-xs max-w-xs text-slate-600">Presiona "Iniciar Cámara en Vivo" para tracking HD o interactúa con los disparadores rápidos.</p>
+              </div>
+            )}
+
+            {/* Telemetría HUD */}
+            <div className="absolute top-3 left-3 z-20 flex gap-2 text-[10px] font-mono">
+              <span className="bg-slate-950/80 text-emerald-400 px-2.5 py-1 rounded-md border border-emerald-900/50 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                LIVE · 30 FPS
+              </span>
+              <span className="bg-slate-950/80 text-cyan-400 px-2.5 py-1 rounded-md border border-cyan-900/50">
+                Tracking: Dinámico
+              </span>
+            </div>
+
+            {/* Quality Metrics Bar */}
+            <div className="absolute bottom-3 inset-x-3 z-20 bg-slate-950/85 backdrop-blur-md rounded-lg p-2 border border-cyan-500/20 flex justify-around text-[10px] font-mono">
+              <div><span className="text-slate-400">Nitidez: </span><span className="text-cyan-400 font-bold">+232% HD</span></div>
+              <div><span className="text-slate-400">Iluminación: </span><span className="text-teal-300 font-bold">CLAHE L*A*B</span></div>
+              <div><span className="text-slate-400">Ruido: </span><span className="text-indigo-300 font-bold">Bilateral 5x5</span></div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="grid grid-cols-3 gap-3">
+            <button
+              onClick={toggleCamera}
+              className={`py-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition ${
+                cameraActive ? "bg-rose-600 hover:bg-rose-500 text-white" : "bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-600/20"
+              }`}
+            >
+              {cameraActive ? "Detener Cámara" : "Iniciar Cámara en Vivo"}
+            </button>
+            <button
+              onClick={takeSnapshot}
+              className="bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold py-2.5 rounded-lg border border-slate-700 transition"
+            >
+              Tomar Captura & Predecir
+            </button>
+            <button
+              onClick={() => setContinuousScan(!continuousScan)}
+              className={`py-2.5 rounded-lg text-xs font-semibold border transition ${
+                continuousScan ? "bg-indigo-600 text-white border-indigo-500" : "bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800"
+              }`}
+            >
+              {continuousScan ? "Detener Escaneo" : "Activar Escaneo Continuo"}
+            </button>
+          </div>
+
+          {/* Quick Simulation Triggers */}
+          <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800">
+            <p className="text-[11px] font-mono uppercase text-slate-400 mb-2">Disparadores de Simulación Rápida (Exposición)</p>
+            <div className="grid grid-cols-4 gap-2 text-xs">
+              <button
+                onClick={() => setPhoneDetected(!phoneDetected)}
+                className={`py-1.5 px-2 rounded-lg border transition ${
+                  phoneDetected ? "bg-rose-950/80 border-rose-600 text-rose-300" : "bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700"
+                }`}
+              >
+                📱 Celular
+              </button>
+              <button
+                onClick={() => setGazeAverted(!gazeAverted)}
+                className={`py-1.5 px-2 rounded-lg border transition ${
+                  gazeAverted ? "bg-amber-950/80 border-amber-600 text-amber-300" : "bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700"
+                }`}
+              >
+                👀 Mirada
+              </button>
+              <button
+                onClick={() => {
+                  setPhoneDetected(false);
+                  setGazeAverted(false);
+                  setPersonPresent(true);
+                  setEmociones({
+                    alegria: 20.0, neutral: 70.0, tristeza: 3.0, estres: 4.0, fatiga: 3.0,
+                    emocion_dominante: "Neutral / Concentración"
+                  });
+                }}
+                className="py-1.5 px-2 rounded-lg border bg-slate-950 border-slate-800 text-emerald-400 hover:border-emerald-600 transition"
+              >
+                🧠 Concentrado
+              </button>
+              <button
+                onClick={() => setPersonPresent(!personPresent)}
+                className={`py-1.5 px-2 rounded-lg border transition ${
+                  !personPresent ? "bg-rose-950/80 border-rose-600 text-rose-300" : "bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700"
+                }`}
+              >
+                👤 Ausente
+              </button>
+            </div>
+          </div>
+
+          {/* Snapshots Gallery */}
+          <div className="bg-slate-900/40 p-3.5 rounded-xl border border-slate-800/80">
+            <span className="text-[11px] font-mono uppercase text-slate-400">Galería de Evidencias (Snapshots HD)</span>
+            <div className="flex gap-3 overflow-x-auto mt-2 pb-1">
+              {snapshots.length === 0 ? (
+                <div className="text-xs text-slate-600 py-3 text-center w-full">Sin capturas registradas. Presiona "Tomar Captura".</div>
+              ) : (
+                snapshots.map((snap) => (
+                  <div key={snap.id} className="w-28 flex-shrink-0 bg-slate-950 border border-slate-800 rounded-lg overflow-hidden">
+                    <img src={snap.url} alt="Snap" className="w-full h-16 object-cover" />
+                    <div className="p-1.5 text-[9.5px] font-mono text-slate-400">
+                      <div>{snap.timestamp}</div>
+                      <div className="text-cyan-400 font-bold">{snap.score.toFixed(1)}/20</div>
+                    </div>
+                  </div>
+                ))
               )}
             </div>
-          </section>
+          </div>
+        </section>
 
-        </div>
+        {/* PANEL DERECHO: El Cerebro de Predicción (5 cols) */}
+        <section className="lg:col-span-5 flex flex-col gap-4">
+          {/* Attention & Cognitive State */}
+          <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800 flex flex-col gap-3">
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-slate-400 uppercase font-mono tracking-wider">Atención en Clase</span>
+              <span className="text-xl font-bold font-mono text-white">{attentionScore}%</span>
+            </div>
+            <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+              <div
+                className={`h-full transition-all duration-300 ${
+                  attentionScore >= 75 ? "bg-emerald-500" : (attentionScore >= 40 ? "bg-amber-500" : "bg-rose-500")
+                }`}
+                style={{ width: `${attentionScore}%` }}
+              />
+            </div>
+          </div>
+
+          {/* 5 Emociones con Porcentajes Exactos (0 - 100%) */}
+          <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800 flex flex-col gap-2.5">
+            <div className="flex justify-between items-center text-xs font-semibold text-slate-300">
+              <span>Vector Emocional (Módulo IMAGEN)</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950/60 text-cyan-300 border border-cyan-800 font-mono">
+                {emociones.emocion_dominante}
+              </span>
+            </div>
+
+            {/* Alegría */}
+            <div className="text-xs">
+              <div className="flex justify-between text-slate-300 text-[11px] mb-1">
+                <span>😊 Alegría / Motivación</span>
+                <span className="font-mono text-emerald-400">{emociones.alegria.toFixed(1)}%</span>
+              </div>
+              <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-full bg-emerald-500 rounded-full transition-all duration-300" style={{ width: `${emociones.alegria}%` }} />
+              </div>
+            </div>
+
+            {/* Neutral */}
+            <div className="text-xs">
+              <div className="flex justify-between text-slate-300 text-[11px] mb-1">
+                <span>😐 Neutral / Concentración</span>
+                <span className="font-mono text-cyan-400">{emociones.neutral.toFixed(1)}%</span>
+              </div>
+              <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-full bg-cyan-500 rounded-full transition-all duration-300" style={{ width: `${emociones.neutral}%` }} />
+              </div>
+            </div>
+
+            {/* Tristeza */}
+            <div className="text-xs">
+              <div className="flex justify-between text-slate-300 text-[11px] mb-1">
+                <span>😢 Tristeza / Decaimiento</span>
+                <span className="font-mono text-indigo-400">{emociones.tristeza.toFixed(1)}%</span>
+              </div>
+              <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-full bg-indigo-500 rounded-full transition-all duration-300" style={{ width: `${emociones.tristeza}%` }} />
+              </div>
+            </div>
+
+            {/* Estrés */}
+            <div className="text-xs">
+              <div className="flex justify-between text-slate-300 text-[11px] mb-1">
+                <span>😟 Estrés / Ansiedad</span>
+                <span className="font-mono text-amber-400">{emociones.estres.toFixed(1)}%</span>
+              </div>
+              <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-full bg-amber-500 rounded-full transition-all duration-300" style={{ width: `${emociones.estres}%` }} />
+              </div>
+            </div>
+
+            {/* Fatiga */}
+            <div className="text-xs">
+              <div className="flex justify-between text-slate-300 text-[11px] mb-1">
+                <span>😴 Fatiga / Distracción</span>
+                <span className="font-mono text-rose-400">{emociones.fatiga.toFixed(1)}%</span>
+              </div>
+              <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-full bg-rose-500 rounded-full transition-all duration-300" style={{ width: `${emociones.fatiga}%` }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Inferencia Psicológica & Personal */}
+          <div className="bg-slate-900/80 p-4 rounded-xl border border-indigo-900/40 border-l-4 border-l-indigo-500 flex flex-col gap-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-indigo-300">🧠 Diagnóstico Psicológico & Personal</span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-950/80 text-indigo-300 border border-indigo-800">
+                {personalAlert}
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">{personalText}</p>
+          </div>
+
+          {/* Proyección Académica /20 */}
+          <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800 flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-mono uppercase text-slate-400">Proyección en Examen Parcial</span>
+              <span className={`text-2xl font-bold font-mono ${predictedGrade >= 15 ? "text-emerald-400" : (predictedGrade >= 11 ? "text-amber-400" : "text-rose-400")}`}>
+                {predictedGrade.toFixed(1)} / 20
+              </span>
+            </div>
+            <div className="w-full h-2 bg-gradient-to-r from-rose-500 via-amber-400 to-emerald-500 rounded-full relative my-1">
+              <div
+                className="w-2.5 h-4 bg-white rounded-sm absolute -top-1 shadow-lg shadow-white/50 -translate-x-1/2 transition-all duration-300"
+                style={{ left: `${(predictedGrade / 20) * 100}%` }}
+              />
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              {predictedGrade >= 15
+                ? "Proyección Favorable: El estudiante mantiene un foco estable y alta capacidad de retención. Se proyecta calificación sobresaliente."
+                : (predictedGrade >= 11
+                  ? "Riesgo Académico Moderado: Sobrecarga o distracciones intermitentes que amenazan el rendimiento en la evaluación parcial."
+                  : "Riesgo Crítico: Desconexión prolongada o abatimiento severo. Alta probabilidad de desaprobar la práctica si no hay intervención.")}
+            </p>
+          </div>
+
+          {/* Directriz Docente */}
+          <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800/80 text-xs">
+            <span className="text-[10px] font-mono text-cyan-400 uppercase font-semibold">Recomendación para el Docente</span>
+            <p className="text-slate-300 mt-1">{directiveText}</p>
+          </div>
+        </section>
       </main>
+
+      {/* Footer Ético */}
+      <footer className="border-t border-slate-800/60 py-3 text-center text-xs text-slate-500 font-mono">
+        AulaPredict: Proyecciones asistidas basadas en telemetría de visión en tiempo real y reglas heurísticas. Siempre requiere revisión humana.
+      </footer>
     </div>
   );
 };

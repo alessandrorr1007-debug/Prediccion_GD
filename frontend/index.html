@@ -14,8 +14,11 @@
       <div class="brand-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
       </div>
-      <span class="marca">AulaPredict Live Studio</span>
-      <span class="badge-studio">Vision AI · Real-Time</span>
+      <div class="brand-text">
+        <span class="marca">AulaPredict Live Studio</span>
+        <span class="brand-sub">Módulo de Predicción Multimodal & Visión en Tiempo Real</span>
+      </div>
+      <span class="badge-studio">Vision AI · Live</span>
     </div>
 
     <!-- Píldoras de Estado de Modelos -->
@@ -24,17 +27,17 @@
         <span class="dot-led amber"></span>
         <span id="cam-status-text">CÁMARA: INACTIVA</span>
       </div>
-      <div class="status-pill active" title="Detección de objetos, celular y postura">
+      <div class="status-pill active" title="Detección de objetos, celular y postura (best.pt)">
         <span class="dot-led"></span>
-        <span>VIDEO: Activo</span>
+        <span>VIDEO: YOLO (best.pt)</span>
       </div>
-      <div class="status-pill active" title="Análisis de estados cognitivos e iluminación">
+      <div class="status-pill active" title="Mejora de imagen CLAHE, Unsharp Mask y análisis de calidad">
         <span class="dot-led"></span>
-        <span>IMAGEN: Activo</span>
+        <span>IMAGEN: CLAHE + Calidad</span>
       </div>
-      <div class="status-pill" title="Módulo pendiente de integración externa">
-        <span class="dot-led amber"></span>
-        <span>AUDIO: Pendiente</span>
+      <div class="status-pill active" title="Motor de reglas explicables y proyección /20">
+        <span class="dot-led"></span>
+        <span>PREDICCIÓN: Activo</span>
       </div>
     </div>
   </header>
@@ -46,11 +49,25 @@
            ==================================================================== -->
       <section class="studio-panel">
         <div class="panel-header-row">
-          <h2 class="panel-title">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
-            Visor de Visión Computacional en Tiempo Real
-          </h2>
-          <span class="badge-studio" id="hud-engine-status">VIDEO + IMAGEN</span>
+          <div class="panel-title-wrap">
+            <h2 class="panel-title">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+              Visor de Visión Computacional en Tiempo Real
+            </h2>
+            <div class="mode-pill-selector">
+              <button id="mode-btn-captura" type="button" class="mode-pill active">Modo 1: Captura HD</button>
+              <button id="mode-btn-live" type="button" class="mode-pill">Modo 2: Video Continuo</button>
+            </div>
+          </div>
+
+          <!-- Toggle de Mejora de Imagen del Módulo IMAGEN -->
+          <div class="enhancement-toggle-wrap">
+            <label class="switch-pill" title="Aplica preprocesamiento CLAHE, estiramiento de contraste y enfoque Unsharp del módulo IMAGEN">
+              <input type="checkbox" id="toggle-mejora-imagen" checked>
+              <span class="switch-slider"></span>
+              <span class="switch-label">Mejora de Imagen Activa (HD / CLAHE)</span>
+            </label>
+          </div>
         </div>
 
         <!-- Viewport de Video + Canvas HUD -->
@@ -58,10 +75,17 @@
           <video id="webcam-feed" playsinline autoplay muted></video>
           <canvas id="overlay-canvas"></canvas>
 
+          <!-- Vista de Comparación Antes / Después (Modo Captura) -->
+          <div id="comparison-view" class="comparison-overlay" style="display:none;">
+            <div class="comp-badge">Frame HD Procesado con Módulo IMAGEN</div>
+            <img id="comparison-img" src="" alt="Captura Mejorada HD">
+            <button id="btn-close-comparison" type="button" class="btn-close-comp">✕ Volver a Cámara</button>
+          </div>
+
           <!-- Placeholder si la cámara no está activa -->
           <div id="camera-placeholder" class="camera-placeholder">
             <svg viewBox="0 0 24 24"><path d="M9.4 10.5l4.77-4.77A6.98 6.98 0 0 0 12 5C8.13 5 5 8.13 5 12c0 1.54.5 2.96 1.34 4.12l1.45-1.45A4.98 4.98 0 0 1 7 12c0-2.76 2.24-5 5-5 .86 0 1.66.22 2.36.6L9.4 10.5zM21 12c0-1.54-.5-2.96-1.34-4.12l-1.45 1.45c.49.8.79 1.73.79 2.67 0 2.76-2.24 5-5 5-.86 0-1.66-.22-2.36-.6l4.96-4.96c.25.7.4 1.46.4 2.26 0 3.87-3.13 7-7 7-1.54 0-2.96-.5-4.12-1.34L3.27 21.73 2 20.46l18.46-18.46 1.27 1.27L19.4 5.6A6.98 6.98 0 0 1 21 12z"/></svg>
-            <p><strong>Cámara web no iniciada</strong><br>Haz clic en "Iniciar Cámara" o utiliza los disparadores de simulación.</p>
+            <p><strong>Cámara web no iniciada</strong><br>Haz clic en "Iniciar Cámara en Vivo" (1280x720 HD) para comenzar el seguimiento facial o utiliza los disparadores de simulación.</p>
           </div>
 
           <!-- Telemetría HUD superpuesta -->
@@ -71,7 +95,30 @@
               <span id="hud-fps-text">LIVE · 30 FPS</span>
             </div>
             <div class="hud-badge">
-              <span id="hud-latency-text">Inferencia: ~18ms</span>
+              <span id="hud-res-text">1280x720 HD</span>
+            </div>
+            <div class="hud-badge">
+              <span id="hud-tracking-status">Tracking Facial: Dinámico</span>
+            </div>
+          </div>
+
+          <!-- Barra de Métricas de Calidad de Imagen (Módulo IMAGEN) -->
+          <div id="quality-metrics-bar" class="quality-metrics-bar">
+            <div class="quality-metric-item">
+              <span class="q-label">Nitidez (Var. Laplaciano):</span>
+              <span id="metric-nitidez" class="q-val">+232% HD</span>
+            </div>
+            <div class="quality-metric-item">
+              <span class="q-label">Corrección de Iluminación:</span>
+              <span id="metric-iluminacion" class="q-val">CLAHE L*A*B</span>
+            </div>
+            <div class="quality-metric-item">
+              <span class="q-label">Filtro de Ruido:</span>
+              <span id="metric-ruido" class="q-val">Bilateral 5x5</span>
+            </div>
+            <div class="quality-metric-item">
+              <span class="q-label">YOLO best.pt:</span>
+              <span id="metric-yolo" class="q-val" style="color:#38bdf8;">Conectado</span>
             </div>
           </div>
         </div>
@@ -96,7 +143,7 @@
         <div class="demo-trigger-panel">
           <div class="demo-trigger-label">
             <span>Disparadores de Simulación Rápida (Live Demo)</span>
-            <span>Haz clic para forzar estados</span>
+            <span>Permite alternar estados instantáneamente durante la presentación</span>
           </div>
           <div class="trigger-buttons-grid">
             <button id="btn-trigger-phone" type="button" class="btn-trigger">
@@ -142,7 +189,7 @@
           <span class="badge-studio">White-Box Heuristics</span>
         </div>
 
-        <!-- 1. Diagnóstico de Comportamiento en Tiempo Real -->
+        <!-- 1. Diagnóstico de Comportamiento y Nivel de Atención -->
         <div class="realtime-diagnosis-box">
           <div class="diag-metric-card">
             <div class="diag-metric-label">% Nivel de Atención en Clase</div>
@@ -152,7 +199,7 @@
             </div>
           </div>
           <div class="diag-metric-card">
-            <div class="diag-metric-label">Estado Cognitivo (Módulo Imagen)</div>
+            <div class="diag-metric-label">Estado Cognitivo Dominante</div>
             <div id="emotion-badge" class="diag-metric-val" style="font-size:14px; color:#34d399; margin-top:4px;">
               Concentrado / Atento
             </div>
@@ -162,7 +209,92 @@
           </div>
         </div>
 
-        <!-- 2. Tacómetro Circular SVG / Índice Heurístico de Revisión (/100) -->
+        <!-- 2. Panel de Emociones con Porcentajes en Vivo (0% a 100%) -->
+        <div class="emotions-card-section">
+          <div class="section-subheading">
+            <span>Vector Emocional y Cognitivo (Módulo IMAGEN)</span>
+            <span id="dominant-emotion-tag" class="dominant-tag">Neutral / Concentración</span>
+          </div>
+          <div class="emotions-bars-grid">
+            <!-- Alegría / Motivación -->
+            <div class="emotion-row">
+              <div class="emotion-header">
+                <span class="emotion-name">😊 Alegría / Motivación</span>
+                <span id="val-alegria" class="emotion-pct">12.5%</span>
+              </div>
+              <div class="bar-track">
+                <div id="bar-alegria" class="bar-fill bar-alegria" style="width: 12.5%;"></div>
+              </div>
+            </div>
+            <!-- Neutral / Concentración -->
+            <div class="emotion-row">
+              <div class="emotion-header">
+                <span class="emotion-name">😐 Neutral / Concentración</span>
+                <span id="val-neutral" class="emotion-pct">65.0%</span>
+              </div>
+              <div class="bar-track">
+                <div id="bar-neutral" class="bar-fill bar-neutral" style="width: 65.0%;"></div>
+              </div>
+            </div>
+            <!-- Tristeza / Decaimiento -->
+            <div class="emotion-row">
+              <div class="emotion-header">
+                <span class="emotion-name">😢 Tristeza / Decaimiento</span>
+                <span id="val-tristeza" class="emotion-pct">7.5%</span>
+              </div>
+              <div class="bar-track">
+                <div id="bar-tristeza" class="bar-fill bar-tristeza" style="width: 7.5%;"></div>
+              </div>
+            </div>
+            <!-- Estrés / Ansiedad / Frustración -->
+            <div class="emotion-row">
+              <div class="emotion-header">
+                <span class="emotion-name">😟 Estrés / Ansiedad</span>
+                <span id="val-estres" class="emotion-pct">9.0%</span>
+              </div>
+              <div class="bar-track">
+                <div id="bar-estres" class="bar-fill bar-estres" style="width: 9.0%;"></div>
+              </div>
+            </div>
+            <!-- Fatiga / Cansancio / Distracción -->
+            <div class="emotion-row">
+              <div class="emotion-header">
+                <span class="emotion-name">😴 Fatiga / Distracción</span>
+                <span id="val-fatiga" class="emotion-pct">6.0%</span>
+              </div>
+              <div class="bar-track">
+                <div id="bar-fatiga" class="bar-fill bar-fatiga" style="width: 6.0%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Motor de Predicción Profunda (Psicológica y Conductual) -->
+        <div class="deep-predictions-container">
+          <div class="deep-prediction-card personal-prediction">
+            <div class="deep-card-header">
+              <span class="deep-card-icon">🧠</span>
+              <span class="deep-card-title">Inferencia Personal y Psicológica</span>
+              <span id="personal-alert-badge" class="status-pill status-stable">Foco Estable</span>
+            </div>
+            <p id="prediccion-personal-texto" class="deep-card-content">
+              Foco atencional estable y sostenido. Comportamiento en rango de asimilación activa y concentración productiva.
+            </p>
+          </div>
+
+          <div class="deep-prediction-card video-prediction">
+            <div class="deep-card-header">
+              <span class="deep-card-icon">📹</span>
+              <span class="deep-card-title">Diagnóstico de Atención y Video</span>
+              <span id="distraction-alert-badge" class="status-pill status-safe">Sin Infracción</span>
+            </div>
+            <p id="prediccion-video-texto" class="deep-card-content">
+              Foco visual en pantalla: no se observan objetos no autorizados ni distracciones externas.
+            </p>
+          </div>
+        </div>
+
+        <!-- 4. Tacómetro Circular SVG / Índice Heurístico de Revisión (/100) -->
         <div class="tacometer-kpi-card">
           <div class="gauge-cluster" aria-hidden="true">
             <svg class="gauge-svg" viewBox="0 0 120 120">
@@ -181,20 +313,31 @@
           </div>
         </div>
 
-        <!-- 3. Motor de Predicción Académica (Proyección a Futuro) -->
+        <!-- 5. Motor de Predicción Académica (Proyección a Futuro /20) -->
         <div class="academic-projection-box">
           <div class="projection-header">
             <span class="projection-label">Proyección de Rendimiento en Examen Parcial</span>
             <span id="proyeccion-grade" class="projection-grade">17.0 / 20</span>
           </div>
+          <div class="grade-meter-scale">
+            <div class="grade-meter-track">
+              <div id="grade-meter-fill" class="grade-meter-fill" style="width: 85%;"></div>
+            </div>
+            <div class="grade-meter-labels">
+              <span>00 Crítico</span>
+              <span>10.5 Mínimo</span>
+              <span>15 Aceptable</span>
+              <span>20 Sobresaliente</span>
+            </div>
+          </div>
           <p id="proyeccion-texto">
-            <strong>Proyección Positiva:</strong> Estudiante enfocado en la sesión. Se proyecta un alto aprovechamiento de los temas explicados y desempeño favorable en la evaluación.
+            <strong>Proyección Positiva:</strong> Estudiante enfocado en la sesión. Se proyecta un alto aprovechamiento de los temas explicados y desempeño favorable en la evaluación parcial.
           </p>
         </div>
 
-        <!-- Directriz Docente -->
+        <!-- 6. Directriz de Intervención Docente / Tutor -->
         <div class="directive-box">
-          <div class="directive-label">Directriz de Intervención Docente</div>
+          <div class="directive-label">Recomendación Predictiva para el Docente / Tutor</div>
           <p id="recomendacion">Continuar con la clase habitual. No se requiere intervención.</p>
         </div>
 
