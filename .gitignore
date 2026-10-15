@@ -50,6 +50,7 @@ datasets/
 *.npz
 *.npy
 *.pkl
+!backend/entrenamiento_prediccion/*.pkl
 *.pickle
 *.joblib
 *.safetensors
