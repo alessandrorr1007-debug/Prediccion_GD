@@ -12,22 +12,45 @@ elemento("servidor").value = location.protocol === "file:" ? "http://localhost:8
 let enCurso = false;
 let motorActual = "examen";
 const entradas = { examen: elemento("entrada").value, seguimiento: null };
+
+function actualizarEstiloNivel(texto) {
+  const el = elemento("nivel");
+  if (!el) return;
+  const t = (texto || "").toLowerCase();
+  if (t.includes("alta") || t.includes("critica") || t.includes("crítica")) {
+    el.className = "alerta-alta";
+  } else if (t.includes("media") || t.includes("moderada")) {
+    el.className = "alerta-media";
+  } else if (t.includes("baja") || t.includes("sin alerta") || t.includes("sin_alerta") || t.includes("sin evaluar")) {
+    el.className = "alerta-baja";
+  } else {
+    el.className = "";
+  }
+}
+
 function ocupar(valor) {
   enCurso = valor;
-  for (const id of ["ejecutar", "motor", "cargar-ejemplo", "ejemplo-seguimiento", "archivo", "formato", "servidor"]) elemento(id).disabled = valor;
+  for (const id of ["ejecutar", "motor", "cargar-ejemplo", "ejemplo-seguimiento", "archivo", "formato", "servidor"]) {
+    const el = elemento(id);
+    if (el) el.disabled = valor;
+  }
 }
+
 function limpiarResultado() {
   elemento("resultados-estudiantes").replaceChildren();
   elemento("nivel").textContent = "Sin evaluar";
+  actualizarEstiloNivel("Sin evaluar");
   elemento("indice").textContent = "—";
   elemento("salida").textContent = "";
   elemento("recomendacion").textContent = "";
 }
+
 function servidor() {
   const base = new URL(elemento("servidor").value);
   if (!["http:", "https:"].includes(base.protocol)) throw new Error("Usa una dirección HTTP o HTTPS.");
   return base.origin;
 }
+
 async function cargarEjemplo() {
   if (enCurso) return;
   ocupar(true);
@@ -43,8 +66,11 @@ async function cargarEjemplo() {
   } catch (error) {
     elemento("entrada").value = "";
     elemento("estado").textContent = `No se pudo cargar: ${error.message}. También puedes importar un JSON sintético de ejemplos/.`;
-  } finally { ocupar(false); }
+  } finally {
+    ocupar(false);
+  }
 }
+
 elemento("motor").addEventListener("change", async () => {
   entradas[motorActual] = elemento("entrada").value;
   motorActual = elemento("motor").value;
@@ -62,25 +88,38 @@ elemento("motor").addEventListener("change", async () => {
   elemento("entrada").value = entradas[motorActual] || "";
   if (seguimiento && !entradas.seguimiento) await cargarEjemplo();
 });
+
 elemento("cargar-ejemplo").addEventListener("click", cargarEjemplo);
+
 function lista(contenedor, titulo, textos) {
   if (!textos.length) return;
-  const encabezado = document.createElement("h4"); encabezado.textContent = titulo;
+  const encabezado = document.createElement("h4");
+  encabezado.textContent = titulo;
   const ul = document.createElement("ul");
-  for (const texto of textos) { const li = document.createElement("li"); li.textContent = texto; ul.append(li); }
+  for (const texto of textos) {
+    const li = document.createElement("li");
+    li.textContent = texto;
+    ul.append(li);
+  }
   contenedor.append(encabezado, ul);
 }
+
 function mostrarSeguimiento(salida) {
   const contenedor = elemento("resultados-estudiantes");
   const validos = salida.resultados.filter(r => r.indice_prioridad !== null);
   const maximo = validos.reduce((a, b) => !a || b.indice_prioridad > a.indice_prioridad ? b : a, null);
   elemento("indice").textContent = maximo ? maximo.indice_prioridad.toString() : "—";
-  elemento("nivel").textContent = `DEMO SINTÉTICA · ${maximo ? maximo.nivel_revision : "datos insuficientes"}`;
+  const textoNivel = `DEMO SINTÉTICA · ${maximo ? maximo.nivel_revision : "datos insuficientes"}`;
+  elemento("nivel").textContent = textoNivel;
+  actualizarEstiloNivel(maximo ? maximo.nivel_revision : "datos insuficientes");
   elemento("recomendacion").textContent = "Prioridades para revisión humana. Los avisos son sugerencias: no se envían mensajes ni se guardan historiales.";
   for (const r of salida.resultados) {
-    const articulo = document.createElement("article"); articulo.className = "resultado-estudiante";
-    const titulo = document.createElement("h3"); titulo.textContent = `${r.nombre || r.estudiante_id} · ${r.sesion_id}`;
-    const nivel = document.createElement("p"); nivel.textContent = `${r.actividad} · ${r.nivel_revision.replaceAll("_", " ")} · prioridad ${r.indice_prioridad ?? "sin datos"}`;
+    const articulo = document.createElement("article");
+    articulo.className = "resultado-estudiante";
+    const titulo = document.createElement("h3");
+    titulo.textContent = `${r.nombre || r.estudiante_id} · ${r.sesion_id}`;
+    const nivel = document.createElement("p");
+    nivel.textContent = `${r.actividad} · ${r.nivel_revision.replaceAll("_", " ")} · prioridad ${r.indice_prioridad ?? "sin datos"}`;
     articulo.append(titulo, nivel);
     lista(articulo, "Reglas activadas", r.reglas_activadas.map(x => `${x.regla} (+${x.puntos}): ${x.explicacion} Referencias: ${x.referencias.join(", ")}`));
     if (!r.reglas_activadas.length) lista(articulo, "Reglas", ["No se activaron reglas de alerta."]);
@@ -103,8 +142,9 @@ function mostrarSeguimiento(salida) {
   lista(contenedor, "Control de duplicados", [`${salida.duplicados_omitidos} retransmisiones idénticas omitidas.`]);
   lista(contenedor, "Limitaciones", salida.limitaciones);
 }
+
 elemento("archivo").addEventListener("change", async (evento) => {
-  const archivo = evento.target.files[0];
+  const archivo = evento.target.files && evento.target.files[0];
   if (!archivo) return;
   try {
     if (archivo.size > 2 * 1024 * 1024) throw new Error("El JSON supera 2 MB.");
@@ -112,8 +152,11 @@ elemento("archivo").addEventListener("change", async (evento) => {
     JSON.parse(texto);
     elemento("entrada").value = texto;
     elemento("estado").textContent = `Archivo cargado: ${archivo.name}. Selecciona su formato antes de evaluar.`;
-  } catch (error) { elemento("estado").textContent = error.message; }
+  } catch (error) {
+    elemento("estado").textContent = error.message;
+  }
 });
+
 elemento("ejecutar").addEventListener("click", async () => {
   if (enCurso) return;
   try {
@@ -127,6 +170,7 @@ elemento("ejecutar").addEventListener("click", async () => {
     limpiarResultado();
     elemento("estado").textContent = "Evaluando señales…";
     elemento("nivel").textContent = "Evaluando";
+    actualizarEstiloNivel("Evaluando");
     elemento("indice").textContent = "—";
     elemento("recomendacion").textContent = "";
     elemento("salida").textContent = "";
@@ -136,9 +180,12 @@ elemento("ejecutar").addEventListener("click", async () => {
     const salida = await respuesta.json();
     if (!respuesta.ok) throw new Error(typeof salida.detail === "string" ? salida.detail : JSON.stringify(salida.detail || salida));
     elemento("salida").textContent = JSON.stringify(salida, null, 2);
-    if (seguimiento) mostrarSeguimiento(salida);
-    else {
-      elemento("nivel").textContent = (salida.nivel_revision || "datos_insuficientes").replaceAll("_", " ");
+    if (seguimiento) {
+      mostrarSeguimiento(salida);
+    } else {
+      const nivelTexto = (salida.nivel_revision || "datos_insuficientes").replaceAll("_", " ");
+      elemento("nivel").textContent = nivelTexto;
+      actualizarEstiloNivel(nivelTexto);
       elemento("indice").textContent = salida.indice_revision == null ? "—" : salida.indice_revision.toLocaleString("es-PE");
       elemento("recomendacion").textContent = salida.recomendacion;
     }
@@ -147,8 +194,49 @@ elemento("ejecutar").addEventListener("click", async () => {
     limpiarResultado();
     elemento("estado").textContent = `No se pudo evaluar: ${error.message}`;
     elemento("nivel").textContent = "Sin resultado válido";
+    actualizarEstiloNivel("");
     elemento("indice").textContent = "—";
     elemento("recomendacion").textContent = "Corrige la entrada y vuelve a evaluar.";
     elemento("salida").textContent = "";
-  } finally { ocupar(false); }
+  } finally {
+    ocupar(false);
+  }
 });
+
+// Botones de utilidad para desarrollador / usuario
+const btnFormatear = elemento("btn-formatear");
+if (btnFormatear) {
+  btnFormatear.addEventListener("click", () => {
+    try {
+      const parsed = JSON.parse(elemento("entrada").value);
+      elemento("entrada").value = JSON.stringify(parsed, null, 2);
+      elemento("estado").textContent = "JSON formateado correctamente.";
+    } catch {
+      elemento("estado").textContent = "JSON inválido: verifica la sintaxis.";
+    }
+  });
+}
+
+const btnCopiarEntrada = elemento("btn-copiar-entrada");
+if (btnCopiarEntrada) {
+  btnCopiarEntrada.addEventListener("click", async () => {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(elemento("entrada").value);
+        elemento("estado").textContent = "JSON copiado al portapapeles.";
+      }
+    } catch {}
+  });
+}
+
+const btnCopiarSalida = elemento("btn-copiar-salida");
+if (btnCopiarSalida) {
+  btnCopiarSalida.addEventListener("click", async () => {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(elemento("salida").textContent);
+        elemento("estado").textContent = "Respuesta copiada al portapapeles.";
+      }
+    } catch {}
+  });
+}

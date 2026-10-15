@@ -2,71 +2,181 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>AulaPredict · Integración de resultados</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AulaPredict · Plataforma de Predicción e Integración de Señales</title>
   <link rel="stylesheet" href="/style.css">
   <script src="/app.js" defer></script>
 </head>
 <body>
-  <header><span class="marca">AulaPredict</span><span>PREDICCIÓN / INTEGRACIÓN</span></header>
+  <header>
+    <div class="header-brand">
+      <div class="logo-badge" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </div>
+      <span class="marca">AulaPredict</span>
+      <span class="header-tag">Predicción / Integración</span>
+    </div>
+    <div class="header-status">
+      <div class="status-pill">
+        <span class="pulse-dot"></span>
+        <span id="conexion-estado">Servicio Activo :8001</span>
+      </div>
+      <a href="/docs" target="_blank" class="header-link">Swagger API</a>
+    </div>
+  </header>
+
   <main>
     <section class="introduccion">
-      <p class="etiqueta">RESULTADOS EXTERNOS · REGLAS EXPLICABLES</p>
-      <h1>De las señales a la revisión humana</h1>
-      <p>Dos motores independientes: supervisión de exámenes y seguimiento académico por estudiante. Recibe resultados externos; no entrena modelos ni analiza medios. AUDIO está pendiente.</p>
+      <div class="hero-meta">
+        <span class="etiqueta">Consola de Inferencia Heurística</span>
+        <span class="hero-pill">Reglas Explicables</span>
+      </div>
+      <h1>De las señales multimodales a la revisión humana colegiada</h1>
+      <p class="hero-desc">
+        Plataforma analítica con dos motores independientes: <strong>Supervisión de exámenes en vivo</strong> y <strong>Seguimiento longitudinal por estudiante</strong>.
+        Recibe telemetría JSON de módulos periféricos (Video, Imagen, Audio pendiente); no almacena datos biométricos ni reemplaza el criterio docente.
+      </p>
+      <div class="banner-etico">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+        <span>
+          <strong>Garantía Ética:</strong> Esta plataforma emite un índice heurístico explicable, nunca una probabilidad cerrada ni un diagnóstico sancionatorio. Siempre requiere validación por una persona responsable.
+        </span>
+      </div>
     </section>
+
     <div class="paneles">
-      <section aria-labelledby="entrada-titulo">
-        <h2 id="entrada-titulo">1. Recibir resultados</h2>
-        <label for="servidor">Dirección del servicio</label>
-        <input id="servidor" type="url" placeholder="http://localhost:8001">
-        <label for="motor">Motor de análisis</label>
-        <select id="motor">
-          <option value="examen">Supervisión de exámenes</option>
-          <option value="seguimiento">Seguimiento por estudiante · demo sintética local</option>
-        </select>
-        <div id="controles-seguimiento" hidden>
-          <label for="ejemplo-seguimiento">Escenario sintético</label>
-          <select id="ejemplo-seguimiento">
-            <option value="juan">Juan Pérez · concurrencia de factores</option>
-            <option value="sin_alerta">Sin alerta</option>
-            <option value="identidad_desconocida">Identidad desconocida</option>
-            <option value="insuficientes">Datos insuficientes</option>
-            <option value="contradictorio">Observaciones contradictorias</option>
-            <option value="duplicados">Eventos duplicados</option>
-            <option value="aislado">Observación aislada</option>
-            <option value="cambio_patron">Cambio en observaciones históricas</option>
+      <!-- PANEL 1: Ingesta y Parámetros -->
+      <section class="panel-card" aria-labelledby="entrada-titulo">
+        <div class="panel-header">
+          <h2 id="entrada-titulo">
+            <span class="step-badge">1</span>
+            Recibir e Integrar Resultados
+          </h2>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="servidor">Dirección del Servicio API</label>
+            <input id="servidor" type="url" placeholder="http://localhost:8001">
+          </div>
+          <div class="form-group">
+            <label for="motor">Motor de Análisis</label>
+            <select id="motor">
+              <option value="examen">Supervisión de Exámenes en Vivo</option>
+              <option value="seguimiento">Seguimiento Longitudinal por Estudiante</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Controles para Examen -->
+        <div id="controles-examen" class="form-group">
+          <label for="formato">Formato del Contrato de Entrada</label>
+          <select id="formato">
+            <option value="integracion">Entrada conjunta (Imagen / Video)</option>
+            <option value="imagen">Exportación de Módulo IMAGEN</option>
+            <option value="video">Alerta o fotogramas de Módulo VIDEO</option>
+            <option value="interno">Eventos normalizados del motor</option>
           </select>
-          <button id="cargar-ejemplo" type="button">Cargar ejemplo sintético</button>
-          <p class="ayuda">Solo datos ficticios. La identidad requiere una asociación revisada por evento y sesión. No hay autenticación ni almacenamiento; no cargues datos reales. Disponible solo mediante conexión local directa.</p>
         </div>
-        <div id="controles-examen">
-        <label for="formato">Formato de entrada</label>
-        <select id="formato">
-          <option value="integracion">Entrada conjunta (imagen / video)</option>
-          <option value="imagen">Exportación de IMAGEN</option>
-          <option value="video">Alerta o fotogramas de VIDEO</option>
-          <option value="interno">Eventos normalizados del motor</option>
-        </select>
+
+        <!-- Controles para Seguimiento -->
+        <div id="controles-seguimiento" hidden>
+          <label for="ejemplo-seguimiento">Escenario de Prueba Sintético</label>
+          <select id="ejemplo-seguimiento">
+            <option value="juan">Juan Pérez · Concurrencia de factores de riesgo</option>
+            <option value="sin_alerta">Escenario de control · Sin alertas</option>
+            <option value="identidad_desconocida">Identidad desconocida · Observación sin atribuir</option>
+            <option value="insuficientes">Muestra insuficiente · Datos incompletos</option>
+            <option value="contradictorio">Observaciones contradictorias entre módulos</option>
+            <option value="duplicados">Telemetría redundante · Eventos duplicados</option>
+            <option value="aislado">Observación aislada · Sin persistencia</option>
+            <option value="cambio_patron">Desviación en observaciones históricas</option>
+          </select>
+          <div class="preset-actions">
+            <button id="cargar-ejemplo" type="button">⚡ Cargar Ejemplo Sintético</button>
+          </div>
+          <p class="ayuda" style="margin-top:10px;">
+            Datos de simulación (simulado=true). La identidad requiere asignación explícita por sesión. No almacena datos reales.
+          </p>
         </div>
-        <label for="archivo">Importar JSON del equipo</label>
-        <input id="archivo" type="file" accept=".json,application/json">
-        <label for="entrada">JSON editable</label>
-        <textarea id="entrada" rows="20" spellcheck="false" aria-describedby="ayuda"></textarea>
-        <p id="ayuda" class="ayuda">El ejemplo inicial es sintético. Si combinas fechas de IMAGEN con VIDEO, indica imagen.origen_temporal. Las métricas de calidad no se convierten automáticamente a 0–1.</p>
-        <button id="ejecutar" type="button">Evaluar señales</button>
+
+        <!-- Ingesta de Archivo -->
+        <div class="form-group">
+          <label for="archivo">Importar Archivo JSON Externo</label>
+          <div class="file-upload-wrapper">
+            <svg class="file-upload-icon" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+            <div class="file-upload-text">
+              <input id="archivo" type="file" accept=".json,application/json">
+            </div>
+          </div>
+        </div>
+
+        <!-- Editor de JSON -->
+        <div class="editor-container">
+          <div class="editor-toolbar">
+            <span class="editor-title">payload_input.json</span>
+            <div class="editor-actions">
+              <button id="btn-formatear" type="button" class="btn-mini">Formatear</button>
+              <button id="btn-copiar-entrada" type="button" class="btn-mini">Copiar</button>
+            </div>
+          </div>
+          <textarea id="entrada" rows="16" spellcheck="false" aria-describedby="ayuda"></textarea>
+        </div>
+
+        <p id="ayuda" class="ayuda">
+          El ejemplo inicial es sintético. Si combinas fechas de IMAGEN con VIDEO, indica imagen.origen_temporal. Las métricas de calidad no se normalizan automáticamente a 0–1.
+        </p>
+
+        <button id="ejecutar" type="button">
+          <span>⚡ Evaluar Señales y Reglas</span>
+        </button>
         <p id="estado" role="status" aria-live="polite"></p>
       </section>
-      <section aria-labelledby="salida-titulo">
-        <h2 id="salida-titulo">2. Revisar evidencia</h2>
-        <div class="resumen"><span id="nivel">Sin evaluar</span><strong id="indice">—</strong><p id="descripcion-indice">Índice heurístico de revisión / 100. No es una probabilidad.</p></div>
-        <p id="recomendacion">Carga los resultados y evalúa las señales para ver su explicación.</p>
+
+      <!-- PANEL 2: Resultados y Auditoría -->
+      <section class="panel-card" aria-labelledby="salida-titulo">
+        <div class="panel-header">
+          <h2 id="salida-titulo">
+            <span class="step-badge">2</span>
+            Revisar Evidencia y Diagnóstico
+          </h2>
+        </div>
+
+        <!-- Resumen Score & Nivel -->
+        <div class="resumen">
+          <div class="gauge-box">
+            <strong id="indice">—</strong>
+            <span class="gauge-label">Índice / 100</span>
+          </div>
+          <div class="resumen-info">
+            <span id="nivel">Sin evaluar</span>
+            <p id="descripcion-indice">Índice heurístico de revisión / 100. No es una probabilidad.</p>
+          </div>
+        </div>
+
+        <!-- Recomendación Asistida -->
+        <div class="recommendation-card">
+          <div class="recommendation-card-header">Directriz de Intervención</div>
+          <p id="recomendacion">Carga los resultados y evalúa las señales para ver su explicación.</p>
+        </div>
+
+        <!-- Contenedor dinámico de estudiantes / evidencias -->
         <div id="resultados-estudiantes" aria-live="polite"></div>
-        <h3>Respuesta completa</h3>
-        <pre id="salida" tabindex="0">La respuesta del servicio aparecerá aquí.</pre>
+
+        <!-- Respuesta JSON Raw / Inspección Técnica -->
+        <div class="salida-wrapper">
+          <div class="salida-header">
+            <h3>Auditoría de Inferencia (Respuesta Raw)</h3>
+            <button id="btn-copiar-salida" type="button" class="btn-mini">Copiar JSON</button>
+          </div>
+          <pre id="salida" tabindex="0">La respuesta del servicio aparecerá aquí.</pre>
+        </div>
       </section>
     </div>
-    <footer>Siempre requiere revisión humana. No constituye un diagnóstico ni una sanción. Emociones e identidad de IMAGEN aún no están disponibles en el contrato recibido.</footer>
+
+    <footer>
+      <strong>AulaPredict v3.1</strong> · Sistema de apoyo a la decisión docente. Las detecciones de IMAGEN y VIDEO son señales auxiliares que requieren correlación contextual. Módulo AUDIO en desarrollo. No almacenar credenciales ni datos sensibles.
+    </footer>
   </main>
 </body>
 </html>
