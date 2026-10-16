@@ -59,6 +59,72 @@ class MotorTests(unittest.TestCase):
         self.assertEqual(resultado["estudiantes"], [])
         self.assertEqual(resultado["estado"], "sin_personas")
 
+    def test_asociacion_espacial_individual_distractores(self):
+        import base64
+        import cv2
+        import numpy as np
+        from unittest.mock import patch, MagicMock
+        from backend.entrenamiento_prediccion.predictor import procesar_captura_imagen
+
+        img_test = np.zeros((480, 640, 3), dtype=np.uint8)
+        _, buffer = cv2.imencode(".jpg", img_test)
+        b64 = base64.b64encode(buffer).decode("utf-8")
+
+        # Simular 2 alumnos detectados por YOLO Pose
+        # Alumno 1 en la izquierda (x: 50..200), Alumno 2 en la derecha (x: 350..500)
+        box1 = MagicMock()
+        box1.xyxy = [np.array([50, 100, 200, 400], dtype=np.float32)]
+        box1.conf = [np.array(0.92, dtype=np.float32)]
+
+        box2 = MagicMock()
+        box2.xyxy = [np.array([350, 100, 500, 400], dtype=np.float32)]
+        box2.conf = [np.array(0.91, dtype=np.float32)]
+
+        mock_pose_res = MagicMock()
+        mock_pose_res.boxes = [box1, box2]
+        mock_pose_res.keypoints = None
+
+        mock_pose = MagicMock()
+        mock_pose.return_value = [mock_pose_res]
+
+        # Celular espacialmente situado sobre el Alumno 2 (x: 380..440, y: 250..320)
+        contexto = {
+            "distractorBox": {
+                "x1": 380, "y1": 250, "x2": 440, "y2": 320,
+                "label": "Celular (0.95)"
+            }
+        }
+
+        with patch("backend.entrenamiento_prediccion.predictor._obtener_yolo_pose", return_value=mock_pose):
+            with patch("backend.entrenamiento_prediccion.predictor._obtener_yolo_best", return_value=None):
+                res = procesar_captura_imagen(b64, contexto_externo=contexto)
+
+        self.assertEqual(res["total_alumnos"], 2)
+        est1, est2 = res["estudiantes"]
+
+        # Estudiante 1 NO tiene celular y está libre de penalización
+        self.assertFalse(est1["distractor"])
+        self.assertIsNone(est1["distractorBox"])
+        self.assertNotEqual(est1["accionDetectada"], "Uso de teléfono móvil frente a cámara")
+
+        # Estudiante 2 SÍ tiene celular asignado exclusivamente por intersección espacial
+        self.assertTrue(est2["distractor"])
+        self.assertIsNotNone(est2["distractorBox"])
+        self.assertEqual(est2["accionDetectada"], "Uso de teléfono móvil frente a cámara")
+        self.assertIn("Celular", est2["distractorBox"]["label"])
+
+    def test_escenario_aula_ejemplo_distractor_individual(self):
+        from backend.entrenamiento_prediccion.predictor import obtener_escenario_aula_ejemplo
+        escenario = obtener_escenario_aula_ejemplo()
+        self.assertEqual(escenario["total_alumnos"], 5)
+        # Solo el alumno 3 tiene celular asignado
+        self.assertFalse(escenario["estudiantes"][0]["distractor"])
+        self.assertFalse(escenario["estudiantes"][1]["distractor"])
+        self.assertTrue(escenario["estudiantes"][2]["distractor"])
+        self.assertFalse(escenario["estudiantes"][3]["distractor"])
+        self.assertFalse(escenario["estudiantes"][4]["distractor"])
+
 
 if __name__ == "__main__":
     unittest.main()
+

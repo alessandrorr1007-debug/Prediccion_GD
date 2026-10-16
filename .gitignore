@@ -63,3 +63,8 @@ pyrightconfig.json
 
 # La plantilla de configuración sí forma parte del proyecto
 !.env.example
+
+# Documentos y presentaciones de entrega local (prohibido subir a GitHub)
+docs_entrega/
+*.docx
+*.pptx

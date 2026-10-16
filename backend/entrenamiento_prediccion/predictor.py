@@ -10,9 +10,10 @@ Integra:
 """
 import base64
 import json
+import math
 import pickle
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -86,6 +87,11 @@ def _obtener_face_cascade():
         _FACE_CASCADE = cv2.CascadeClassifier(ruta_cascade)
     return _FACE_CASCADE
 
+def _tensor_a_numpy(t: Any) -> np.ndarray:
+    if hasattr(t, "cpu"):
+        return t.cpu().numpy()
+    return np.asarray(t)
+
 def _decodificar_imagen_b64(imagen_b64: str) -> np.ndarray:
     if "," in imagen_b64:
         imagen_b64 = imagen_b64.split(",", 1)[1]
@@ -95,6 +101,30 @@ def _decodificar_imagen_b64(imagen_b64: str) -> np.ndarray:
     if img is None:
         raise ValueError("No se pudo decodificar la imagen enviada")
     return img
+
+def _extraer_caja_pixel(obj_data: Any, w_img: int, h_img: int) -> Optional[Tuple[int, int, int, int]]:
+    """Convierte cualquier representación de bounding box (relativa o absoluta) a píxeles (x1, y1, x2, y2)."""
+    if not isinstance(obj_data, dict):
+        return None
+    # Formato con x1, y1, x2, y2
+    if "x1" in obj_data and "y1" in obj_data:
+        x1 = float(obj_data["x1"])
+        y1 = float(obj_data["y1"])
+        x2 = float(obj_data.get("x2", x1 + 20))
+        y2 = float(obj_data.get("y2", y1 + 20))
+        if max(x1, y1, x2, y2) <= 1.05 and w_img > 1 and h_img > 1:
+            return int(x1 * w_img), int(y1 * h_img), int(x2 * w_img), int(y2 * h_img)
+        return int(x1), int(y1), int(x2), int(y2)
+    # Formato con x, y, w, h
+    if "x" in obj_data and "y" in obj_data:
+        x = float(obj_data["x"])
+        y = float(obj_data["y"])
+        w = float(obj_data.get("w", 0.05))
+        h = float(obj_data.get("h", 0.05))
+        if max(x, y, w, h) <= 1.05 and w_img > 1 and h_img > 1:
+            return int(x * w_img), int(y * h_img), int((x + w) * w_img), int((y + h) * h_img)
+        return int(x), int(y), int(x + w), int(y + h)
+    return None
 
 def _extraer_rasgos_faciales(
     rostro_roi: np.ndarray,
@@ -476,21 +506,54 @@ def procesar_captura_imagen(imagen_b64: str, contexto_externo: Optional[Dict[str
     img = _decodificar_imagen_b64(imagen_b64)
     h_img, w_img = img.shape[:2]
 
-    # Extraer acciones desde el contexto externo si fue provisto por Imagen/Video
-    ctx_general = {}
-    if isinstance(contexto_externo, dict):
-        acciones_lista = contexto_externo.get("acciones_detectadas", [])
-        objetos_lista = contexto_externo.get("objetos", [])
-        if "uso_celular" in acciones_lista or "telefono" in objetos_lista:
-            ctx_general["accion_celular"] = 1.0
-        if "uso_audifonos" in acciones_lista or "audifonos" in objetos_lista:
-            ctx_general["accion_audifonos"] = 1.0
-        if "mirada_desviada" in acciones_lista:
-            ctx_general["accion_mirada_desviada"] = 1.0
-        if "postura_cansancio" in acciones_lista or "durmiendo" in acciones_lista:
-            ctx_general["accion_postura_cansancio"] = 1.0
+    # 1. Parsear objetos y distractores externos con coordenadas (si vienen de Imagen o Video)
+    distractores_externos_celular: List[Dict[str, Any]] = []
+    distractores_externos_audifonos: List[Dict[str, Any]] = []
+    target_estudiante_id: Optional[int] = None
+    acciones_lista: List[str] = []
 
-    # 1. DETECCIÓN CON YOLO POSE (Detección de personas y posturas reales)
+    if isinstance(contexto_externo, dict):
+        raw_acciones = contexto_externo.get("acciones_detectadas", [])
+        if isinstance(raw_acciones, list):
+            acciones_lista = [str(a).lower() for a in raw_acciones]
+
+        target_raw = contexto_externo.get("estudiante_id") or contexto_externo.get("alumno_id")
+        if target_raw is not None:
+            try:
+                target_estudiante_id = int(target_raw)
+            except (ValueError, TypeError):
+                target_estudiante_id = None
+
+        # A) distractorBox o distractor_box con coordenadas
+        for key in ("distractorBox", "distractor_box"):
+            dbox = contexto_externo.get(key)
+            if isinstance(dbox, dict):
+                coords = _extraer_caja_pixel(dbox, w_img, h_img)
+                if coords:
+                    lbl = str(dbox.get("label", "celular")).lower()
+                    conf_val = float(dbox.get("conf", dbox.get("score", 0.90)))
+                    item_ext = {"x1": coords[0], "y1": coords[1], "x2": coords[2], "y2": coords[3], "conf": conf_val}
+                    if any(k in lbl for k in ("audifono", "headphone", "audio")):
+                        distractores_externos_audifonos.append(item_ext)
+                    else:
+                        distractores_externos_celular.append(item_ext)
+
+        # B) Lista estructurada de objetos con cajas
+        objs = contexto_externo.get("objetos", [])
+        if isinstance(objs, list):
+            for o in objs:
+                if isinstance(o, dict):
+                    caja = _extraer_caja_pixel(o.get("box", o), w_img, h_img)
+                    if caja:
+                        lbl = str(o.get("label", o.get("tipo", o.get("clase", "telefono")))).lower()
+                        conf_val = float(o.get("conf", o.get("confianza", 0.88)))
+                        item_ext = {"x1": caja[0], "y1": caja[1], "x2": caja[2], "y2": caja[3], "conf": conf_val}
+                        if any(k in lbl for k in ("audifono", "headphone", "audio")):
+                            distractores_externos_audifonos.append(item_ext)
+                        else:
+                            distractores_externos_celular.append(item_ext)
+
+    # 2. DETECCIÓN CON YOLO POSE (Detección de personas y posturas reales)
     candidatos_personas: List[Dict[str, Any]] = []
     yolo_pose = _obtener_yolo_pose()
     if yolo_pose is not None:
@@ -501,9 +564,9 @@ def procesar_captura_imagen(imagen_b64: str, contexto_externo: Optional[Dict[str
                 kpts_data = res_pose[0].keypoints.data if hasattr(res_pose[0], 'keypoints') and res_pose[0].keypoints is not None else None
 
                 for i, b in enumerate(boxes):
-                    xyxy = b.xyxy[0].cpu().numpy()
-                    conf = float(b.conf[0].cpu().numpy())
-                    kpts = kpts_data[i].cpu().numpy() if kpts_data is not None and len(kpts_data) > i else None
+                    xyxy = _tensor_a_numpy(b.xyxy[0])
+                    conf = float(_tensor_a_numpy(b.conf[0]))
+                    kpts = _tensor_a_numpy(kpts_data[i]) if kpts_data is not None and len(kpts_data) > i else None
                     candidatos_personas.append({
                         "x1": int(max(0, xyxy[0])),
                         "y1": int(max(0, xyxy[1])),
@@ -516,18 +579,18 @@ def procesar_captura_imagen(imagen_b64: str, contexto_externo: Optional[Dict[str
         except Exception as e:
             print(f"[Aviso] YOLO Pose en fallback: {e}")
 
-    # 2. DETECCIÓN DE OBJETOS DISTRACTORES CON YOLO BEST (Celular, audífonos, laptop)
-    telefonos_detectados: List[Dict[str, Any]] = []
-    audifonos_detectados: List[Dict[str, Any]] = []
+    # 3. DETECCIÓN DE OBJETOS DISTRACTORES CON YOLO BEST (Celular, audífonos, laptop)
+    telefonos_detectados: List[Dict[str, Any]] = list(distractores_externos_celular)
+    audifonos_detectados: List[Dict[str, Any]] = list(distractores_externos_audifonos)
     yolo_best = _obtener_yolo_best()
     if yolo_best is not None:
         try:
             res_best = yolo_best(img, verbose=False, conf=0.25)
             if res_best and len(res_best[0].boxes) > 0:
                 for b in res_best[0].boxes:
-                    cls_id = int(b.cls[0].cpu().numpy())
-                    xyxy = b.xyxy[0].cpu().numpy()
-                    conf = float(b.conf[0].cpu().numpy())
+                    cls_id = int(_tensor_a_numpy(b.cls[0]))
+                    xyxy = _tensor_a_numpy(b.xyxy[0])
+                    conf = float(_tensor_a_numpy(b.conf[0]))
                     # Mapeo: 0: persona, 2: telefono, 5: audifonos, 7: laptop
                     if cls_id == 2:  # telefono
                         telefonos_detectados.append({
@@ -552,7 +615,7 @@ def procesar_captura_imagen(imagen_b64: str, contexto_externo: Optional[Dict[str
         except Exception as e:
             print(f"[Aviso] YOLO Best en fallback: {e}")
 
-    # 3. RESPALDO SECUNDARIO CON HAAR CASCADE (Si YOLO no detectó personas completas)
+    # 4. RESPALDO SECUNDARIO CON HAAR CASCADE (Si YOLO no detectó personas completas)
     if len(candidatos_personas) == 0:
         cascade = _obtener_face_cascade()
         gris = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -584,6 +647,160 @@ def procesar_captura_imagen(imagen_b64: str, contexto_externo: Optional[Dict[str
 
     # Ordenar estudiantes de izquierda a derecha en el aula
     candidatos_personas.sort(key=lambda p: p["x1"])
+    total_est = len(candidatos_personas)
+
+    # =========================================================================
+    # ASOCIACIÓN ESPACIAL INDIVIDUAL DE DISTRACTORES (CELULAR / AUDÍFONOS)
+    # La penalización es ESTRICTAMENTE INDIVIDUAL por proximidad espacial e intersección.
+    # NUNCA se inyecta la acción a toda la clase si solo un estudiante la realiza.
+    # =========================================================================
+    alumnos_con_celular: Dict[int, Dict[str, Any]] = {}
+    alumnos_con_audifonos: Dict[int, Dict[str, Any]] = {}
+
+    # A) Cruzar teléfonos detectados con alumnos por proximidad e intersección
+    for tel in telefonos_detectados:
+        tx1, ty1, tx2, ty2 = tel["x1"], tel["y1"], tel["x2"], tel["y2"]
+        tcx = (tx1 + tx2) / 2.0
+        tcy = (ty1 + ty2) / 2.0
+        t_area = max(1, (tx2 - tx1) * (ty2 - ty1))
+
+        mejor_alumno_idx = None
+        menor_distancia = float("inf")
+
+        for s_idx, cand in enumerate(candidatos_personas, start=1):
+            if s_idx in alumnos_con_celular:
+                continue
+
+            sx1, sy1, sx2, sy2 = cand["x1"], cand["y1"], cand["x2"], cand["y2"]
+            sw = max(20, sx2 - sx1)
+            sh = max(20, sy2 - sy1)
+            scx = (sx1 + sx2) / 2.0
+            scy = (sy1 + sy2) / 2.0
+
+            # Zona ampliada de interacción del alumno (brazos, regazo, pupitre frente a él)
+            zone_x1 = sx1 - sw * 0.25
+            zone_x2 = sx2 + sw * 0.25
+            zone_y1 = sy1 + sh * 0.10
+            zone_y2 = sy2 + sh * 0.40
+
+            # Intersección
+            ox1 = max(zone_x1, tx1)
+            oy1 = max(zone_y1, ty1)
+            ox2 = min(zone_x2, tx2)
+            oy2 = min(zone_y2, ty2)
+            overlap_area = max(0, ox2 - ox1) * max(0, oy2 - oy1)
+            containment = overlap_area / t_area
+            dist = math.hypot(tcx - scx, tcy - scy)
+
+            # Criterio de proximidad espacial estricta
+            en_zona = (containment > 0.05) or (zone_x1 <= tcx <= zone_x2 and zone_y1 <= tcy <= zone_y2)
+            proximidad_cercana = dist <= max(sw, sh) * 0.90
+
+            if en_zona or proximidad_cercana:
+                if dist < menor_distancia:
+                    menor_distancia = dist
+                    mejor_alumno_idx = s_idx
+
+        if mejor_alumno_idx is not None:
+            alumnos_con_celular[mejor_alumno_idx] = {
+                "x": round(float(tx1) / float(w_img), 4),
+                "y": round(float(ty1) / float(h_img), 4),
+                "w": round(float(tx2 - tx1) / float(w_img), 4),
+                "h": round(float(ty2 - ty1) / float(h_img), 4),
+                "label": f"Celular ({tel.get('conf', 0.90):.2f})"
+            }
+
+    # B) Cruzar audífonos detectados con alumnos por proximidad craneal
+    for aud in audifonos_detectados:
+        ax1, ay1, ax2, ay2 = aud["x1"], aud["y1"], aud["x2"], aud["y2"]
+        acx = (ax1 + ax2) / 2.0
+        acy = (ay1 + ay2) / 2.0
+        mejor_alumno_idx = None
+        menor_distancia = float("inf")
+
+        for s_idx, cand in enumerate(candidatos_personas, start=1):
+            if s_idx in alumnos_con_audifonos:
+                continue
+
+            sx1, sy1, sx2, sy2 = cand["x1"], cand["y1"], cand["x2"], cand["y2"]
+            sw = max(20, sx2 - sx1)
+            sh = max(20, sy2 - sy1)
+            scx = (sx1 + sx2) / 2.0
+
+            # Zona superior de la cabeza y orejas
+            zh_x1 = sx1 - sw * 0.20
+            zh_x2 = sx2 + sw * 0.20
+            zh_y1 = sy1 - sh * 0.15
+            zh_y2 = sy1 + sh * 0.50
+
+            ox1 = max(zh_x1, ax1)
+            oy1 = max(zh_y1, ay1)
+            ox2 = min(zh_x2, ax2)
+            oy2 = min(zh_y2, ay2)
+            overlap_area = max(0, ox2 - ox1) * max(0, oy2 - oy1)
+            dist = math.hypot(acx - scx, acy - (sy1 + sh * 0.25))
+
+            if overlap_area > 0 or dist <= max(sw, sh) * 0.65:
+                if dist < menor_distancia:
+                    menor_distancia = dist
+                    mejor_alumno_idx = s_idx
+
+        if mejor_alumno_idx is not None:
+            alumnos_con_audifonos[mejor_alumno_idx] = {
+                "x": round(float(ax1) / float(w_img), 4),
+                "y": round(float(ay1) / float(h_img), 4),
+                "w": round(float(ax2 - ax1) / float(w_img), 4),
+                "h": round(float(ay2 - ay1) / float(h_img), 4),
+                "label": f"Audífonos ({aud.get('conf', 0.85):.2f})"
+            }
+
+    # C) Fallback para contexto externo sin coordenadas (ej. Video/Imagen reporta 'uso_celular' sin cajas)
+    if not alumnos_con_celular and isinstance(contexto_externo, dict):
+        acciones = contexto_externo.get("acciones_detectadas", [])
+        objetos = contexto_externo.get("objetos", [])
+        if "uso_celular" in acciones or "telefono" in objetos:
+            if target_estudiante_id is not None and 1 <= target_estudiante_id <= total_est:
+                id_asignado = target_estudiante_id
+            elif total_est == 1:
+                id_asignado = 1
+            else:
+                # Regla de Oro: En aula con múltiples alumnos, si no hay coordenadas,
+                # asociar ÚNICAMENTE al alumno con mayor postura de uso de celular (head_pitch)
+                # NUNCA penalizar globalmente a toda la clase.
+                mejor_pitch = -999.0
+                id_asignado = 1
+                for s_idx, cand in enumerate(candidatos_personas, start=1):
+                    kpts = cand.get("keypoints")
+                    pitch_aprox = 0.0
+                    if kpts is not None and len(kpts) >= 5:
+                        pts = [p for p in kpts[:5] if p[2] > 0.2]
+                        if len(pts) >= 2:
+                            ojos_y = sum(p[1] for p in pts[:2]) / 2.0
+                            pitch_aprox = float(pts[0][1] - ojos_y)
+                    if pitch_aprox > mejor_pitch:
+                        mejor_pitch = pitch_aprox
+                        id_asignado = s_idx
+
+            c_sel = candidatos_personas[id_asignado - 1]
+            c_w = max(20, c_sel["x2"] - c_sel["x1"])
+            c_h = max(20, c_sel["y2"] - c_sel["y1"])
+            alumnos_con_celular[id_asignado] = {
+                "x": round(float(c_sel["x1"] + c_w * 0.25) / float(w_img), 4),
+                "y": round(float(c_sel["y1"] + c_h * 0.65) / float(h_img), 4),
+                "w": round(float(c_w * 0.50) / float(w_img), 4),
+                "h": round(float(c_h * 0.30) / float(h_img), 4),
+                "label": "Celular (0.91)"
+            }
+
+    if not alumnos_con_audifonos and isinstance(contexto_externo, dict):
+        acciones = contexto_externo.get("acciones_detectadas", [])
+        objetos = contexto_externo.get("objetos", [])
+        if "uso_audifonos" in acciones or "audifonos" in objetos:
+            if target_estudiante_id is not None and 1 <= target_estudiante_id <= total_est:
+                alumnos_con_audifonos[target_estudiante_id] = {"label": "Audífonos"}
+            elif total_est == 1:
+                alumnos_con_audifonos[1] = {"label": "Audífonos"}
+
     estudiantes_resultado: List[Dict[str, Any]] = []
 
     for idx, cand in enumerate(candidatos_personas, start=1):
@@ -624,40 +841,37 @@ def procesar_captura_imagen(imagen_b64: str, contexto_externo: Optional[Dict[str
 
         rasgos = _extraer_rasgos_faciales(roi_face, bbox_rel, keypoints)
 
-        # Fusión de acciones detectadas localmente para este alumno
-        ctx_alumno = dict(ctx_general)
+        # Contexto multimodal ESTRICTAMENTE INDIVIDUAL para este alumno
+        ctx_alumno: Dict[str, float] = {}
 
-        # Verificar si hay un celular cerca o dentro de su área
-        tiene_celular = False
-        distractor_box = None
-        for tel in telefonos_detectados:
-            tx1, ty1, tx2, ty2 = tel["x1"], tel["y1"], tel["x2"], tel["y2"]
-            # Solapamiento o proximidad
-            if not (tx2 < x1 - 10 or tx1 > x2 + 10 or ty2 < y1 or ty1 > y2):
-                tiene_celular = True
-                distractor_box = {
-                    "x": round(float(tx1) / float(w_img), 4),
-                    "y": round(float(ty1) / float(h_img), 4),
-                    "w": round(float(tx2 - tx1) / float(w_img), 4),
-                    "h": round(float(ty2 - ty1) / float(h_img), 4),
-                    "label": f"Celular ({tel['conf']:.2f})"
-                }
-                break
-
-        if tiene_celular or ctx_alumno.get("accion_celular", 0.0) > 0.5:
+        # 1. Celular: Solo si este estudiante específico tiene el celular asignado espacialmente
+        tiene_celular = idx in alumnos_con_celular
+        distractor_box = alumnos_con_celular.get(idx)
+        if tiene_celular:
             ctx_alumno["accion_celular"] = 1.0
+        else:
+            ctx_alumno["accion_celular"] = 0.0
 
-        # Verificar si hay audífonos cerca de su cabeza
-        for aud in audifonos_detectados:
-            ax1, ay1, ax2, ay2 = aud["x1"], aud["y1"], aud["x2"], aud["y2"]
-            if not (ax2 < x1 or ax1 > x2 or ay2 < y1 or ay1 > y1 + int(h_box * 0.5)):
-                ctx_alumno["accion_audifonos"] = 1.0
-                break
+        # 2. Audífonos: Solo si este estudiante específico tiene los audífonos asignados espacialmente
+        if idx in alumnos_con_audifonos:
+            ctx_alumno["accion_audifonos"] = 1.0
+        else:
+            ctx_alumno["accion_audifonos"] = 0.0
+
+        # 3. Acciones de contexto dirigidas o individuales
+        if target_estudiante_id is None or target_estudiante_id == idx:
+            if "mirada_desviada" in acciones_lista and (total_est == 1 or target_estudiante_id == idx):
+                ctx_alumno["accion_mirada_desviada"] = 1.0
+            if ("postura_cansancio" in acciones_lista or "durmiendo" in acciones_lista) and (total_est == 1 or target_estudiante_id == idx):
+                ctx_alumno["accion_postura_cansancio"] = 1.0
 
         est = predecir_estudiante_multimodal(idx, rasgos, bbox_rel, ctx_alumno)
-        if distractor_box is not None:
+        if tiene_celular and distractor_box is not None:
             est["distractor"] = True
             est["distractorBox"] = distractor_box
+        else:
+            est["distractor"] = False
+            est["distractorBox"] = None
 
         estudiantes_resultado.append(est)
 

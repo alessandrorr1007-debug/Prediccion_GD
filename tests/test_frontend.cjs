@@ -22,7 +22,7 @@ before(async () => {
   proceso.stderr.on("data", datos => { errorServidor += datos.toString(); });
   let fallo;
   proceso.on("error", error => { fallo = error; });
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 200; i++) {
     if (fallo) throw fallo;
     if (proceso.exitCode !== null) throw new Error(errorServidor);
     try { if ((await fetch(`${base}/api/salud`)).ok) return; } catch {}

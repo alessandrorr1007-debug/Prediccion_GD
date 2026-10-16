@@ -121,7 +121,7 @@ Content-Type: application/json
 
 Los entrenamientos, pesos y aplicaciones de cada modalidad permanecen en sus repositorios. Este proyecto conserva únicamente adaptadores y contratos de integración.
 
-## Inicio local
+## Inicio local y Requisitos
 
 Requiere Python 3.11:
 
@@ -130,6 +130,15 @@ py -3.11 -m venv backend/.venv
 ./backend/.venv/Scripts/python.exe -m pip install -r requirements.txt
 ./iniciar-prediccion.ps1
 ```
+
+> [!NOTE]
+> ### Archivos de Pesos del Motor de Visión (`yolo11n-pose.pt` y `best.pt`)
+> El motor de predicción multimodal incorpora dos modelos neuronales de visión artificial para la delimitación espacial y análisis de postura/distractores:
+> - **YOLO Pose (`backend/modelo_ia/yolo11n-pose.pt`):** Detección de personas y keypoints corporales y faciales para medir la postura de estudio y el ángulo vertical de la cabeza (`head_pitch`).
+> - **YOLO Distractores (`backend/modelo_ia/best.pt`):** Detección y localización espacial de objetos distractores en aula (celulares/teléfonos móviles, audífonos y laptops).
+> 
+> **Mecanismo de Carga Automatizada (*Lazy Loading*):**
+> Ambos pesos se cargan automáticamente bajo demanda (*lazy loading singleton*) en `backend/entrenamiento_prediccion/predictor.py` a través de `_obtener_yolo_pose()` y `_obtener_yolo_best()`. Esto permite que el servicio web y las pruebas inicien instantáneamente sin congelar recursos; los modelos se inicializan en memoria únicamente al recibir la primera solicitud de inferencia visual. Además, si los pesos no están presentes en el entorno o si falla la aceleración por hardware, el pipeline conmuta automáticamente a un respaldo de detección facial Haar Cascade y análisis cinemático para mantener 100% de disponibilidad.
 
 Abrir `http://localhost:8001`. La interfaz permite editar una entrada conjunta de IMAGEN y VIDEO y ejecutar PREDICCIÓN.
 
