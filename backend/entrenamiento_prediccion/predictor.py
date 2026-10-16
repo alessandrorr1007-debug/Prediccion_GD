@@ -44,8 +44,14 @@ def _obtener_yolo_pose():
     if _YOLO_POSE is None:
         try:
             from ultralytics import YOLO
-            ruta_pose = CARPETA_ACTUAL.parent / "modelo_ia" / "yolo11n-pose.pt"
-            if ruta_pose.is_file():
+            candidatos = [
+                CARPETA_ACTUAL.parent / "modelo_ia" / "yolo11n-pose.pt",
+                CARPETA_ACTUAL / "yolo11n-pose.pt",
+                CARPETA_ACTUAL / "modelo_ia" / "yolo11n-pose.pt",
+                CARPETA_ACTUAL.parent.parent / "modelo_ia" / "yolo11n-pose.pt",
+            ]
+            ruta_pose = next((p for p in candidatos if p.is_file()), None)
+            if ruta_pose is not None:
                 _YOLO_POSE = YOLO(str(ruta_pose))
             else:
                 _YOLO_POSE = False
@@ -58,8 +64,14 @@ def _obtener_yolo_best():
     if _YOLO_BEST is None:
         try:
             from ultralytics import YOLO
-            ruta_best = CARPETA_ACTUAL.parent / "modelo_ia" / "best.pt"
-            if ruta_best.is_file():
+            candidatos = [
+                CARPETA_ACTUAL.parent / "modelo_ia" / "best.pt",
+                CARPETA_ACTUAL / "best.pt",
+                CARPETA_ACTUAL / "modelo_ia" / "best.pt",
+                CARPETA_ACTUAL.parent.parent / "modelo_ia" / "best.pt",
+            ]
+            ruta_best = next((p for p in candidatos if p.is_file()), None)
+            if ruta_best is not None:
                 _YOLO_BEST = YOLO(str(ruta_best))
             else:
                 _YOLO_BEST = False
@@ -687,3 +699,19 @@ def obtener_escenario_aula_ejemplo() -> Dict[str, Any]:
         "resolucion_captura": "1280x720 (Simulación Aula 301)",
         "soporte_emociones": 7
     }
+
+def obtener_metricas_modelo() -> Dict[str, Any]:
+    """
+    Retorna el diccionario con las métricas oficiales de entrenamiento y validación
+    almacenadas en metricas_entrenamiento.json (precisión de 7 emociones y MAE de sucesos).
+    """
+    ruta_metricas = CARPETA_ACTUAL / "metricas_entrenamiento.json"
+    if ruta_metricas.is_file():
+        with open(ruta_metricas, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {
+        "modulo": "AulaPredict - Predicción Universitaria",
+        "version": "2.5.0",
+        "estado": "metricas_no_encontradas"
+    }
+

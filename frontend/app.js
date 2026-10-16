@@ -79,12 +79,12 @@ const entradas = {
 // ESTADO DEL CLIENTE DE PREDICCIÓN BASADO EN CAPTURAS
 // ============================================================================
 let estudiantesEnCaptura = [];
-let estudianteSeleccionadoId = 1;
+let estudianteSeleccionadoId = null;
 let webcamStream = null;
 let animCanvasId = null;
 let modoCapturaCongelada = false;
 
-// Datos iniciales de demostración hasta realizar la primera captura
+// Datos calibrados de demostración (utilizados en pruebas y simulación)
 const DEMO_INICIAL_ESTUDIANTES = [
   {
     id: 1,
@@ -124,8 +124,6 @@ const DEMO_INICIAL_ESTUDIANTES = [
   }
 ];
 
-estudiantesEnCaptura = JSON.parse(JSON.stringify(DEMO_INICIAL_ESTUDIANTES));
-
 // ============================================================================
 // RENDERIZADO DE PANELES DE PREDICCIÓN
 // ============================================================================
@@ -154,7 +152,7 @@ function renderizarPanelesInferiores(estudiante) {
   const actionBadge = elemento("student-action-badge");
 
   if (!estudiante) {
-    // Reseteo limpio cuando no hay estudiantes en la captura
+    // Reseteo limpio cuando no hay estudiantes en la captura o antes de capturar
     if (emoNeutral && barNeutral) { emoNeutral.textContent = "0%"; barNeutral.style.width = "0%"; }
     if (emoFelicidad && barFelicidad) { emoFelicidad.textContent = "0%"; barFelicidad.style.width = "0%"; }
     if (emoTristeza && barTristeza) { emoTristeza.textContent = "0%"; barTristeza.style.width = "0%"; }
@@ -162,16 +160,16 @@ function renderizarPanelesInferiores(estudiante) {
     if (emoEnojo && barEnojo) { emoEnojo.textContent = "0%"; barEnojo.style.width = "0%"; }
     if (emoSorpresa && barSorpresa) { emoSorpresa.textContent = "0%"; barSorpresa.style.width = "0%"; }
     if (emoDisgusto && barDisgusto) { emoDisgusto.textContent = "0%"; barDisgusto.style.width = "0%"; }
-    if (domEmoText) domEmoText.textContent = "Esperando detección en captura";
-    if (actionBadge) actionBadge.textContent = "Sin alumnos detectados";
+    if (domEmoText) domEmoText.textContent = "Sin evaluar — Esperando captura";
+    if (actionBadge) actionBadge.textContent = "Esperando detección en captura";
 
     const causesList = elemento("causes-list");
     if (causesList) {
-      causesList.innerHTML = `<div class="prediction-empty-notice">⚠️ Esperando detección de estudiantes para inferir acontecimientos previos.</div>`;
+      causesList.innerHTML = `<div class="prediction-empty-notice"><span>⏳</span><span>Esperando captura de aula para proyectar acontecimientos previos...</span></div>`;
     }
     const consequencesList = elemento("consequences-list");
     if (consequencesList) {
-      consequencesList.innerHTML = `<div class="prediction-empty-notice">⚠️ Esperando detección de estudiantes para estimar consecuencias futuras.</div>`;
+      consequencesList.innerHTML = `<div class="prediction-empty-notice"><span>⏳</span><span>Esperando captura de aula para proyectar consecuencias futuras...</span></div>`;
     }
     const riskBanner = elemento("risk-score-banner");
     const riesgoScoreNum = elemento("riesgo-score-num");
@@ -180,11 +178,11 @@ function renderizarPanelesInferiores(estudiante) {
     const narrativeText = elemento("assistant-narrative-text");
 
     if (riskBanner) riskBanner.className = "risk-score-banner bg-risk-optimal";
-    if (riesgoScoreNum) riesgoScoreNum.textContent = "0";
-    if (riesgoNivelText) riesgoNivelText.textContent = "Sin Alumnos Evaluados";
-    if (examRiskDesc) examRiskDesc.textContent = "Encuadra la cámara o sube una imagen de aula con alumnos para calcular el riesgo.";
+    if (riesgoScoreNum) riesgoScoreNum.textContent = "—";
+    if (riesgoNivelText) riesgoNivelText.textContent = "Sin evaluar — Esperando captura";
+    if (examRiskDesc) examRiskDesc.textContent = "Presiona 'Capturar Imagen y Predecir' (o recibe una captura) para calcular el riesgo académico del estudiante.";
     if (narrativeText) {
-      narrativeText.innerHTML = "No se detectaron estudiantes en la captura actual. Asegúrate de encuadrar al grupo o sube una foto con alumnos para generar la predicción asistida.";
+      narrativeText.innerHTML = "Esperando captura para evaluar las emociones y el desempeño de los estudiantes en el aula.";
     }
     return;
   }
@@ -278,17 +276,33 @@ function renderizarCuadriculaEstudiantes() {
 
   const countBadge = elemento("students-count-badge");
   if (countBadge) {
-    countBadge.textContent = `${estudiantesEnCaptura.length} Alumno${estudiantesEnCaptura.length === 1 ? "" : "s"} Detectado${estudiantesEnCaptura.length === 1 ? "" : "s"}`;
+    if (!modoCapturaCongelada && estudiantesEnCaptura.length === 0) {
+      countBadge.textContent = "Esperando captura";
+    } else {
+      countBadge.textContent = `${estudiantesEnCaptura.length} Alumno${estudiantesEnCaptura.length === 1 ? "" : "s"} Detectado${estudiantesEnCaptura.length === 1 ? "" : "s"}`;
+    }
   }
 
   if (estudiantesEnCaptura.length === 0) {
-    container.innerHTML = `
-      <div class="students-empty-state">
-        <div class="empty-state-icon">🚫</div>
-        <div class="empty-state-title">No se detectaron estudiantes en la captura</div>
-        <div class="empty-state-desc">Asegúrate de que haya al menos un alumno visible en el encuadre o toma una nueva captura para generar predicciones.</div>
-      </div>
-    `;
+    if (!modoCapturaCongelada) {
+      // Estado Inicial / En espera de captura (Preview de cámara limpia)
+      container.innerHTML = `
+        <div class="students-empty-state waiting-state">
+          <div class="empty-state-icon">📸</div>
+          <div class="empty-state-title">Esperando captura de imagen</div>
+          <div class="empty-state-desc">Presiona 'Capturar Imagen y Predecir' (o recibe una captura del módulo de Imagen) para detectar a los alumnos presentes y ejecutar el modelo de predicción.</div>
+        </div>
+      `;
+    } else {
+      // Post-captura: Ninguna persona detectada en la foto tomada
+      container.innerHTML = `
+        <div class="students-empty-state">
+          <div class="empty-state-icon">🚫</div>
+          <div class="empty-state-title">No se detectaron estudiantes en la captura</div>
+          <div class="empty-state-desc">Asegúrate de que haya al menos un alumno visible en el encuadre o toma una nueva captura para generar predicciones.</div>
+        </div>
+      `;
+    }
     return;
   }
 
@@ -373,7 +387,13 @@ function iniciarRenderizadoCanvas() {
 
     ctx.clearRect(0, 0, w, h);
 
-    // Dibujar recuadro de cada alumno detectado
+    // En modo vista previa / encuadre (antes de congelar/capturar), mantener el visor 100% limpio
+    if (!modoCapturaCongelada) {
+      animCanvasId = requestAnimationFrame(renderLoop);
+      return;
+    }
+
+    // Dibujar recuadro de cada alumno detectado ÚNICAMENTE sobre la captura congelada
     estudiantesEnCaptura.forEach(est => {
       const isSelected = est.id === estudianteSeleccionadoId;
       const bx = est.box.x * w;
@@ -460,6 +480,7 @@ function iniciarRenderizadoCanvas() {
   renderLoop();
 
   canvas.addEventListener("click", (evt) => {
+    if (!modoCapturaCongelada || estudiantesEnCaptura.length === 0) return;
     const rect = canvas.getBoundingClientRect();
     const clickX = (evt.clientX - rect.left) / rect.width;
     const clickY = (evt.clientY - rect.top) / rect.height;
@@ -620,8 +641,12 @@ function volverANuevaCaptura() {
   if (imgDisplay) imgDisplay.style.display = "none";
   if (video) video.style.display = "block";
   modoCapturaCongelada = false;
+  estudiantesEnCaptura = [];
+  estudianteSeleccionadoId = null;
 
   if (statusText) statusText.textContent = "Cámara Lista";
+  renderizarCuadriculaEstudiantes();
+  renderizarPanelesInferiores(null);
 }
 
 // Acción: "🖼️ Probar con Captura Grupal"
@@ -635,6 +660,7 @@ async function cargarEscenarioAulaEjemplo() {
     if (!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();
     if (data.estudiantes && data.estudiantes.length > 0) {
+      modoCapturaCongelada = true;
       estudiantesEnCaptura = data.estudiantes;
       seleccionarEstudiante(3); // Seleccionar alumno con celular para ver la alerta
     }
@@ -731,7 +757,7 @@ function configurarEventosCaptura() {
 
 if (typeof window !== "undefined") {
   renderizarCuadriculaEstudiantes();
-  renderizarPanelesInferiores(estudiantesEnCaptura[0]);
+  renderizarPanelesInferiores(null);
   iniciarRelojEnVivo();
   iniciarRenderizadoCanvas();
   configurarEventosCaptura();

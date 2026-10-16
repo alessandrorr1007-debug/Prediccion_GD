@@ -117,3 +117,26 @@ y contexto aportado por el integrador; no se presentan como capacidades de los e
 Ver [SEGUIMIENTO_ESTUDIANTES.md](SEGUIMIENTO_ESTUDIANTES.md): contrato versionado,
 API local con OpenAPI, reglas, ejemplos y límites. AUDIO sigue pendiente y cualquier
 clasificación emocional futura se trata como observación incierta, sin puntos.
+
+---
+
+## Ingesta Multimodal Directa por Captura (Producción v2.5)
+
+`POST /api/prediccion/analizar-captura`: Ingesta directa de imagen mejorada (entregada por el módulo de **IMAGEN**) y contexto de acciones detectadas (entregado por **VIDEO** o **IMAGEN**).
+
+### Esquema de Entrada:
+```json
+{
+  "imagen_b64": "data:image/jpeg;base64,...",
+  "contexto_externo": {
+    "acciones_detectadas": ["uso_celular", "uso_audifonos", "mirada_desviada", "postura_cansancio"],
+    "objetos": ["telefono", "audifonos", "laptop"]
+  }
+}
+```
+
+### Comportamiento y Garantías:
+1. **Detección Híbrida Real:** Ejecuta YOLO Pose (`yolo11n-pose.pt`) y YOLO Best (`best.pt`) para detectar alumnos y objetos por proximidad espacial. Calcula inclinación de cabeza vertical (`head_pitch`).
+2. **Cero Estudiantes Falsos:** Si la imagen capturada tiene 0 personas (pared, escritorio vacío), retorna inmediatamente `total_alumnos: 0`, `estudiantes: []` y estado `"sin_personas"`.
+3. **Predicción Multimodal:** Para cada alumno detectado evalúa las **7 emociones universales en porcentaje** con `modelo_emociones_facial.pkl` (99.02% accuracy) e infiere acontecimientos previos, consecuencias y riesgo de desaprobar el parcial (`prob_jalar_parcial`) con `modelo_sucesos_academicos.pkl` (R²=0.902).
+

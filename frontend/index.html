@@ -180,13 +180,17 @@
                 <p class="card-subtitle-note">Haz clic en cualquier alumno de la captura para consultar su predicción individual</p>
               </div>
               <div class="students-counter-chip">
-                <span id="students-count-badge">5 Alumnos Detectados</span>
+                <span id="students-count-badge">Esperando captura</span>
               </div>
             </div>
 
             <!-- Cuadrícula de Tarjetas de Alumnos (Grid 2 Columnas) -->
             <div id="students-grid" class="students-grid-container" role="listbox" aria-label="Alumnos detectados en la captura">
-              <!-- Renderizado dinámico vía JavaScript según los alumnos detectados en la foto -->
+              <div class="students-empty-state waiting-state">
+                <div class="empty-state-icon">📸</div>
+                <div class="empty-state-title">Esperando captura de imagen</div>
+                <div class="empty-state-desc">Presiona 'Capturar Imagen y Predecir' (o recibe una captura del módulo de Imagen) para detectar a los alumnos presentes y ejecutar el modelo de predicción.</div>
+              </div>
             </div>
           </section>
         </div>
@@ -199,7 +203,7 @@
           <section class="card prediction-card emotions-card">
             <div class="card-header-clean">
               <h3 class="card-title-sm">
-                🔮 Reconocimiento Facial: 7 Emociones <span class="selected-student-label">(Estudiante 1)</span>
+                🔮 Reconocimiento Facial: 7 Emociones <span class="selected-student-label">(Sin selección)</span>
               </h3>
               <span class="sub-label">Predicción Facial Calibrada (0% - 100%)</span>
             </div>
@@ -210,10 +214,10 @@
               <div class="emotion-item">
                 <div class="emotion-title-row">
                   <span class="emo-label">Neutral / Concentración (😐)</span>
-                  <span id="emo-pct-neutral" class="emo-val text-neutral">82%</span>
+                  <span id="emo-pct-neutral" class="emo-val text-neutral">0%</span>
                 </div>
                 <div class="progress-track">
-                  <div id="emo-bar-neutral" class="progress-fill fill-neutral" style="width: 82%;"></div>
+                  <div id="emo-bar-neutral" class="progress-fill fill-neutral" style="width: 0%;"></div>
                 </div>
               </div>
 
@@ -221,10 +225,10 @@
               <div class="emotion-item">
                 <div class="emotion-title-row">
                   <span class="emo-label">Felicidad / Motivación (😊)</span>
-                  <span id="emo-pct-felicidad" class="emo-val text-felicidad">12%</span>
+                  <span id="emo-pct-felicidad" class="emo-val text-felicidad">0%</span>
                 </div>
                 <div class="progress-track">
-                  <div id="emo-bar-felicidad" class="progress-fill fill-felicidad" style="width: 12%;"></div>
+                  <div id="emo-bar-felicidad" class="progress-fill fill-felicidad" style="width: 0%;"></div>
                 </div>
               </div>
 
@@ -232,10 +236,10 @@
               <div class="emotion-item">
                 <div class="emotion-title-row">
                   <span class="emo-label">Tristeza / Decaimiento (😢)</span>
-                  <span id="emo-pct-tristeza" class="emo-val text-tristeza">4%</span>
+                  <span id="emo-pct-tristeza" class="emo-val text-tristeza">0%</span>
                 </div>
                 <div class="progress-track">
-                  <div id="emo-bar-tristeza" class="progress-fill fill-tristeza" style="width: 4%;"></div>
+                  <div id="emo-bar-tristeza" class="progress-fill fill-tristeza" style="width: 0%;"></div>
                 </div>
               </div>
 
@@ -243,10 +247,10 @@
               <div class="emotion-item">
                 <div class="emotion-title-row">
                   <span class="emo-label">Miedo / Ansiedad / Estrés (😨)</span>
-                  <span id="emo-pct-miedo" class="emo-val text-miedo">5%</span>
+                  <span id="emo-pct-miedo" class="emo-val text-miedo">0%</span>
                 </div>
                 <div class="progress-track">
-                  <div id="emo-bar-miedo" class="progress-fill fill-miedo" style="width: 5%;"></div>
+                  <div id="emo-bar-miedo" class="progress-fill fill-miedo" style="width: 0%;"></div>
                 </div>
               </div>
 
@@ -254,10 +258,10 @@
               <div class="emotion-item">
                 <div class="emotion-title-row">
                   <span class="emo-label">Enojo / Frustración (😠)</span>
-                  <span id="emo-pct-enojo" class="emo-val text-enojo">3%</span>
+                  <span id="emo-pct-enojo" class="emo-val text-enojo">0%</span>
                 </div>
                 <div class="progress-track">
-                  <div id="emo-bar-enojo" class="progress-fill fill-enojo" style="width: 3%;"></div>
+                  <div id="emo-bar-enojo" class="progress-fill fill-enojo" style="width: 0%;"></div>
                 </div>
               </div>
 
@@ -265,10 +269,10 @@
               <div class="emotion-item">
                 <div class="emotion-title-row">
                   <span class="emo-label">Sorpresa (😲)</span>
-                  <span id="emo-pct-sorpresa" class="emo-val text-sorpresa">2%</span>
+                  <span id="emo-pct-sorpresa" class="emo-val text-sorpresa">0%</span>
                 </div>
                 <div class="progress-track">
-                  <div id="emo-bar-sorpresa" class="progress-fill fill-sorpresa" style="width: 2%;"></div>
+                  <div id="emo-bar-sorpresa" class="progress-fill fill-sorpresa" style="width: 0%;"></div>
                 </div>
               </div>
 
@@ -276,10 +280,10 @@
               <div class="emotion-item">
                 <div class="emotion-title-row">
                   <span class="emo-label">Disgusto / Rechazo (🤢)</span>
-                  <span id="emo-pct-disgusto" class="emo-val text-disgusto">2%</span>
+                  <span id="emo-pct-disgusto" class="emo-val text-disgusto">0%</span>
                 </div>
                 <div class="progress-track">
-                  <div id="emo-bar-disgusto" class="progress-fill fill-disgusto" style="width: 2%;"></div>
+                  <div id="emo-bar-disgusto" class="progress-fill fill-disgusto" style="width: 0%;"></div>
                 </div>
               </div>
             </div>
@@ -288,11 +292,11 @@
             <div class="dominant-emotion-pill-wrap">
               <div id="dominant-pill-box" class="dominant-pill">
                 <span class="dot-accent-orange"></span>
-                <span>Estado Emocional Dominante: <strong id="dominant-emotion-text">Neutral / Concentración (😐)</strong></span>
+                <span>Estado Emocional Dominante: <strong id="dominant-emotion-text">Sin evaluar — Esperando captura</strong></span>
               </div>
               <div id="action-pill-box" class="action-pill">
                 <span class="dot-action-blue"></span>
-                <span>Acción Detectada: <strong id="student-action-badge">Atento a la clase sin distractores</strong></span>
+                <span>Acción Detectada: <strong id="student-action-badge">Esperando detección en captura</strong></span>
               </div>
             </div>
 
@@ -305,7 +309,7 @@
           <section class="card prediction-card events-card">
             <div class="card-header-clean">
               <h3 class="card-title-sm">
-                📋 Predicción de Sucesos Probables <span class="selected-student-label">(Estudiante 1)</span>
+                📋 Predicción de Sucesos Probables <span class="selected-student-label">(Sin selección)</span>
               </h3>
             </div>
 
@@ -317,7 +321,7 @@
                   <span class="block-title">Acontecimientos Previos (Causas Probables)</span>
                 </div>
                 <div id="causes-list" class="probabilities-list">
-                  <!-- Renderizado dinámico -->
+                  <div class="prediction-empty-notice"><span>⏳</span><span>Esperando captura de aula para proyectar acontecimientos previos...</span></div>
                 </div>
               </div>
 
@@ -328,7 +332,7 @@
                   <span class="block-title">Acontecimientos Futuros (Consecuencias Estimadas)</span>
                 </div>
                 <div id="consequences-list" class="probabilities-list">
-                  <!-- Renderizado dinámico -->
+                  <div class="prediction-empty-notice"><span>⏳</span><span>Esperando captura de aula para proyectar consecuencias futuras...</span></div>
                 </div>
               </div>
             </div>
@@ -338,19 +342,19 @@
           <section class="card prediction-card academic-card">
             <div class="card-header-clean">
               <h3 class="card-title-sm">
-                📈 Análisis y Proyección Académica <span class="selected-student-label">(Estudiante 1)</span>
+                📈 Análisis y Proyección Académica <span class="selected-student-label">(Sin selección)</span>
               </h3>
             </div>
 
             <!-- Banner Superior de Score Heurístico -->
             <div id="risk-score-banner" class="risk-score-banner bg-risk-optimal">
               <div class="score-number-col">
-                <span id="riesgo-score-num" class="score-huge">15</span>
+                <span id="riesgo-score-num" class="score-huge">—</span>
                 <span class="score-den">/ 100</span>
               </div>
               <div class="score-meta-col">
                 <span class="score-label">ÍNDICE DE RIESGO ACADÉMICO</span>
-                <strong id="riesgo-nivel-text" class="score-level-text">Riesgo de Desempeño: BAJO / ÓPTIMO</strong>
+                <strong id="riesgo-nivel-text" class="score-level-text">Sin evaluar — Esperando captura</strong>
               </div>
             </div>
 
@@ -359,7 +363,7 @@
               <div class="alert-icon-wrap">⚠️</div>
               <div class="alert-text-wrap">
                 <strong>Riesgo de Desaprobación:</strong>
-                <p id="exam-risk-desc">Bajo riesgo de desaprobación ('jalar'). Proyección favorable para rendir y aprobar el examen parcial con solvencia.</p>
+                <p id="exam-risk-desc">Presiona 'Capturar Imagen y Predecir' (o recibe una captura) para calcular el riesgo académico del estudiante.</p>
               </div>
             </div>
 
@@ -370,7 +374,7 @@
                 <span class="assistant-title">Asistente Predictivo en Vivo</span>
               </div>
               <p id="assistant-narrative-text" class="assistant-body-text">
-                El Estudiante 1 ingresó en un estado emocional neutro y enfocado, manteniendo atención visual constante en la sesión. Se proyecta un dominio sólido de la materia y mínimo riesgo de desaprobar el examen parcial. <strong>Recomendación:</strong> Mantener la dinámica participativa actual y motivar el liderazgo en grupos de estudio.
+                Esperando captura para evaluar las emociones y el desempeño de los estudiantes en el aula.
               </p>
             </div>
 

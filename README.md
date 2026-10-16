@@ -7,6 +7,111 @@ y seguimiento por estudiante (demostración sintética local). El segundo cruza
 observaciones con identidad explícitamente asociada y contexto académico;
 no predice notas, diagnósticos ni sanciones. [Diseño, reglas y contrato B](docs/SEGUIMIENTO_ESTUDIANTES.md).
 
+---
+
+## 🔌 Guía Rápida para el Integrador General (Cómo consumir el Entrenamiento de Predicción)
+
+Si eres el encargado de unir los módulos del curso (**VIDEO**, **IMAGEN** y **PREDICCIÓN**), puedes consumir nuestro motor entrenado de dos maneras directas:
+
+### Opción A: Importación directa del entrenamiento en Python (Librería Autocontenida)
+
+1. **Carpetas requeridas:** Copia a tu proyecto las carpetas de este repositorio:
+   - `backend/entrenamiento_prediccion/` (contiene los modelos `modelo_emociones_facial.pkl`, `modelo_sucesos_academicos.pkl` e inferencia).
+   - `backend/modelo_ia/` (contiene los modelos de visión `yolo11n-pose.pt` y `best.pt`).
+
+2. **Código de Inferencia en 3 líneas:**
+```python
+from backend.entrenamiento_prediccion import procesar_captura_imagen
+
+# 1. Recibe la imagen mejorada de IMAGEN (base64) y las acciones detectadas de VIDEO/IMAGEN
+contexto = {"acciones_detectadas": ["uso_celular"], "objetos": ["telefono"]}
+resultado = procesar_captura_imagen(imagen_b64, contexto_externo=contexto)
+
+# 2. Acceso a alumnos detectados y sus 7 emociones universales + predicción de riesgo parcial
+print(f"Alumnos detectados: {resultado['total_alumnos']}")
+for est in resultado["estudiantes"]:
+    print(f"Estudiante: {est['nombre']} | Dominante: {est['emociones']['dominante']} | Score Riesgo: {est['score']}/100")
+```
+
+---
+
+### Opción B: Consumo vía API REST en Producción
+
+1. **Petición HTTP:** Envía un `POST /api/prediccion/analizar-captura`:
+```http
+POST /api/prediccion/analizar-captura HTTP/1.1
+Content-Type: application/json
+
+{
+  "imagen_b64": "data:image/jpeg;base64,...",
+  "contexto_externo": {
+    "acciones_detectadas": ["uso_celular", "mirada_desviada"],
+    "objetos": ["telefono"]
+  }
+}
+```
+
+2. **Formato JSON de Respuesta en Producción:**
+- **Sin personas en captura (0 alumnos falsos):**
+```json
+{
+  "estado": "sin_personas",
+  "mensaje": "No se detectaron estudiantes en la captura. No hay predicciones para generar.",
+  "total_alumnos": 0,
+  "estudiantes": [],
+  "resolucion_captura": "1280x720",
+  "soporte_emociones": 7
+}
+```
+
+- **Con alumnos detectados:**
+```json
+{
+  "estado": "exito",
+  "total_alumnos": 1,
+  "resolucion_captura": "1280x720",
+  "soporte_emociones": 7,
+  "estudiantes": [
+    {
+      "id": 1,
+      "nombre": "Estudiante 1",
+      "subId": "0.91",
+      "estado": "Distracción detectada",
+      "accionDetectada": "Uso de celular detectado en regazo o pupitre",
+      "atencion": 28,
+      "emociones": {
+        "neutral": 15,
+        "felicidad": 8,
+        "tristeza": 12,
+        "enojo": 18,
+        "miedo": 42,
+        "sorpresa": 3,
+        "disgusto": 2,
+        "dominante": "Miedo / Ansiedad (😨)"
+      },
+      "causas": [
+        { "texto": "Distracción o consulta no autorizada mediante dispositivo móvil", "prob": 88 },
+        { "texto": "Bloqueo cognitivo o falta de preparación conceptual", "prob": 74 }
+      ],
+      "consecuencias": [
+        { "texto": "Riesgo crítico de desaprobación ('jalar') en el examen parcial", "prob": 82 },
+        { "texto": "Pérdida de continuidad académica en la sesión evaluativa", "prob": 79 }
+      ],
+      "score": 85,
+      "nivelRiesgo": "Riesgo de Desempeño: ALTO / CRÍTICO",
+      "esRiesgoAlto": true,
+      "alertaExamen": "Riesgo inminente de desaprobar ('jalar') el examen parcial.",
+      "narrativa": "El Estudiante 1 presenta patrones de mirada hacia el regazo y manipulación de smartphone...",
+      "box": { "x": 0.35, "y": 0.18, "w": 0.30, "h": 0.54 },
+      "distractor": true,
+      "distractorBox": { "x": 0.42, "y": 0.58, "w": 0.10, "h": 0.14, "label": "Celular (0.91)" }
+    }
+  ]
+}
+```
+
+---
+
 ## Equipos conectados
 
 - **VIDEO:** [SistemaSupervisionExamenes](https://github.com/cesarcabanillas1921-bit/SistemaSupervisionExamenes). Entrega detecciones por fotograma con clase, confianza y tiempo.
