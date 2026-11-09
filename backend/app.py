@@ -44,6 +44,8 @@ def modulos():
     for nombre in ("imagen", "video", "audio", "prediccion"):
         ruta = RAIZ / "backend" / "modulos" / nombre / "modulo.json"
         config = json.loads(ruta.read_text(encoding="utf-8"))
+        if nombre == "audio" and config["estado"] == "pendiente_repositorio_y_contrato":
+            config["estado_integracion"] = "integracion_pendiente"
         config["carpeta"] = f"backend/modulos/{nombre}"
         config["archivos_presentes"] = [
             artefacto for artefacto in config["artefactos"]

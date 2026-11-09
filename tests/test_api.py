@@ -22,6 +22,8 @@ class ApiTests(unittest.TestCase):
         for nombre in ("imagen", "video", "prediccion"):
             modulo = next(item for item in modulos if item["nombre"] == nombre)
             self.assertEqual(modulo["archivos_presentes"], modulo["artefactos"])
+        audio = next(item for item in modulos if item["nombre"] == "audio")
+        self.assertEqual(audio["estado_integracion"], "integracion_pendiente")
 
     def test_ejemplo_multimodal(self):
         ruta = Path(__file__).resolve().parent.parent / "ejemplos" / "prediccion.json"
