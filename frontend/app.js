@@ -1023,6 +1023,11 @@ elemento("analisis-experimental").addEventListener("submit", async (evento) => {
         lineas.push("Puntajes sin calibración en rostros reales");
         lineas.push(...Object.entries(resultado.puntajes_no_calibrados).map(([k, p]) => `${k}: ${p.toFixed(3)}`));
       }
+      const criterio = resultado.criterio_abstencion;
+      if (resultado.estado === "abstencion" && criterio?.motivos?.length) {
+        const motivos = criterio.motivos.map(motivo => motivo.replaceAll("_", " ")).join(", ");
+        lineas.push(`Abstención por ${motivos}. Puntaje máximo ${criterio.maximo.toFixed(3)} (mínimo ${criterio.umbral.toFixed(2)}), margen ${criterio.margen_observado.toFixed(3)} (mínimo ${criterio.margen_minimo.toFixed(2)}).`);
+      }
       if (resultado.caracteristicas) lineas.push(...Object.entries(resultado.caracteristicas).map(([k, v]) => `${k}: ${v}`));
       if (nombre === "audio" && !entrada.audio?.wav_b64) lineas.push("Productor y clasificador acústico pendientes para descriptores.");
       if (resultado.campos_faltantes) lineas.push(`Campos faltantes: ${resultado.campos_faltantes.join(", ")}`);

@@ -205,7 +205,9 @@ test("panel experimental envía WAV y muestra su abstención calibrada", async (
       assert.deepEqual(JSON.parse(opciones.body).audio, { evento_id: "a1", wav_b64: "UklGRg==" });
       return { ok: true, async json() { return {
         fuentes: { audio: { estado: "abstencion", modelo: { algoritmo: "random_forest", version: "fase7-1.0",
-          dataset: { dominio: "RAVDESS" } }, puntajes_calibrados: { neutral: 0.51 } } },
+          dataset: { dominio: "RAVDESS" } }, puntajes_calibrados: { neutral: 0.51 }, criterio_abstencion: {
+            motivos: ["probabilidad_insuficiente"], maximo: .51, umbral: .55, margen_observado: .2, margen_minimo: .1
+          } } },
         sincronizacion: { estado: "fuentes_insuficientes" }
       }; } };
     }
@@ -217,6 +219,7 @@ test("panel experimental envía WAV y muestra su abstención calibrada", async (
   assert.match(salida, /abstencion/);
   assert.match(salida, /random_forest.*fase7-1\.0.*RAVDESS/);
   assert.match(salida, /neutral: 0\.510/);
+  assert.match(salida, /Abstención por probabilidad insuficiente.*mínimo 0\.55/);
   assert.doesNotMatch(salida, /clasificador acústico pendientes/);
 });
 

@@ -74,11 +74,7 @@ class EntradaExperimental(Contrato):
 
 
 def seleccionar_expresion(puntajes):
-    orden = sorted(puntajes, key=puntajes.get, reverse=True)
-    primera, segunda = orden[:2]
-    if puntajes[primera] >= UMBRAL and puntajes[primera] - puntajes[segunda] >= MARGEN:
-        return primera
-    return None
+    return modelos_fase7.decidir(puntajes, UMBRAL, MARGEN)[0]
 
 
 def analizar_expresion(entrada):
@@ -112,10 +108,10 @@ def analizar_expresion(entrada):
     vector = np.array([[rasgos[nombre] for nombre in predictor.RASGOS_FACIALES]])
     valores = modelo.predict_proba(vector)[0]
     puntajes = {ETIQUETAS[int(clase)]: float(p) for clase, p in zip(modelo.classes_, valores, strict=True)}
-    expresion = seleccionar_expresion(puntajes)
+    expresion, criterio = modelos_fase7.decidir(puntajes, UMBRAL, MARGEN)
     return {"estado": "estimacion_experimental" if expresion else "abstencion",
             "expresion": expresion, "puntajes_no_calibrados": puntajes, "modelo": MODELO_FACIAL,
-            "calidad_entrada": calidad, "origen_entrenamiento": "sintetico"}
+            "calidad_entrada": calidad, "origen_entrenamiento": "sintetico", "criterio_abstencion": criterio}
 
 
 def analizar_audio(entrada):

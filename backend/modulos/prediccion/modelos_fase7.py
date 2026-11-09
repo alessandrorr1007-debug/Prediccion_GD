@@ -2,6 +2,7 @@
 from functools import lru_cache
 import json
 import logging
+from math import isfinite
 import os
 from pathlib import Path
 
@@ -76,11 +77,25 @@ def metadatos(artefacto):
     return {clave: artefacto[clave] for clave in ("tipo", "version", "algoritmo", "dataset")}
 
 
+def decidir(puntajes, umbral, margen):
+    primera, segunda = sorted(puntajes, key=puntajes.get, reverse=True)[:2]
+    maximo = puntajes[primera]
+    diferencia = maximo - puntajes[segunda]
+    motivos = []
+    if not isfinite(maximo) or maximo < umbral:
+        motivos.append("probabilidad_insuficiente")
+    if not isfinite(diferencia) or diferencia < margen:
+        motivos.append("margen_insuficiente")
+    return (None if motivos else primera), {
+        "umbral": umbral, "margen_minimo": margen, "maximo": maximo, "margen_observado": diferencia,
+        "motivos": motivos,
+    }
+
+
 def clasificar(artefacto, vector, campo):
     modelo = artefacto["modelo"]
     valores = modelo.predict_proba(vector)[0]
     puntajes = {str(clase): float(valor) for clase, valor in zip(modelo.classes_, valores, strict=True)}
-    primera, segunda = sorted(puntajes, key=puntajes.get, reverse=True)[:2]
-    etiqueta = primera if puntajes[primera] >= UMBRAL and puntajes[primera] - puntajes[segunda] >= MARGEN else None
+    etiqueta, criterio = decidir(puntajes, UMBRAL, MARGEN)
     return {"estado": "estimacion_experimental" if etiqueta else "abstencion", campo: etiqueta,
-            "puntajes_calibrados": puntajes, "modelo": metadatos(artefacto)}
+            "puntajes_calibrados": puntajes, "modelo": metadatos(artefacto), "criterio_abstencion": criterio}
