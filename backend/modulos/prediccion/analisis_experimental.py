@@ -1,6 +1,8 @@
-"""Analiza entradas de Predicción sin atribuir identidad ni calcular riesgo académico."""
+"""Evalúa señales y notas compatibles por separado, sin atribuir identidad."""
+import base64
+import binascii
 import logging
-from typing import Annotated
+from typing import Annotated, Literal
 
 import cv2
 import numpy as np
@@ -10,6 +12,7 @@ from starlette.concurrency import run_in_threadpool
 
 from backend.entrenamiento_prediccion import predictor
 from backend.entrenamiento_prediccion.imagenes import ImagenInvalida, decodificar_imagen
+from . import modelos_fase7
 from .captura_entrada import leer_captura
 from .seguimiento_contrato import Contrato, Naturaleza, Texto, Unidad
 
@@ -34,7 +37,8 @@ class ImagenExperimental(Referencia):
 
 
 class AudioExperimental(Referencia):
-    duracion_segundos: Annotated[float, Field(strict=True, ge=0, le=86400, allow_inf_nan=False)]
+    duracion_segundos: Annotated[float, Field(strict=True, ge=0, le=86400, allow_inf_nan=False)] | None = None
+    wav_b64: Annotated[str, Field(strict=True, min_length=1, max_length=2_800_000)] | None = None
     rms_normalizado: Unidad | None = None
     f0_hz: Annotated[float, Field(strict=True, gt=0, le=4000, allow_inf_nan=False)] | None = None
     variabilidad_f0_hz: Annotated[float, Field(strict=True, ge=0, le=4000, allow_inf_nan=False)] | None = None
@@ -43,9 +47,21 @@ class AudioExperimental(Referencia):
 
     @model_validator(mode="after")
     def validar_pausas(self):
+        if self.duracion_segundos is None and (self.wav_b64 is None or self.pausas_segundos is not None):
+            raise ValueError("Los descriptores de audio requieren duración")
         if self.pausas_segundos is not None and self.pausas_segundos > self.duracion_segundos:
             raise ValueError("Las pausas no pueden superar la duración del segmento")
         return self
+
+
+Nota = Annotated[int, Field(strict=True, ge=0, le=20)]
+
+
+class EntradaAcademica(Contrato):
+    G1: Nota | None = None
+    G2: Nota | None = None
+    corte: Literal["despues_g2"] | None = None
+    escala: Literal["0-20"] | None = None
 
 
 class EntradaExperimental(Contrato):
@@ -53,6 +69,7 @@ class EntradaExperimental(Contrato):
     imagen: ImagenExperimental | None = None
     video: ImagenExperimental | None = None
     audio: AudioExperimental | None = None
+    academico: EntradaAcademica | None = None
 
 
 def seleccionar_expresion(puntajes):
@@ -75,10 +92,17 @@ def analizar_expresion(entrada):
                 "rostros_detectados": len(caras)}
     if entrada.calidad is not None and entrada.calidad < .4:
         return {"estado": "evidencia_insuficiente", "motivo": "Calidad declarada insuficiente."}
+    x, y, w, h = caras[0]
+    calidad = {"declarada": entrada.calidad, "rostros_detectados": 1, "recorte_px": [int(w), int(h)]}
+    artefacto = modelos_fase7.obtener_modelo("facial")
+    if artefacto is not None:
+        recorte = cv2.resize(gris[y:y+h, x:x+w], (48, 48), interpolation=cv2.INTER_AREA)
+        return dict(modelos_fase7.clasificar(artefacto, recorte.reshape(1, -1), "expresion"),
+                    calidad_entrada=calidad,
+                    limitacion="Categorías de expresión facial observable del conjunto FER.")
     modelo = predictor.obtener_modelo_facial()
     if modelo is None:
         return {"estado": "modelo_no_disponible", "modelo": MODELO_FACIAL}
-    x, y, w, h = caras[0]
     # Centrar el recorte evita que la posición en la imagen determine la inclinación.
     rasgos = predictor._extraer_rasgos_faciales(imagen[y:y+h, x:x+w], {"x": 0, "w": 1})
     vector = np.array([[rasgos[nombre] for nombre in predictor.RASGOS_FACIALES]])
@@ -86,11 +110,15 @@ def analizar_expresion(entrada):
     puntajes = {ETIQUETAS[int(clase)]: float(p) for clase, p in zip(modelo.classes_, valores, strict=True)}
     expresion = seleccionar_expresion(puntajes)
     return {"estado": "estimacion_experimental" if expresion else "abstencion",
-            "expresion": expresion, "puntajes_no_calibrados": puntajes, "modelo": MODELO_FACIAL}
+            "expresion": expresion, "puntajes_no_calibrados": puntajes, "modelo": MODELO_FACIAL,
+            "calidad_entrada": calidad}
 
 
 def analizar_audio(entrada):
-    caracteristicas = entrada.model_dump(exclude=set(Referencia.model_fields) | {"duracion_segundos"}, exclude_none=True)
+    if entrada.wav_b64 is not None:
+        return analizar_wav(entrada)
+    caracteristicas = entrada.model_dump(exclude=set(Referencia.model_fields) | {"duracion_segundos", "wav_b64"},
+                                       exclude_none=True)
     insuficiente = (
         entrada.duracion_segundos < .25 or not caracteristicas or entrada.rms_normalizado == 0
         or entrada.pausas_segundos == entrada.duracion_segundos
@@ -99,6 +127,42 @@ def analizar_audio(entrada):
     return {"estado": "evidencia_insuficiente" if insuficiente else "caracteristicas_declaradas",
             "integracion_productor": "integracion_pendiente", "clasificador": "modelo_no_disponible",
             "duracion_segundos": entrada.duracion_segundos, "caracteristicas": caracteristicas}
+
+
+def analizar_wav(entrada):
+    from backend.entrenamiento_prediccion.rasgos_fase7 import EntradaInvalida, SenalInsuficiente, rasgos_audio
+
+    valor = entrada.wav_b64
+    if valor.startswith(("data:audio/wav;base64,", "data:audio/x-wav;base64,")):
+        valor = valor.split(",", 1)[1]
+    try:
+        vector, calidad = rasgos_audio(base64.b64decode(valor, validate=True))
+    except SenalInsuficiente as error:
+        return {"estado": "evidencia_insuficiente", "motivo": str(error)}
+    except (EntradaInvalida, binascii.Error, ValueError):
+        return {"estado": "audio_invalido", "motivo": "Se requiere base64 con WAV PCM16, 8–48 kHz, hasta 8 s."}
+    if entrada.calidad is not None and entrada.calidad < .4:
+        return {"estado": "evidencia_insuficiente", "motivo": "Calidad declarada insuficiente."}
+    artefacto = modelos_fase7.obtener_modelo("audio")
+    if artefacto is None:
+        return {"estado": "modelo_no_disponible", "calidad_entrada": calidad}
+    return dict(modelos_fase7.clasificar(artefacto, vector.reshape(1, -1), "expresion_vocal"),
+                calidad_entrada=calidad, limitacion="Patrones vocales actuados en inglés norteamericano.")
+
+
+def analizar_academico(entrada):
+    if entrada is None:
+        return {"estado": "sin_entrada"}
+    faltantes = [campo for campo in EntradaAcademica.model_fields if getattr(entrada, campo) is None]
+    if faltantes:
+        return {"estado": "evidencia_insuficiente", "campos_faltantes": faltantes}
+    artefacto = modelos_fase7.obtener_modelo("academico")
+    if artefacto is None:
+        return {"estado": "modelo_no_disponible"}
+    resultado = modelos_fase7.clasificar(artefacto, [[entrada.G1, entrada.G2]], "desenlace_estimado")
+    return dict(resultado, desenlace="G3 < 10/20", corte=entrada.corte,
+                probabilidad_no_aprueba=resultado["puntajes_calibrados"]["no_aprueba"],
+                limitacion="Matemáticas de secundaria portuguesa. Uso de investigación.")
 
 
 def evaluar(entrada):
@@ -140,13 +204,30 @@ def evaluar(entrada):
             estado = "sincronizadas" if (
                 len(sesiones) == len(naturalezas) == 1 and (max(fechas) - min(fechas)).total_seconds() <= 1
             ) else "referencias_incompatibles"
-    return {"schema_version": 1, "fuentes": fuentes, "sincronizacion": {
+    try:
+        academico = analizar_academico(entrada.academico)
+    except Exception as error:
+        logger.warning("Análisis académico experimental fallido: %s", type(error).__name__)
+        academico = {"estado": "error_inferencia"}
+    return {"schema_version": 1, "fuentes": fuentes, "academico": academico, "sincronizacion": {
         "estado": estado, "fuentes_elegibles": [nombre for nombre, _ in sincronizables],
         "evento_visual_compartido": compartido, "fusion_estadistica": "pendiente",
     }}
 
 
 router = APIRouter(tags=["Análisis experimental de Predicción"])
+
+
+@router.get("/prediccion/modelos-investigacion")
+def estado_modelos():
+    estados = {}
+    for tipo in modelos_fase7.TIPOS:
+        artefacto = modelos_fase7.obtener_modelo(tipo)
+        estados[tipo] = {"estado": "disponible", "modelo": modelos_fase7.metadatos(artefacto)} if artefacto else {
+            "estado": "modelo_no_disponible"}
+    estados["facial_historico"] = {"estado": "disponible", "modelo": MODELO_FACIAL} if (
+        predictor.obtener_modelo_facial() is not None) else {"estado": "modelo_no_disponible"}
+    return estados
 
 
 @router.post("/prediccion/analisis-experimental")

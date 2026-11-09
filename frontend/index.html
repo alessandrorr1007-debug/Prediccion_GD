@@ -404,15 +404,21 @@
         </section>
 
         <details class="card seguimiento-panel">
-          <summary>Análisis experimental de expresiones y señales acústicas</summary>
+          <summary>Análisis experimental facial, acústico y académico</summary>
           <form id="analisis-experimental" class="tech-content">
-            <p class="capture-note">Evalúa una imagen de prueba o introduce características acústicas declaradas. Los resultados son independientes del seguimiento académico.</p>
+            <p class="capture-note">Evalúa imágenes, fragmentos WAV o notas parciales. Cada resultado es independiente y el seguimiento académico conserva sus reglas.</p>
             <label for="experimental-foto">Imagen de prueba (opcional)</label>
             <input id="experimental-foto" type="file" accept="image/*">
+            <label for="experimental-audio">Fragmento procesado WAV PCM16 (opcional)</label>
+            <input id="experimental-audio" type="file" accept=".wav,audio/wav,audio/x-wav">
             <label for="experimental-json">Entradas JSON por fuente</label>
             <textarea id="experimental-json" rows="4">{"schema_version":1}</textarea>
+            <p>Para el modelo académico, proporciona <code>academico</code> con <code>G1</code>, <code>G2</code>, <code>escala: "0-20"</code> y <code>corte: "despues_g2"</code>.</p>
             <button id="experimental-ejecutar" type="submit" class="btn-primary-action">Analizar entradas</button>
+            <button id="experimental-consultar-modelos" type="button" class="btn-primary-action">Consultar modelos</button>
+            <div id="experimental-modelos" role="status"></div>
             <p id="experimental-estado" role="status"></p>
+            <div id="experimental-previsualizaciones"></div>
             <div id="experimental-resultados"></div>
           </form>
         </details>

@@ -924,6 +924,39 @@ async function cargarEstadoIntegracion() {
 elemento("actualizar-integracion").addEventListener("click", cargarEstadoIntegracion);
 if (typeof window !== "undefined") void cargarEstadoIntegracion();
 
+function describirModeloExperimental(modelo) {
+  return `${modelo.nombre ?? modelo.algoritmo} · ${modelo.version} · ${modelo.origen ?? modelo.dataset?.dominio ?? modelo.dataset?.fuente}`;
+}
+
+elemento("experimental-consultar-modelos").addEventListener("click", async () => {
+  const boton = elemento("experimental-consultar-modelos");
+  const panel = elemento("experimental-modelos");
+  boton.disabled = true;
+  panel.replaceChildren();
+  try {
+    const respuesta = await fetch(`${location.origin}/api/prediccion/modelos-investigacion`, {
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!respuesta.ok) throw new Error();
+    const modelos = await respuesta.json();
+    lista(panel, "Modelos de investigación", Object.entries(modelos).map(([tipo, datos]) =>
+      `${tipo.replaceAll("_", " ")} · ${datos.modelo ? describirModeloExperimental(datos.modelo) : "no disponible"}`));
+  } catch {
+    panel.textContent = "No se pudo consultar el estado de los modelos.";
+  } finally {
+    boton.disabled = false;
+  }
+});
+
+function leerArchivoExperimental(archivo) {
+  return new Promise((resolve, reject) => {
+    const lector = new FileReader();
+    lector.onload = () => resolve(lector.result);
+    lector.onerror = () => reject(new Error("No se pudo leer el archivo."));
+    lector.readAsDataURL(archivo);
+  });
+}
+
 elemento("analisis-experimental").addEventListener("submit", async (evento) => {
   evento.preventDefault();
   const boton = elemento("experimental-ejecutar");
@@ -932,6 +965,8 @@ elemento("analisis-experimental").addEventListener("submit", async (evento) => {
   const resultados = elemento("experimental-resultados");
   boton.disabled = true;
   resultados.replaceChildren();
+  const vistas = elemento("experimental-previsualizaciones");
+  vistas.replaceChildren();
   estado.textContent = "Analizando fuentes…";
   try {
     const entrada = JSON.parse(elemento("experimental-json").value);
@@ -940,36 +975,62 @@ elemento("analisis-experimental").addEventListener("submit", async (evento) => {
     if (archivo) {
       if (archivo.size > 5 * 1024 * 1024) throw new Error("La foto supera 5 MiB.");
       if (entrada.imagen) throw new Error("Selecciona una foto o proporciona imagen en el JSON.");
-      const imagen_b64 = await new Promise((resolve, reject) => {
-        const lector = new FileReader();
-        lector.onload = () => resolve(lector.result);
-        lector.onerror = () => reject(new Error("No se pudo leer la foto."));
-        lector.readAsDataURL(archivo);
-      });
+      const imagen_b64 = await leerArchivoExperimental(archivo);
       entrada.imagen = { imagen_b64 };
     }
+    const wav = elemento("experimental-audio").files?.[0];
+    if (wav) {
+      if (wav.size > 2 * 1024 * 1024) throw new Error("El WAV supera 2 MiB.");
+      if (entrada.audio?.wav_b64) throw new Error("Selecciona un WAV o proporciona wav_b64 en el JSON.");
+      const url = await leerArchivoExperimental(wav);
+      entrada.audio = { ...entrada.audio, wav_b64: url.split(",", 2)[1] };
+    }
+    const cuerpo = JSON.stringify(entrada);
+    if (new Blob([cuerpo]).size > 8 * 1024 * 1024) throw new Error("Las entradas combinadas superan 8 MiB.");
     const respuesta = await fetch(`${location.origin}/api/prediccion/analisis-experimental`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(entrada),
+      method: "POST", headers: { "Content-Type": "application/json" }, body: cuerpo,
       signal: AbortSignal.timeout(30000)
     });
     const salida = await respuesta.json();
     if (!respuesta.ok) throw new Error(salida.detail || `HTTP ${respuesta.status}`);
-    for (const [nombre, resultado] of Object.entries(salida.fuentes)) {
+    const bloques = { ...salida.fuentes, ...(salida.academico ? { academico: salida.academico } : {}) };
+    for (const [nombre, resultado] of Object.entries(bloques)) {
       const lineas = [`Estado: ${resultado.estado.replaceAll("_", " ")}`];
       if (resultado.referencia) {
         const ref = resultado.referencia;
         lineas.push(`Procedencia ${ref.naturaleza} · sesión ${ref.sesion_id ?? "sin dato"} · evento ${ref.evento_id ?? "sin dato"} · identidad no verificada`);
       }
-      if (resultado.modelo) lineas.push(`Modelo ${resultado.modelo.nombre} v${resultado.modelo.version} · ${resultado.modelo.origen}`);
-      if (resultado.expresion) lineas.push(`Expresión estimada: ${resultado.expresion}`);
+      if (resultado.modelo) lineas.push(`Modelo ${describirModeloExperimental(resultado.modelo)}`);
+      const categoria = resultado.expresion ?? resultado.expresion_vocal ?? resultado.desenlace_estimado;
+      if (categoria) lineas.push(`Categoría estimada: ${categoria}`);
+      if (resultado.puntajes_calibrados) {
+        lineas.push("Probabilidades calibradas en el conjunto de investigación");
+        lineas.push(...Object.entries(resultado.puntajes_calibrados).map(([k, p]) => `${k}: ${p.toFixed(3)}`));
+      }
       if (resultado.puntajes_no_calibrados) {
         lineas.push("Puntajes sin calibración en rostros reales");
         lineas.push(...Object.entries(resultado.puntajes_no_calibrados).map(([k, p]) => `${k}: ${p.toFixed(3)}`));
       }
       if (resultado.caracteristicas) lineas.push(...Object.entries(resultado.caracteristicas).map(([k, v]) => `${k}: ${v}`));
-      if (nombre === "audio") lineas.push("Productor y clasificador acústico pendientes.");
+      if (nombre === "audio" && !entrada.audio?.wav_b64) lineas.push("Productor y clasificador acústico pendientes para descriptores.");
+      if (resultado.campos_faltantes) lineas.push(`Campos faltantes: ${resultado.campos_faltantes.join(", ")}`);
+      if (resultado.desenlace) lineas.push(`Desenlace: ${resultado.desenlace} · corte ${resultado.corte}`);
+      if (resultado.calidad_entrada) lineas.push(`Calidad de entrada: ${JSON.stringify(resultado.calidad_entrada)}`);
+      if (resultado.limitacion) lineas.push(resultado.limitacion);
       if (resultado.motivo) lineas.push(resultado.motivo);
       lista(resultados, nombre.toUpperCase(), lineas);
+      const imagen = entrada[nombre]?.imagen_b64;
+      if (typeof imagen === "string" && resultado.estado !== "imagen_invalida") {
+        const cabecera = imagen.match(/^data:(image\/(?:png|jpeg|webp|bmp|gif));base64,/i);
+        const base64 = imagen.slice(cabecera?.[0].length ?? 0).replace(/\s/g, "");
+        if (/^[a-z0-9+/]+={0,2}$/i.test(base64)) {
+          const vista = document.createElement("img");
+          vista.src = `data:${cabecera?.[1] ?? "image/jpeg"};base64,${base64}`;
+          vista.alt = `Entrada de ${nombre}`;
+          vista.width = 160;
+          vistas.append(vista);
+        }
+      }
     }
     lista(resultados, "Sincronización de fuentes", [
       salida.sincronizacion.estado.replaceAll("_", " "),

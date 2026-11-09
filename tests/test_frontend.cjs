@@ -64,7 +64,7 @@ function montar(globales = {}, configurar = () => {}) {
       }
     },
     location: { origin: base, protocol: "http:" }, URL, fetch,
-    AbortController, AbortSignal, setTimeout, clearTimeout, ...globales,
+    AbortController, AbortSignal, Blob, setTimeout, clearTimeout, ...globales,
   });
   configurar(elementos);
   vm.runInContext(readFileSync(join(raiz, "frontend/app.js"), "utf8"), contexto);
@@ -184,6 +184,40 @@ test("panel experimental muestra características declaradas y fusión pendiente
   assert.match(salida, /f0_hz: 150/);
   assert.match(salida, /clasificador acústico pendientes/);
   assert.match(salida, /Fusión estadística pendiente/);
+});
+
+test("panel experimental muestra notas faltantes y consulta modelos por separado", async () => {
+  const e = montar();
+  e["experimental-json"].value = '{"schema_version":1,"academico":{"G1":8}}';
+  await e["analisis-experimental"].listeners.submit({ preventDefault() {} });
+  assert.match(contenido(e["experimental-resultados"]), /Campos faltantes: G2, corte, escala/);
+  await e["experimental-consultar-modelos"].listeners.click();
+  assert.match(contenido(e["experimental-modelos"]), /facial historico.*rasgos sinteticos/);
+});
+
+test("panel experimental envía WAV y muestra su abstención calibrada", async () => {
+  const e = montar({
+    FileReader: class {
+      readAsDataURL() { this.result = "data:audio/wav;base64,UklGRg=="; this.onload(); }
+    },
+    async fetch(url, opciones) {
+      assert.match(url, /analisis-experimental$/);
+      assert.deepEqual(JSON.parse(opciones.body).audio, { evento_id: "a1", wav_b64: "UklGRg==" });
+      return { ok: true, async json() { return {
+        fuentes: { audio: { estado: "abstencion", modelo: { algoritmo: "random_forest", version: "fase7-1.0",
+          dataset: { dominio: "RAVDESS" } }, puntajes_calibrados: { neutral: 0.51 } } },
+        sincronizacion: { estado: "fuentes_insuficientes" }
+      }; } };
+    }
+  });
+  e["experimental-audio"].files = [{ size: 8 }];
+  e["experimental-json"].value = '{"schema_version":1,"audio":{"evento_id":"a1"}}';
+  await e["analisis-experimental"].listeners.submit({ preventDefault() {} });
+  const salida = contenido(e["experimental-resultados"]);
+  assert.match(salida, /abstencion/);
+  assert.match(salida, /random_forest.*fase7-1\.0.*RAVDESS/);
+  assert.match(salida, /neutral: 0\.510/);
+  assert.doesNotMatch(salida, /clasificador acústico pendientes/);
 });
 
 test("seguimiento muestra asistencia, participación y prioridad académica separadas", async () => {
