@@ -1,0 +1,6 @@
+# Perfil alternativo. Usarlo en un entorno nuevo, en lugar de requirements.txt.
+-r requirements-core.txt
+opencv-python==4.11.0.86
+ultralytics==8.4.174
+torch==2.14.1
+torchvision==0.29.1
