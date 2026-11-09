@@ -2,6 +2,8 @@
 
 Prototipo académico de Percepción Computacional. Predicción consume resultados de los otros grupos mediante adaptadores, cruza observaciones atribuidas con registros sintéticos y produce evidencia para revisión humana. Los modelos de los grupos externos se mantienen en sus propios proyectos.
 
+Consulta la [guía de demostración de Predicción](docs/GUIA_DEMOSTRACION_PREDICCION.md) para repetir la sustentación con casos sintéticos.
+
 ## Arquitectura
 
 - **Revisión de exámenes.** `backend/modulos/prediccion/engine.py` calcula un índice heurístico a partir de eventos normalizados. El adaptador conjunto usa exportaciones JSON de imagen y video.
