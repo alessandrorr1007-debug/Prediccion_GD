@@ -1046,6 +1046,8 @@ elemento("analisis-experimental").addEventListener("submit", async (evento) => {
     }
     lista(resultados, "Sincronización de fuentes", [
       salida.sincronizacion.estado.replaceAll("_", " "),
+      ...(salida.sincronizacion.referencias_compatibles && salida.sincronizacion.estado !== "sincronizadas"
+        ? ["Referencias declaradas compatibles"] : []),
       ...(salida.sincronizacion.conflictos_referencia ?? []).map(conflicto => conflicto.replaceAll("_", " ")),
       "Fusión estadística pendiente."
     ]);

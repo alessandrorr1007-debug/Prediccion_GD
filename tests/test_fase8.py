@@ -96,6 +96,17 @@ class Fase8Tests(unittest.TestCase):
         self.assertEqual(salida["fuentes"]["audio"]["estado"], "audio_invalido")
         self.assertEqual(salida["sincronizacion"]["conflictos_referencia"], ["sesiones_distintas"])
         self.assertEqual(salida["sincronizacion"]["estado"], "referencias_incompatibles")
+        self.assertFalse(salida["sincronizacion"]["referencias_compatibles"])
+
+    def test_referencias_compatibles_aunque_los_modelos_se_abstengan(self):
+        ref = {"sesion_id": "s1", "fecha_hora": "2026-11-09T10:00:00Z", "naturaleza": "real"}
+        with (patch.object(analisis_experimental, "analizar_expresion", return_value={"estado": "abstencion"}),
+              patch.object(analisis_experimental, "analizar_audio", return_value={"estado": "abstencion"})):
+            salida = self.enviar(imagen=dict(ref, imagen_b64="fixture"), audio=dict(ref, wav_b64="fixture"))
+        sincronizacion = salida["sincronizacion"]
+        self.assertTrue(sincronizacion["referencias_compatibles"])
+        self.assertEqual(sincronizacion["fuentes_elegibles"], [])
+        self.assertEqual(sincronizacion["fusion_estadistica"], "pendiente")
 
     def test_importador_fer_valida_tamano_y_orden_de_fer_plus(self):
         with TemporaryDirectory() as temporal:

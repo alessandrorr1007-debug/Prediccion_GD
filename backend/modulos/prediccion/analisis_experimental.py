@@ -187,6 +187,15 @@ def evaluar(entrada):
     compartido = (entrada.imagen is not None and entrada.video is not None
                   and entrada.imagen.evento_id is not None and entrada.imagen.evento_id == entrada.video.evento_id
                   and entrada.imagen.sesion_id is not None and entrada.imagen.sesion_id == entrada.video.sesion_id)
+    if (compartido and entrada.imagen.fecha_hora is not None and entrada.video.fecha_hora is not None
+            and entrada.imagen.fecha_hora != entrada.video.fecha_hora and "tiempos_incompatibles" not in conflictos):
+        conflictos.append("tiempos_evento_visual_distintos")
+    referencias_completas = (len(referencias) >= 2 and len(fechas) == len(referencias)
+                             and all(datos.sesion_id is not None and datos.naturaleza != "desconocida"
+                                     for datos in referencias))
+    referencias_compatibles = None
+    if conflictos or referencias_completas:
+        referencias_compatibles = not conflictos
     deduplicado = (compartido and entrada.imagen == entrada.video and entrada.imagen.fecha_hora is not None
                    and entrada.imagen.naturaleza != "desconocida")
     for nombre, datos in (("imagen", entrada.imagen), ("video", entrada.video), ("audio", entrada.audio)):
@@ -233,7 +242,7 @@ def evaluar(entrada):
     return {"schema_version": 1, "fuentes": fuentes, "academico": academico, "sincronizacion": {
         "estado": estado, "fuentes_elegibles": [nombre for nombre, _ in sincronizables],
         "evento_visual_compartido": compartido, "fusion_estadistica": "pendiente",
-        "conflictos_referencia": conflictos,
+        "conflictos_referencia": conflictos, "referencias_compatibles": referencias_compatibles,
     }}
 
 
