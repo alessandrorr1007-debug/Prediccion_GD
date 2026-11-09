@@ -925,7 +925,8 @@ elemento("actualizar-integracion").addEventListener("click", cargarEstadoIntegra
 if (typeof window !== "undefined") void cargarEstadoIntegracion();
 
 function describirModeloExperimental(modelo) {
-  return `${modelo.nombre ?? modelo.algoritmo} · ${modelo.version} · ${modelo.origen ?? modelo.dataset?.dominio ?? modelo.dataset?.fuente}`;
+  const fuente = modelo.origen ?? modelo.dataset?.nombre ?? modelo.dataset?.fuente ?? modelo.dataset?.dominio;
+  return `${modelo.nombre ?? modelo.algoritmo} · ${modelo.version} · ${fuente}`;
 }
 
 elemento("experimental-consultar-modelos").addEventListener("click", async () => {
@@ -934,13 +935,16 @@ elemento("experimental-consultar-modelos").addEventListener("click", async () =>
   boton.disabled = true;
   panel.replaceChildren();
   try {
-    const respuesta = await fetch(`${location.origin}/api/prediccion/modelos-investigacion`, {
+    const respuesta = await fetch(`${location.origin}/api/prediccion/modelos-investigacion?cargar=false`, {
       signal: AbortSignal.timeout(10000)
     });
     if (!respuesta.ok) throw new Error();
     const modelos = await respuesta.json();
-    lista(panel, "Modelos de investigación", Object.entries(modelos).map(([tipo, datos]) =>
-      `${tipo.replaceAll("_", " ")} · ${datos.modelo ? describirModeloExperimental(datos.modelo) : "no disponible"}`));
+    lista(panel, "Modelos de investigación", Object.entries(modelos).map(([tipo, datos]) => {
+      const estado = datos.estado === "archivo_presente" ? "archivo presente, carga bajo demanda" : "no disponible";
+      return [tipo.replaceAll("_", " "), estado, datos.modelo && describirModeloExperimental(datos.modelo)]
+        .filter(Boolean).join(" · ");
+    }));
   } catch {
     panel.textContent = "No se pudo consultar el estado de los modelos.";
   } finally {
@@ -978,6 +982,12 @@ elemento("analisis-experimental").addEventListener("submit", async (evento) => {
       const imagen_b64 = await leerArchivoExperimental(archivo);
       entrada.imagen = { imagen_b64 };
     }
+    const seleccionFacial = elemento("experimental-modelo-facial").value;
+    if (seleccionFacial && seleccionFacial !== "automatico") {
+      for (const fuente of [entrada.imagen, entrada.video]) {
+        if (fuente && typeof fuente === "object" && !Array.isArray(fuente)) fuente.modelo_facial = seleccionFacial;
+      }
+    }
     const wav = elemento("experimental-audio").files?.[0];
     if (wav) {
       if (wav.size > 2 * 1024 * 1024) throw new Error("El WAV supera 2 MiB.");
@@ -998,9 +1008,11 @@ elemento("analisis-experimental").addEventListener("submit", async (evento) => {
       const lineas = [`Estado: ${resultado.estado.replaceAll("_", " ")}`];
       if (resultado.referencia) {
         const ref = resultado.referencia;
-        lineas.push(`Procedencia ${ref.naturaleza} · sesión ${ref.sesion_id ?? "sin dato"} · evento ${ref.evento_id ?? "sin dato"} · identidad no verificada`);
+        lineas.push(`Procedencia ${ref.naturaleza} · origen ${ref.origen ?? "sin dato"} · sesión ${ref.sesion_id ?? "sin dato"} · evento ${ref.evento_id ?? "sin dato"} · identidad no verificada`);
       }
       if (resultado.modelo) lineas.push(`Modelo ${describirModeloExperimental(resultado.modelo)}`);
+      if (resultado.origen_entrenamiento) lineas.push(`Datos de entrenamiento: ${resultado.origen_entrenamiento.replaceAll("_", " ")}`);
+      if (resultado.duplicado_de) lineas.push(`Resultado reutilizado de ${resultado.duplicado_de}`);
       const categoria = resultado.expresion ?? resultado.expresion_vocal ?? resultado.desenlace_estimado;
       if (categoria) lineas.push(`Categoría estimada: ${categoria}`);
       if (resultado.puntajes_calibrados) {
@@ -1034,6 +1046,7 @@ elemento("analisis-experimental").addEventListener("submit", async (evento) => {
     }
     lista(resultados, "Sincronización de fuentes", [
       salida.sincronizacion.estado.replaceAll("_", " "),
+      ...(salida.sincronizacion.conflictos_referencia ?? []).map(conflicto => conflicto.replaceAll("_", " ")),
       "Fusión estadística pendiente."
     ]);
     estado.textContent = "Evaluación experimental completada.";

@@ -220,6 +220,25 @@ test("panel experimental envía WAV y muestra su abstención calibrada", async (
   assert.doesNotMatch(salida, /clasificador acústico pendientes/);
 });
 
+test("panel experimental selecciona el modelo facial y muestra conflictos declarados", async () => {
+  const e = montar({ async fetch(_url, opciones) {
+    const entrada = JSON.parse(opciones.body);
+    assert.equal(entrada.imagen.modelo_facial, "real");
+    return { ok: true, async json() { return {
+      fuentes: { imagen: { estado: "abstencion", origen_entrenamiento: "datos_reales",
+        modelo: { algoritmo: "hog_logistica", version: "fase8-1.0", dataset: { nombre: "CMU Face Images" } } } },
+      sincronizacion: { estado: "referencias_incompatibles", conflictos_referencia: ["sesiones_distintas"] }
+    }; } };
+  } });
+  e["experimental-modelo-facial"].value = "real";
+  e["experimental-json"].value = '{"schema_version":1,"imagen":{"imagen_b64":"AA=="}}';
+  await e["analisis-experimental"].listeners.submit({ preventDefault() {} });
+  const salida = contenido(e["experimental-resultados"]);
+  assert.match(salida, /CMU Face Images/);
+  assert.match(salida, /Datos de entrenamiento: datos reales/);
+  assert.match(salida, /sesiones distintas/);
+});
+
 test("seguimiento muestra asistencia, participación y prioridad académica separadas", async () => {
   const e = montar();
   e["ejemplo-seguimiento"].value = "participacion";

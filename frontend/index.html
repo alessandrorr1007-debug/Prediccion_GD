@@ -409,6 +409,12 @@
             <p class="capture-note">Evalúa imágenes, fragmentos WAV o notas parciales. Cada resultado es independiente y el seguimiento académico conserva sus reglas.</p>
             <label for="experimental-foto">Imagen de prueba (opcional)</label>
             <input id="experimental-foto" type="file" accept="image/*">
+            <label for="experimental-modelo-facial">Modelo facial</label>
+            <select id="experimental-modelo-facial">
+              <option value="automatico">Automático (prioriza datos reales)</option>
+              <option value="real">Entrenado con fotografías reales</option>
+              <option value="historico">Histórico entrenado con datos sintéticos</option>
+            </select>
             <label for="experimental-audio">Fragmento procesado WAV PCM16 (opcional)</label>
             <input id="experimental-audio" type="file" accept=".wav,audio/wav,audio/x-wav">
             <label for="experimental-json">Entradas JSON por fuente</label>
