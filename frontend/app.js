@@ -80,9 +80,9 @@ const entradas = {
 // ============================================================================
 let estudiantesEnCaptura = [];
 let estudianteSeleccionadoId = null;
-let webcamStream = null;
 let animCanvasId = null;
 let modoCapturaCongelada = false;
+let estadoCuadricula = "espera";
 
 // Datos calibrados de demostración (utilizados en pruebas y simulación)
 const DEMO_INICIAL_ESTUDIANTES = [
@@ -284,7 +284,9 @@ function renderizarCuadriculaEstudiantes() {
   }
 
   if (estudiantesEnCaptura.length === 0) {
-    if (!modoCapturaCongelada) {
+    if (estadoCuadricula === "sin_modelos") {
+      container.textContent = "Modelos de predicción no disponibles para esta imagen.";
+    } else if (estadoCuadricula !== "sin_personas") {
       // Estado Inicial / En espera de captura (Preview de cámara limpia)
       container.innerHTML = `
         <div class="students-empty-state waiting-state">
@@ -313,7 +315,7 @@ function renderizarCuadriculaEstudiantes() {
         <div class="student-card-header">
           <div class="student-avatar-mini">${est.id}</div>
           <div class="student-card-title-col">
-            <span class="student-card-title"><strong>${est.nombre}</strong> (ID: ${est.subId})</span>
+            <span class="student-card-title"><strong>${est.nombre}</strong> · Referencia visual ${est.id}</span>
             <span class="student-card-status-badge ${est.estadoClase}">● ${est.estado}</span>
           </div>
         </div>
@@ -503,133 +505,267 @@ function iniciarRenderizadoCanvas() {
 // FLUJO DE CAPTURA REAL DE CÁMARA E INVOCACIÓN DEL MOTOR DE PREDICCIÓN
 // ============================================================================
 
-async function iniciarCamara() {
-  const video = elemento("webcam-feed");
-  const fallback = elemento("camera-placeholder");
+const INTERVALO_DETECCION_MS = 500;
+const MEDIAPIPE_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32";
+const BLAZEFACE_URL = "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite";
+let sesionCamara = null;
+let peticionCaptura = null;
 
+function estadoCaptura(mensaje) {
+  elemento("capture-status-text").textContent = mensaje;
+}
+
+function estadoAutomatico(mensaje) {
+  elemento("auto-capture-status").textContent = mensaje;
+}
+
+async function cargarMediaPipe() {
+  const { FilesetResolver, FaceDetector } = await import(`${MEDIAPIPE_URL}/vision_bundle.mjs`);
+  const archivos = await FilesetResolver.forVisionTasks(`${MEDIAPIPE_URL}/wasm`);
+  return FaceDetector.createFromOptions(archivos, {
+    baseOptions: { modelAssetPath: BLAZEFACE_URL, delegate: "CPU" },
+    runningMode: "VIDEO",
+    minDetectionConfidence: 0.65
+  });
+}
+
+async function iniciarDetector(sesion, usarNativo = true) {
+  sesion.detectar = null;
+  estadoAutomatico("Preparando detector facial local…");
+  if (usarNativo && typeof globalThis.FaceDetector === "function") {
+    try {
+      const detector = new globalThis.FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
+      sesion.detectar = async (frame) => tieneRostro(await detector.detect(frame));
+      sesion.nativo = true;
+      programarDeteccion(sesion);
+      return;
+    } catch {
+      // Algunos navegadores exponen la API sin un detector funcional.
+    }
+  }
   try {
-    if (typeof navigator !== "undefined" && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
-        audio: false
-      });
-      webcamStream = stream;
-      if (video) {
-        video.srcObject = stream;
-        video.classList.add("active");
-        video.play().catch(() => {});
+    const detector = await cargarMediaPipe();
+    if (sesionCamara !== sesion) {
+      detector.close();
+      return;
+    }
+    sesion.detectar = (frame) => tieneRostro(detector.detectForVideo(frame, performance.now()).detections);
+    sesion.cerrarDetector = () => detector.close();
+    sesion.nativo = false;
+    programarDeteccion(sesion);
+  } catch {
+    if (sesionCamara === sesion) {
+      estadoAutomatico("Detector facial no disponible. Puedes capturar manualmente.");
+    }
+  }
+}
+
+function tieneRostro(detecciones) {
+  return detecciones.some(({ boundingBox }) => boundingBox?.width > 0 && boundingBox.height > 0);
+}
+
+function programarDeteccion(sesion) {
+  actualizarEstadoAutomatico();
+  const revisar = async () => {
+    const video = elemento("webcam-feed");
+    const intervalo = Math.max(5, Number(elemento("auto-capture-interval").value) || 5) * 1000;
+    const puedeCapturar = () => sesionCamara === sesion && !document.hidden &&
+      elemento("auto-capture-enabled").checked && !modoCapturaCongelada && !peticionCaptura &&
+      performance.now() - sesion.ultimaCaptura >= intervalo;
+    try {
+      if (puedeCapturar() && !video.paused && video.readyState >= 2 && video.currentTime !== sesion.ultimoFrame) {
+        sesion.ultimoFrame = video.currentTime;
+        const frame = capturarFrame(video);
+        if (await sesion.detectar(frame) && puedeCapturar()) {
+          await procesarCaptura(() => frame.toDataURL("image/jpeg", 0.88), "automatica");
+        }
       }
-      if (fallback) fallback.classList.add("hidden");
+    } catch {
+      if (sesionCamara !== sesion) return;
+      if (sesion.nativo) return iniciarDetector(sesion, false);
+      sesion.detectar = null;
+      estadoAutomatico("Falló el detector facial. Puedes capturar manualmente.");
+      return;
     }
-  } catch (err) {
-    console.warn("No se pudo iniciar cámara web:", err);
-  }
+    if (sesionCamara === sesion) sesion.temporizador = setTimeout(revisar, INTERVALO_DETECCION_MS);
+  };
+  sesion.temporizador = setTimeout(revisar, INTERVALO_DETECCION_MS);
 }
 
-// Obtiene la imagen en base64 de la cámara o de la simulación
-function capturarFrameBase64() {
-  const video = elemento("webcam-feed");
-  const canvasTemp = document.createElement("canvas");
-  const w = (video && video.videoWidth) ? video.videoWidth : 1280;
-  const h = (video && video.videoHeight) ? video.videoHeight : 720;
-  canvasTemp.width = w;
-  canvasTemp.height = h;
-  const ctx = canvasTemp.getContext("2d");
-
-  if (video && video.videoWidth > 0 && !video.paused) {
-    ctx.drawImage(video, 0, 0, w, h);
-  } else {
-    // Generar gradiente de aula si no hay webcam activa
-    const grad = ctx.createLinearGradient(0, 0, w, h);
-    grad.addColorStop(0, "#1E293B");
-    grad.addColorStop(1, "#0F172A");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = "bold 24px Inter, sans-serif";
-    ctx.fillText("AulaPredict · Captura de Aula Universitaria", 40, 60);
-  }
-  return canvasTemp.toDataURL("image/jpeg", 0.88);
+function actualizarEstadoAutomatico() {
+  if (!sesionCamara?.detectar) return;
+  const detector = sesionCamara.nativo ? "detector del navegador" : "MediaPipe";
+  estadoAutomatico(elemento("auto-capture-enabled").checked
+    ? `Captura automática lista con ${detector}. El intervalo se aplica a toda la cámara.`
+    : "Captura automática pausada. La captura manual sigue disponible.");
 }
 
-// Acción principal: "📸 Capturar Imagen y Predecir"
-async function ejecutarCapturaYPrediccion() {
-  const btnCapture = elemento("btn-capture-predict");
-  const statusIndicator = elemento("capture-status-indicator");
-  const statusText = elemento("capture-status-text");
+async function iniciarCamara() {
+  if (sesionCamara) return;
   const video = elemento("webcam-feed");
-  const imgDisplay = elemento("captured-image-display");
-  const locationLabel = elemento("cam-location-label");
-
-  if (btnCapture) {
-    btnCapture.disabled = true;
-    btnCapture.innerHTML = `<span>⏳</span><span>Analizando con Motor de Predicción...</span>`;
-  }
-  if (statusText) statusText.textContent = "Analizando Captura...";
-
-  const imagenB64 = capturarFrameBase64();
-
-  // Congelar la imagen capturada en pantalla
-  if (imgDisplay) {
-    imgDisplay.src = imagenB64;
-    imgDisplay.style.display = "block";
-    if (video) video.style.display = "none";
-  }
-  modoCapturaCongelada = true;
-
-  // Simular contexto recibido de Imagen/Video si fue seleccionado
-  const selContexto = elemento("select-contexto-simulado");
-  let contextoExterno = null;
-  if (selContexto) {
-    if (selContexto.value === "celular") {
-      contextoExterno = { acciones_detectadas: ["uso_celular"], objetos: ["telefono"] };
-    } else if (selContexto.value === "audifonos") {
-      contextoExterno = { acciones_detectadas: ["uso_audifonos"], objetos: ["audifonos"] };
-    } else if (selContexto.value === "cansancio") {
-      contextoExterno = { acciones_detectadas: ["postura_cansancio", "durmiendo"], objetos: [] };
-    }
-  }
+  const sesion = { ultimaCaptura: -Infinity, ultimoFrame: -1 };
+  sesionCamara = sesion;
+  elemento("btn-start-camera").disabled = true;
+  elemento("btn-stop-camera").hidden = false;
+  estadoCaptura("Solicitando acceso a la cámara…");
 
   try {
-    const payload = { imagen_b64: imagenB64 };
-    if (contextoExterno) {
-      payload.contexto_externo = contextoExterno;
-    }
-
-    const res = await fetch(`${servidor()}/api/prediccion/analizar-captura`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+    if (!globalThis.navigator?.mediaDevices?.getUserMedia) throw new Error();
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
+      audio: false
     });
-
-    if (!res.ok) {
-      throw new Error(`Error en servidor: HTTP ${res.status}`);
+    if (sesionCamara !== sesion) {
+      stream.getTracks().forEach(track => track.stop());
+      return;
     }
-
-    const data = await res.json();
-    if (data.total_alumnos > 0 && data.estudiantes && data.estudiantes.length > 0) {
-      estudiantesEnCaptura = data.estudiantes;
-      seleccionarEstudiante(estudiantesEnCaptura[0].id);
-      if (statusText) statusText.textContent = `Captura Analizada (${estudiantesEnCaptura.length} Alumnos)`;
-    } else {
-      // ESTADO LIMPIO: Cero personas detectadas
-      estudiantesEnCaptura = [];
-      estudianteSeleccionadoId = null;
-      renderizarCuadriculaEstudiantes();
-      renderizarPanelesInferiores(null);
-      if (statusText) statusText.textContent = "0 Alumnos Detectados";
+    sesion.stream = stream;
+    for (const track of stream.getTracks()) {
+      track.addEventListener("ended", () => {
+        if (sesionCamara === sesion) detenerCamara();
+      });
     }
-
-    if (locationLabel) locationLabel.textContent = `Aula 301 · ${data.resolucion_captura || "HD"}`;
-  } catch (err) {
-    console.warn("Fallo en backend, usando predicción local calibrada:", err);
-    if (statusText) statusText.textContent = "Error al procesar captura";
-  } finally {
-    if (btnCapture) {
-      btnCapture.disabled = false;
-      btnCapture.innerHTML = `<span class="capture-icon">📸</span><span class="capture-text">Capturar Imagen y Predecir</span>`;
-    }
+    video.srcObject = stream;
+    await video.play();
+    if (sesionCamara !== sesion) return;
+    video.classList.add("active");
+    volverANuevaCaptura();
+    await iniciarDetector(sesion);
+  } catch {
+    if (sesionCamara !== sesion) return;
+    detenerCamara();
+    estadoCaptura("No se pudo abrir la cámara. Revisa el permiso o sube una foto.");
   }
+}
+
+function detenerCamara() {
+  const sesion = sesionCamara;
+  if (!sesion) return;
+  sesionCamara = null;
+  clearTimeout(sesion.temporizador);
+  if (peticionCaptura?.esCamara) peticionCaptura.controlador.abort();
+  sesion.stream?.getTracks().forEach(track => track.stop());
+  sesion.cerrarDetector?.();
+
+  const video = elemento("webcam-feed");
+  video.srcObject = null;
+  video.classList.remove("active");
+  elemento("btn-start-camera").disabled = false;
+  elemento("btn-stop-camera").hidden = true;
+  volverANuevaCaptura();
+}
+
+function capturarFrame(video) {
+  if (!sesionCamara?.stream || !video.videoWidth || !video.videoHeight || video.paused) {
+    throw new Error("Inicia la cámara y espera a que el visor esté listo.");
+  }
+  const frame = document.createElement("canvas");
+  frame.width = video.videoWidth;
+  frame.height = video.videoHeight;
+  frame.getContext("2d").drawImage(video, 0, 0, frame.width, frame.height);
+  return frame;
+}
+
+const CONTEXTOS_SIMULADOS = new Map([
+  ["celular", { acciones_detectadas: ["uso_celular"], objetos: ["telefono"] }],
+  ["audifonos", { acciones_detectadas: ["uso_audifonos"], objetos: ["audifonos"] }],
+  ["cansancio", { acciones_detectadas: ["postura_cansancio", "durmiendo"], objetos: [] }]
+]);
+const ERRORES_CAPTURA = {
+  400: "El servidor no pudo leer la solicitud.",
+  422: "El servidor rechazó el formato de la imagen.",
+  500: "El motor de predicción no pudo analizar la imagen. Verifica el servidor y sus modelos."
+};
+
+async function solicitarAnalisis(imagen, signal) {
+  const contexto = CONTEXTOS_SIMULADOS.get(elemento("select-contexto-simulado").value);
+  const cuerpo = { imagen_b64: imagen };
+  if (contexto) cuerpo.contexto_externo = contexto;
+
+  let respuesta;
+  try {
+    const baseCaptura = location.protocol === "file:" ? "http://localhost:8001" : location.origin;
+    respuesta = imagen === null
+      ? await fetch(`${baseCaptura}/api/prediccion/ejemplo-aula`, { signal })
+      : await fetch(`${baseCaptura}/api/prediccion/analizar-captura`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(cuerpo), signal
+        });
+  } catch {
+    throw new Error("No se pudo conectar con el servidor de predicción.");
+  }
+  if (!respuesta.ok) throw new Error(ERRORES_CAPTURA[respuesta.status] || `Error HTTP ${respuesta.status}.`);
+
+  const datos = await respuesta.json().catch(() => null);
+  if (!Array.isArray(datos?.estudiantes) || datos.total_alumnos !== datos.estudiantes.length ||
+      datos.estudiantes.some(estudiante => !Number.isInteger(estudiante?.id))) {
+    throw new Error("El servidor devolvió una respuesta de captura inválida.");
+  }
+  return datos;
+}
+
+async function procesarCaptura(obtenerImagen, origen) {
+  if (peticionCaptura) return;
+  const controlador = new AbortController();
+  const esCamara = origen === "manual" || origen === "automatica";
+  peticionCaptura = { controlador, esCamara };
+  const { signal } = controlador;
+  const capturaManual = elemento("btn-capture-predict");
+  const cargaFoto = elemento("input-upload-image");
+  capturaManual.disabled = cargaFoto.disabled = true;
+  estadoCaptura(origen === "automatica" ? "Analizando captura automática…"
+    : origen === "ejemplo" ? "Cargando ejemplo sintético…" : "Analizando imagen…");
+  let agotado = false;
+  const limite = setTimeout(() => { agotado = true; controlador.abort(); }, 30000);
+  try {
+    const imagen = await obtenerImagen(signal);
+    if (signal.aborted) return;
+    if (esCamara && sesionCamara) sesionCamara.ultimaCaptura = performance.now();
+    const datos = await solicitarAnalisis(imagen, signal);
+    if (signal.aborted) return;
+
+    modoCapturaCongelada = origen !== "automatica";
+    if (modoCapturaCongelada) {
+      const foto = elemento("captured-image-display");
+      if (imagen !== null) foto.src = imagen;
+      foto.style.display = imagen === null ? "none" : "block";
+      elemento("webcam-feed").style.display = "none";
+      elemento("camera-placeholder").classList.add("hidden");
+    }
+
+    const disponibles = datos.modelos_predictivos_disponibles !== false;
+    estudiantesEnCaptura = disponibles ? datos.estudiantes : [];
+    estadoCuadricula = disponibles ? "sin_personas" : "sin_modelos";
+    seleccionarEstudiante(estudiantesEnCaptura[origen === "ejemplo" ? 2 : 0]?.id ?? null);
+    elemento("cam-location-label").textContent = datos.resolucion_captura || "Captura";
+    if (!disponibles) {
+      estadoCaptura("Modelos predictivos no disponibles. No se muestran estimaciones.");
+      elemento("auto-capture-enabled").checked = false;
+      if (sesionCamara) estadoAutomatico("Captura automática pausada. Revisa el estado de los modelos.");
+    } else {
+      estadoCaptura(origen === "ejemplo" ? `Ejemplo sintético · ${datos.total_alumnos} perfiles ficticios` : datos.total_alumnos
+        ? `Captura analizada · ${datos.total_alumnos} personas · identidad desconocida`
+        : "No se detectaron personas en la imagen.");
+    }
+  } catch (error) {
+    if (signal.aborted && !agotado) return;
+    estudiantesEnCaptura = [];
+    estadoCuadricula = "espera";
+    seleccionarEstudiante(null);
+    estadoCaptura(agotado ? "El servidor tardó demasiado en responder." : error.message);
+    if (origen === "automatica") {
+      elemento("auto-capture-enabled").checked = false;
+      estadoAutomatico("Captura automática pausada tras el error. Puedes reactivarla.");
+    }
+  } finally {
+    clearTimeout(limite);
+    peticionCaptura = null;
+    capturaManual.disabled = cargaFoto.disabled = false;
+  }
+}
+
+function ejecutarCapturaYPrediccion() {
+  return procesarCaptura(() => capturarFrame(elemento("webcam-feed")).toDataURL("image/jpeg", 0.88), "manual");
 }
 
 // Acción: "🔄 Nueva Captura"
@@ -640,103 +776,39 @@ function volverANuevaCaptura() {
 
   if (imgDisplay) imgDisplay.style.display = "none";
   if (video) video.style.display = "block";
+  elemento("camera-placeholder").classList.toggle("hidden", Boolean(sesionCamara?.stream));
   modoCapturaCongelada = false;
+  estadoCuadricula = "espera";
   estudiantesEnCaptura = [];
   estudianteSeleccionadoId = null;
 
-  if (statusText) statusText.textContent = "Cámara Lista";
+  if (statusText) statusText.textContent = sesionCamara?.stream ? "Cámara lista" : "Cámara detenida";
+  if (!sesionCamara) estadoAutomatico("La captura automática requiere una cámara activa.");
   renderizarCuadriculaEstudiantes();
   renderizarPanelesInferiores(null);
 }
 
 // Acción: "🖼️ Probar con Captura Grupal"
-async function cargarEscenarioAulaEjemplo() {
-  const statusText = elemento("capture-status-text");
-  const locationLabel = elemento("cam-location-label");
-  if (statusText) statusText.textContent = "Cargando Captura Grupal...";
-
-  try {
-    const res = await fetch(`${servidor()}/api/prediccion/ejemplo-aula`);
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const data = await res.json();
-    if (data.estudiantes && data.estudiantes.length > 0) {
-      modoCapturaCongelada = true;
-      estudiantesEnCaptura = data.estudiantes;
-      seleccionarEstudiante(3); // Seleccionar alumno con celular para ver la alerta
-    }
-    if (statusText) statusText.textContent = "Captura Grupal (5 Alumnos)";
-    if (locationLabel) locationLabel.textContent = "Aula 301 · 5 Alumnos en Captura";
-  } catch (err) {
-    console.warn("Error cargando ejemplo grupal:", err);
-  }
+function cargarEscenarioAulaEjemplo() {
+  return procesarCaptura(() => null, "ejemplo");
 }
 
-// Acción: "📁 Subir Foto de Aula"
 function configurarSubidaFoto() {
-  const fileInput = elemento("input-upload-image");
-  if (!fileInput) return;
-
-  fileInput.addEventListener("change", async (e) => {
-    const file = e.target && e.target.files ? e.target.files[0] : null;
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      const b64 = evt.target.result;
-      const imgDisplay = elemento("captured-image-display");
-      const video = elemento("webcam-feed");
-      const statusText = elemento("capture-status-text");
-
-      if (imgDisplay) {
-        imgDisplay.src = b64;
-        imgDisplay.style.display = "block";
-        if (video) video.style.display = "none";
-      }
-
-      if (statusText) statusText.textContent = "Analizando Foto Subida...";
-      modoCapturaCongelada = true;
-
-      // Leer contexto simulado si está activo
-      const selContexto = elemento("select-contexto-simulado");
-      let contextoExterno = null;
-      if (selContexto) {
-        if (selContexto.value === "celular") {
-          contextoExterno = { acciones_detectadas: ["uso_celular"], objetos: ["telefono"] };
-        } else if (selContexto.value === "audifonos") {
-          contextoExterno = { acciones_detectadas: ["uso_audifonos"], objetos: ["audifonos"] };
-        } else if (selContexto.value === "cansancio") {
-          contextoExterno = { acciones_detectadas: ["postura_cansancio", "durmiendo"], objetos: [] };
-        }
-      }
-
-      try {
-        const payload = { imagen_b64: b64 };
-        if (contextoExterno) payload.contexto_externo = contextoExterno;
-
-        const res = await fetch(`${servidor()}/api/prediccion/analizar-captura`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.total_alumnos > 0 && data.estudiantes && data.estudiantes.length > 0) {
-            estudiantesEnCaptura = data.estudiantes;
-            seleccionarEstudiante(estudiantesEnCaptura[0].id);
-            if (statusText) statusText.textContent = `Foto Analizada (${estudiantesEnCaptura.length} Alumnos)`;
-          } else {
-            estudiantesEnCaptura = [];
-            estudianteSeleccionadoId = null;
-            renderizarCuadriculaEstudiantes();
-            renderizarPanelesInferiores(null);
-            if (statusText) statusText.textContent = "0 Alumnos Detectados";
-          }
-        }
-      } catch (err) {
-        console.warn("Error procesando foto subida:", err);
-      }
-    };
-    reader.readAsDataURL(file);
+  const entrada = elemento("input-upload-image");
+  entrada.addEventListener("change", (evento) => {
+    const archivo = evento.target.files?.[0];
+    entrada.value = "";
+    if (!archivo) return;
+    return procesarCaptura((signal) => new Promise((resolve, reject) => {
+      const lector = new FileReader();
+      const cancelar = () => lector.abort();
+      signal.addEventListener("abort", cancelar, { once: true });
+      lector.onloadend = () => signal.removeEventListener("abort", cancelar);
+      lector.onload = () => resolve(lector.result);
+      lector.onerror = () => reject(new Error("No se pudo leer la foto."));
+      lector.onabort = () => reject(new Error("Lectura cancelada."));
+      lector.readAsDataURL(archivo);
+    }), "archivo");
   });
 }
 
@@ -749,19 +821,27 @@ function configurarEventosCaptura() {
 
   if (btnStartCam) btnStartCam.addEventListener("click", iniciarCamara);
   if (btnCapture) btnCapture.addEventListener("click", ejecutarCapturaYPrediccion);
-  if (btnNewCapture) btnNewCapture.addEventListener("click", volverANuevaCaptura);
+  if (btnNewCapture) btnNewCapture.addEventListener("click", () => {
+    peticionCaptura?.controlador.abort();
+    volverANuevaCaptura();
+  });
   if (btnGroupClassroom) btnGroupClassroom.addEventListener("click", cargarEscenarioAulaEjemplo);
+  elemento("btn-stop-camera").addEventListener("click", detenerCamara);
+  elemento("auto-capture-enabled").addEventListener("change", actualizarEstadoAutomatico);
 
   configurarSubidaFoto();
 }
 
+configurarEventosCaptura();
 if (typeof window !== "undefined") {
   renderizarCuadriculaEstudiantes();
   renderizarPanelesInferiores(null);
   iniciarRelojEnVivo();
   iniciarRenderizadoCanvas();
-  configurarEventosCaptura();
-  iniciarCamara();
+  window.addEventListener("pagehide", () => {
+    peticionCaptura?.controlador.abort();
+    detenerCamara();
+  });
 }
 
 // ============================================================================
@@ -818,10 +898,15 @@ function mostrarSeguimiento(salida) {
     const articulo = document.createElement("article");
     articulo.className = "resultado-estudiante";
     const titulo = document.createElement("h3");
-    titulo.textContent = `${r.nombre || r.estudiante_id} · ${r.sesion_id}`;
+    titulo.textContent = `${r.nombre ? `${r.nombre} · ` : ""}ID ${r.estudiante_id} · sesión ${r.sesion_id}`;
     const nivel = document.createElement("p");
     nivel.textContent = `${r.actividad} · ${(r.nivel_revision || "").replaceAll("_", " ")} · prioridad ${r.indice_prioridad ?? "sin datos"}`;
-    articulo.append(titulo, nivel);
+    const identidad = document.createElement("p");
+    const observaciones = Object.entries(r.evidencia_por_modulo || {}).filter(([modulo]) => modulo !== "contexto");
+    identidad.textContent = observaciones.some(([, items]) => items.length)
+      ? "Observaciones disponibles con asociación de identidad verificada según la entrada."
+      : "Sin observaciones con identidad verificada para esta sesión.";
+    articulo.append(titulo, nivel, identidad);
 
     if (r.reglas_activadas) {
       lista(articulo, "Reglas activadas", r.reglas_activadas.map(x => `${x.regla} (+${x.puntos}): ${x.explicacion} Referencias: ${(x.referencias || []).join(", ")}`));
@@ -831,6 +916,10 @@ function mostrarSeguimiento(salida) {
     if (r.evidencia_por_modulo) {
       for (const [modulo, evidencias] of Object.entries(r.evidencia_por_modulo)) {
         lista(articulo, `Evidencia · ${modulo}`, evidencias.map(e => {
+          if (e.tipo === "evento_familiar" && e.evento_familiar) {
+            const evento = e.evento_familiar;
+            return `Evento familiar declarado (simulado) · ${evento.fecha} · referencia: ${evento.referencia} · origen: ${e.origen}`;
+          }
           const tiempo = e.fecha_hora || e.fecha || "";
           const dato = e.valor ?? e.estado ?? "";
           return `${e.id || e.tipo} · ${dato}${e.presente === false ? " (ausencia explícita)" : ""} · ${tiempo} · origen: ${e.origen}${e.confianza != null ? ` · confianza: ${e.confianza} · calidad: ${e.calidad}` : ""}`;
@@ -838,11 +927,16 @@ function mostrarSeguimiento(salida) {
       }
     }
 
+    if (r.coincidencia_contextual) {
+      lista(articulo, "Coincidencia contextual", [r.coincidencia_contextual.motivo,
+        ...r.coincidencia_contextual.observaciones.map(o => `${o.modulo} · ${o.id} · ${o.valor} · calidad ${o.calidad}`),
+        ...r.coincidencia_contextual.registros_academicos.map(a => `${a.tipo} · ${a.id || a.origen} · ${a.estado ?? a.valor}`)]);
+    }
     if (r.datos_faltantes) lista(articulo, "Datos faltantes", r.datos_faltantes);
     if (r.contradicciones) lista(articulo, "Contradicciones por resolver", r.contradicciones);
     if (r.limitaciones) lista(articulo, "Límites de esta evaluación", r.limitaciones);
     if (r.recomendaciones) lista(articulo, "Recomendaciones", r.recomendaciones);
-    if (r.avisar_a) lista(articulo, "Destinatarios sugeridos", r.avisar_a.length ? r.avisar_a : ["Sin aviso automático; siempre revisión humana."]);
+    if (r.avisar_a) lista(articulo, "Destinatarios sugeridos", r.avisar_a.length ? r.avisar_a : ["Sin destinatarios para este resultado."]);
     contenedor.append(articulo);
   }
 
@@ -878,29 +972,36 @@ async function cargarEjemplo() {
   }
 }
 
-if (elemento("motor")) {
-  elemento("motor").addEventListener("change", async () => {
-    if (elemento("entrada")) entradas[motorActual] = elemento("entrada").value;
-    motorActual = elemento("motor").value;
-    const seguimiento = motorActual === "seguimiento";
-    if (elemento("controles-seguimiento")) elemento("controles-seguimiento").hidden = !seguimiento;
-    if (elemento("controles-examen")) elemento("controles-examen").hidden = seguimiento;
-    if (elemento("descripcion-indice")) {
-      elemento("descripcion-indice").textContent = seguimiento
-        ? "Prioridad heurística de seguimiento máxima entre las sesiones evaluadas / 100. No predice notas ni diagnósticos."
-        : "Índice heurístico de revisión / 100. No es una probabilidad.";
-    }
-    if (elemento("ayuda")) {
-      elemento("ayuda").textContent = seguimiento
-        ? "Solo demostraciones simulado=true. No cargues datos reales: falta autenticación. La identidad requiere una referencia explícita revisada."
-        : "Si combinas fechas de IMAGEN con VIDEO, indica imagen.origen_temporal. La calidad no se normaliza automáticamente.";
-    }
-    limpiarResultado();
-    if (elemento("estado")) elemento("estado").textContent = "";
-    if (elemento("entrada")) elemento("entrada").value = entradas[motorActual] || "";
-    if (seguimiento && !entradas.seguimiento) await cargarEjemplo();
-  });
+async function cambiarMotor() {
+  if (elemento("entrada")) entradas[motorActual] = elemento("entrada").value;
+  motorActual = elemento("motor").value;
+  const seguimiento = motorActual === "seguimiento";
+  if (elemento("controles-seguimiento")) elemento("controles-seguimiento").hidden = !seguimiento;
+  if (elemento("controles-examen")) elemento("controles-examen").hidden = seguimiento;
+  if (elemento("descripcion-indice")) {
+    elemento("descripcion-indice").textContent = seguimiento
+      ? "Prioridad heurística de seguimiento máxima entre las sesiones evaluadas / 100. No predice notas ni diagnósticos."
+      : "Índice heurístico de revisión / 100. No es una probabilidad.";
+  }
+  if (elemento("ayuda")) {
+    elemento("ayuda").textContent = seguimiento
+      ? "Solo demostraciones simulado=true. No cargues datos reales: falta autenticación. La identidad requiere una referencia explícita revisada."
+      : "Si combinas fechas de IMAGEN con VIDEO, indica imagen.origen_temporal. La calidad no se normaliza automáticamente.";
+  }
+  limpiarResultado();
+  if (elemento("estado")) elemento("estado").textContent = "";
+  if (elemento("entrada")) elemento("entrada").value = entradas[motorActual] || "";
+  if (seguimiento && !entradas.seguimiento) await cargarEjemplo();
 }
+elemento("motor").addEventListener("change", cambiarMotor);
+
+elemento("abrir-seguimiento").addEventListener("click", async () => {
+  elemento("technical-drawer").open = true;
+  const selector = elemento("motor");
+  if (selector.disabled || selector.value === "seguimiento") return;
+  selector.value = "seguimiento";
+  await cambiarMotor();
+});
 
 if (elemento("cargar-ejemplo")) {
   elemento("cargar-ejemplo").addEventListener("click", cargarEjemplo);

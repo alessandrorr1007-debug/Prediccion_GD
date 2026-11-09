@@ -642,6 +642,7 @@ def procesar_captura_imagen(imagen_b64: str, contexto_externo: Optional[Dict[str
             "total_alumnos": 0,
             "estudiantes": [],
             "resolucion_captura": f"{w_img}x{h_img}",
+            "modelos_predictivos_disponibles": _MODELO_FACIAL is not None and _MODELO_SUCESOS is not None,
             "soporte_emociones": 7
         }
 
@@ -880,6 +881,7 @@ def procesar_captura_imagen(imagen_b64: str, contexto_externo: Optional[Dict[str
         "total_alumnos": len(estudiantes_resultado),
         "estudiantes": estudiantes_resultado,
         "resolucion_captura": f"{w_img}x{h_img}",
+        "modelos_predictivos_disponibles": _MODELO_FACIAL is not None and _MODELO_SUCESOS is not None,
         "soporte_emociones": 7
     }
 
@@ -911,6 +913,7 @@ def obtener_escenario_aula_ejemplo() -> Dict[str, Any]:
         "total_alumnos": 5,
         "estudiantes": estudiantes,
         "resolucion_captura": "1280x720 (Simulación Aula 301)",
+        "modelos_predictivos_disponibles": _MODELO_FACIAL is not None and _MODELO_SUCESOS is not None,
         "soporte_emociones": 7
     }
 

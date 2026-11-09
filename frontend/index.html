@@ -36,18 +36,21 @@
             <span class="menu-text">Predicciones</span>
             <span class="menu-badge-active">ACTIVO</span>
           </button>
+          <a href="#technical-drawer" id="abrir-seguimiento" class="menu-item">
+            <span class="menu-text">Seguimiento académico</span>
+          </a>
         </nav>
 
         <!-- Resumen del Modelo de Predicción -->
         <div class="sidebar-model-info">
           <div class="model-info-heading">MOTOR DE PREDICCIÓN</div>
           <div class="model-stat-row">
-            <span>Precisión Facial:</span>
-            <strong class="text-emerald-400">99.8% Acc.</strong>
+            <span>Entrenamiento:</span>
+            <strong>Datos sintéticos</strong>
           </div>
           <div class="model-stat-row">
-            <span>Inferencia Sucesos:</span>
-            <strong class="text-blue-400">R² 0.96 (MAE 3.1%)</strong>
+            <span>Captura:</span>
+            <strong>Identidad desconocida</strong>
           </div>
         </div>
       </div>
@@ -97,7 +100,7 @@
                 <h3 class="card-title">📸 Captura de Imagen para Predicción</h3>
                 <span id="capture-status-indicator" class="live-indicator-chip">
                   <span class="dot-live"></span>
-                  <span id="capture-status-text">Cámara Lista</span>
+                  <span id="capture-status-text" role="status">Cámara detenida</span>
                 </span>
               </div>
 
@@ -169,7 +172,15 @@
               <button id="btn-new-capture" type="button" class="btn-secondary-capture" title="Vuelve al visor en vivo para tomar una nueva foto">
                 🔄 Nueva Captura
               </button>
+              <button id="btn-stop-camera" type="button" class="btn-secondary-capture" hidden>Detener cámara</button>
             </div>
+            <div class="auto-capture-controls">
+              <label><input id="auto-capture-enabled" type="checkbox" checked> Captura automática</label>
+              <label for="auto-capture-interval">Intervalo por cámara (s)</label>
+              <input id="auto-capture-interval" type="number" min="5" value="5" step="1">
+            </div>
+            <p id="auto-capture-status" class="capture-note" role="status">La captura automática requiere una cámara activa.</p>
+            <p class="capture-note">El detector busca rostros en el visor. Cada captura enviada se analiza sin verificar identidad.</p>
           </section>
 
           <!-- Tarjeta Derecha (52%): Selección y Estado de Alumnos en la Captura -->
@@ -205,7 +216,7 @@
               <h3 class="card-title-sm">
                 🔮 Reconocimiento Facial: 7 Emociones <span class="selected-student-label">(Sin selección)</span>
               </h3>
-              <span class="sub-label">Predicción Facial Calibrada (0% - 100%)</span>
+              <span class="sub-label">Estimación experimental de la expresión facial</span>
             </div>
 
             <!-- 7 Barras Horizontales de Emociones Universales -->
@@ -353,7 +364,7 @@
                 <span class="score-den">/ 100</span>
               </div>
               <div class="score-meta-col">
-                <span class="score-label">ÍNDICE DE RIESGO ACADÉMICO</span>
+                <span class="score-label">ÍNDICE EXPERIMENTAL POR CAPTURA</span>
                 <strong id="riesgo-nivel-text" class="score-level-text">Sin evaluar — Esperando captura</strong>
               </div>
             </div>
@@ -362,8 +373,8 @@
             <div class="exam-risk-alert-box">
               <div class="alert-icon-wrap">⚠️</div>
               <div class="alert-text-wrap">
-                <strong>Riesgo de Desaprobación:</strong>
-                <p id="exam-risk-desc">Presiona 'Capturar Imagen y Predecir' (o recibe una captura) para calcular el riesgo académico del estudiante.</p>
+                <strong>Estimación experimental:</strong>
+                <p id="exam-risk-desc">Captura o sube una imagen para consultar la salida del modelo sintético.</p>
               </div>
             </div>
 
@@ -379,54 +390,62 @@
             </div>
 
             <div class="card-footer-badge">
-              <span>🔮 Basado en AulaPredict v2.0 (Motor de Inferencia Explicable SHAP)</span>
+              <span>Modelo experimental entrenado con datos sintéticos</span>
             </div>
           </section>
         </div>
+        <details id="technical-drawer" class="card seguimiento-panel">
+          <summary>Seguimiento académico e integración JSON</summary>
+          <div class="tech-content">
+            <p class="capture-note">Demostración sintética local. La identidad se atribuye mediante una asociación explícita. Las referencias de la cámara son independientes de este panel.</p>
+            <label for="servidor">Servidor de predicción</label>
+            <input id="servidor" type="url" value="http://localhost:8001">
+            <label for="motor">Motor</label>
+            <select id="motor">
+              <option value="examen" selected>Supervisión de exámenes</option>
+              <option value="seguimiento">Seguimiento por estudiante · demo sintética local</option>
+            </select>
+            <div id="controles-examen">
+              <label for="formato">Formato de entrada</label>
+              <select id="formato">
+                <option value="integracion" selected>Entrada conjunta (imagen / video)</option>
+                <option value="imagen">Exportación de IMAGEN</option>
+                <option value="video">Alerta o fotogramas de VIDEO</option>
+                <option value="interno">Eventos normalizados del motor</option>
+              </select>
+            </div>
+            <div id="controles-seguimiento" hidden>
+              <label for="ejemplo-seguimiento">Escenario sintético</label>
+              <select id="ejemplo-seguimiento">
+                <option value="juan">Juan Pérez · concurrencia de factores</option>
+                <option value="coincidencia">Observación con registro adverso</option>
+                <option value="sin_adversos">Misma observación sin registros adversos</option>
+                <option value="sin_alerta">Sin alerta</option>
+                <option value="identidad_desconocida">Identidad desconocida</option>
+                <option value="insuficientes">Datos insuficientes</option>
+              </select>
+              <button id="cargar-ejemplo" type="button">Cargar ejemplo</button>
+            </div>
+            <label for="archivo">Importar JSON</label>
+            <input id="archivo" type="file" accept=".json,application/json">
+            <label for="entrada">Entrada JSON</label>
+            <textarea id="entrada" rows="4"></textarea>
+            <button id="ejecutar" type="button" class="btn-primary-action">Evaluar señales</button>
+            <p id="estado" role="status"></p>
+            <p id="ayuda"></p>
+            <span id="indice">—</span>
+            <span id="nivel">Pendiente de evaluación</span>
+            <p id="descripcion-indice"></p>
+            <p id="recomendacion"></p>
+            <div id="resultados-estudiantes"></div>
+            <details class="respuesta-tecnica">
+              <summary>Respuesta JSON</summary>
+              <pre id="salida"></pre>
+            </details>
+          </div>
+        </details>
       </main>
     </div>
   </div>
-
-  <!-- ======================================================================
-       DRAWER TÉCNICO OCULTO (Preserva 100% Compatibilidad con Tests Automatizados)
-       ====================================================================== -->
-  <details id="technical-drawer" class="technical-drawer-hidden">
-    <summary>⚙️ Controles Técnicos de Integración (Suite de Pruebas)</summary>
-    <div class="tech-content">
-      <input id="servidor" type="url" value="http://localhost:8001">
-      <select id="motor">
-        <option value="examen" selected>Supervisión de exámenes</option>
-        <option value="seguimiento">Seguimiento por estudiante · demo sintética local</option>
-      </select>
-      <div id="controles-examen">
-        <select id="formato">
-          <option value="integracion" selected>Entrada conjunta (imagen / video)</option>
-          <option value="imagen">Exportación de IMAGEN</option>
-          <option value="video">Alerta o fotogramas de VIDEO</option>
-          <option value="interno">Eventos normalizados del motor</option>
-        </select>
-      </div>
-      <div id="controles-seguimiento" hidden>
-        <select id="ejemplo-seguimiento">
-          <option value="juan">Juan Pérez · concurrencia de factores</option>
-          <option value="sin_alerta">Sin alerta</option>
-          <option value="identidad_desconocida">Identidad desconocida</option>
-          <option value="insuficientes">Datos insuficientes</option>
-        </select>
-        <button id="cargar-ejemplo" type="button">Cargar ejemplo</button>
-      </div>
-      <input id="archivo" type="file" accept=".json,application/json">
-      <textarea id="entrada" rows="4"></textarea>
-      <button id="ejecutar" type="button">Evaluar señales</button>
-      <pre id="salida"></pre>
-      <p id="estado"></p>
-      <p id="ayuda"></p>
-      <span id="indice">15</span>
-      <span id="nivel">Sin alerta · Atención Óptima</span>
-      <p id="descripcion-indice"></p>
-      <p id="recomendacion"></p>
-      <div id="resultados-estudiantes"></div>
-    </div>
-  </details>
 </body>
 </html>

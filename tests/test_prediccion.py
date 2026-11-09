@@ -59,6 +59,16 @@ class MotorTests(unittest.TestCase):
         self.assertEqual(resultado["estudiantes"], [])
         self.assertEqual(resultado["estado"], "sin_personas")
 
+    def test_ejemplo_indica_modelos_predictivos_no_disponibles(self):
+        from unittest.mock import patch
+        from backend.entrenamiento_prediccion import predictor
+
+        with patch.multiple(predictor, _MODELO_FACIAL=None, _MODELO_SUCESOS=None), patch.object(predictor, "_cargar_modelos"):
+            resultado = predictor.obtener_escenario_aula_ejemplo()
+
+        self.assertFalse(resultado["modelos_predictivos_disponibles"])
+        self.assertEqual(resultado["total_alumnos"], 5)
+
     def test_asociacion_espacial_individual_distractores(self):
         import base64
         import cv2
