@@ -22,10 +22,13 @@ before(async () => {
   proceso.stderr.on("data", datos => { errorServidor += datos.toString(); });
   let fallo;
   proceso.on("error", error => { fallo = error; });
-  for (let i = 0; i < 200; i++) {
+  const limiteInicio = Date.now() + 45000;
+  while (Date.now() < limiteInicio) {
     if (fallo) throw fallo;
     if (proceso.exitCode !== null) throw new Error(errorServidor);
-    try { if ((await fetch(`${base}/api/salud`)).ok) return; } catch {}
+    try {
+      if ((await fetch(`${base}/api/salud`, { signal: AbortSignal.timeout(1000) })).ok) return;
+    } catch {}
     await new Promise(ok => setTimeout(ok, 50));
   }
   throw new Error(`El servidor de prueba no inició: ${errorServidor}`);
@@ -169,7 +172,7 @@ test("seguimiento multimodal muestra procedencia, escena sin identidad y errores
   assert.equal(e["resultados-estudiantes"].children.length, 0);
 });
 
-function montarCamara({ usarNativo = true, alternativo, responder } = {}) {
+function montarCamara({ usarNativo = true, alternativo, responder, abrirCamara, sinAPI = false } = {}) {
   let reloj = 0;
   let siguienteId = 0;
   let detecciones = 0;
@@ -180,9 +183,10 @@ function montarCamara({ usarNativo = true, alternativo, responder } = {}) {
   const track = { stop() { detenidas++; }, addEventListener() {} };
   const vacia = () => Response.json({ total_alumnos: 0, estudiantes: [] });
   const e = montar({
-    navigator: { mediaDevices: { async getUserMedia(opciones) {
+    navigator: sinAPI ? {} : { mediaDevices: { async getUserMedia(opciones) {
       assert.equal(opciones.audio, false);
-      return { getTracks: () => [track] };
+      const stream = { getTracks: () => [track] };
+      return abrirCamara ? abrirCamara(stream) : stream;
     } } },
     FaceDetector: usarNativo ? class { async detect() { detecciones++; return rostros; } } : undefined,
     crearDetectorAlternativo: alternativo || (async () => { throw new Error("Detector no disponible"); }),
@@ -212,6 +216,61 @@ function montarCamara({ usarNativo = true, alternativo, responder } = {}) {
     }
   };
 }
+
+test("distingue permiso denegado, cámara ausente y navegador sin API", async () => {
+  for (const [opciones, mensaje] of [
+    [{ abrirCamara: () => { throw new DOMException("denegado", "NotAllowedError"); } }, /Permiso de cámara denegado/],
+    [{ abrirCamara: () => { throw new DOMException("ausente", "NotFoundError"); } }, /No se encontró una cámara/],
+    [{ sinAPI: true }, /localhost o HTTPS/]
+  ]) {
+    const camara = montarCamara(opciones);
+    const { e, peticiones } = camara;
+    await e["btn-start-camera"].listeners.click();
+    assert.match(camara.estado(), mensaje);
+    assert.equal(e["btn-start-camera"].disabled, false);
+    assert.equal(e["btn-stop-camera"].hidden, true);
+    assert.equal(e["input-upload-image"].disabled, false);
+    await camara.revisar(10000);
+    assert.equal(peticiones.length, 0);
+  }
+});
+
+test("detener durante el permiso libera un stream concedido tarde", async () => {
+  let permitir;
+  const camara = montarCamara({ abrirCamara: stream => new Promise(resolve => {
+    permitir = () => resolve(stream);
+  }) });
+  const { e } = camara;
+  const apertura = e["btn-start-camera"].listeners.click();
+  e["btn-stop-camera"].listeners.click();
+  permitir();
+  await apertura;
+  await camara.revisar(10000);
+  assert.equal(camara.detenidas(), 1);
+  assert.equal(e["webcam-feed"].srcObject, null);
+  assert.equal(camara.peticiones.length, 0);
+});
+
+test("permite cambiar de captura manual a automática al volver al visor", async () => {
+  const camara = montarCamara({ responder: () => Response.json({
+    total_alumnos: 1, estudiantes: [{ id: 1, nombre: "Estudiante 1" }]
+  }) });
+  const { e, peticiones } = camara;
+  e["auto-capture-enabled"].checked = false;
+  await e["btn-start-camera"].listeners.click();
+  await camara.revisar(500);
+  assert.equal(peticiones.length, 0);
+  await e["btn-capture-predict"].listeners.click();
+  assert.equal(peticiones.length, 1);
+  assert.match(camara.estado(), /1 persona · identidad desconocida/);
+  e["auto-capture-enabled"].checked = true;
+  e["auto-capture-enabled"].listeners.change();
+  await camara.revisar(5000);
+  assert.equal(peticiones.length, 1);
+  e["btn-new-capture"].listeners.click();
+  await camara.revisar(500);
+  assert.equal(peticiones.length, 2);
+});
 
 test("detector nativo solo envía con rostro y respeta el intervalo por cámara", async () => {
   const camara = montarCamara();

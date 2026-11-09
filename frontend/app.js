@@ -610,7 +610,11 @@ async function iniciarCamara() {
   estadoCaptura("Solicitando acceso a la cámara…");
 
   try {
-    if (!globalThis.navigator?.mediaDevices?.getUserMedia) throw new Error();
+    if (!globalThis.navigator?.mediaDevices?.getUserMedia) {
+      detenerCamara();
+      estadoCaptura("La cámara requiere un navegador compatible en localhost o HTTPS. Puedes subir una foto.");
+      return;
+    }
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
       audio: false
@@ -631,10 +635,16 @@ async function iniciarCamara() {
     video.classList.add("active");
     volverANuevaCaptura();
     await iniciarDetector(sesion);
-  } catch {
+  } catch (error) {
     if (sesionCamara !== sesion) return;
     detenerCamara();
-    estadoCaptura("No se pudo abrir la cámara. Revisa el permiso o sube una foto.");
+    if (error?.name === "NotAllowedError") {
+      estadoCaptura("Permiso de cámara denegado. Habilítalo en el navegador o sube una foto.");
+    } else if (error?.name === "NotFoundError") {
+      estadoCaptura("No se encontró una cámara disponible. Conéctala o sube una foto.");
+    } else {
+      estadoCaptura("No se pudo abrir la cámara. Comprueba si otra aplicación la está usando o sube una foto.");
+    }
   }
 }
 
@@ -744,7 +754,7 @@ async function procesarCaptura(obtenerImagen, origen) {
       if (sesionCamara) estadoAutomatico("Captura automática pausada. Revisa el estado de los modelos.");
     } else {
       const mensaje = origen === "ejemplo" ? `Ejemplo sintético · ${datos.total_alumnos} perfiles ficticios` : datos.total_alumnos
-        ? `Captura analizada · ${datos.total_alumnos} personas · identidad desconocida`
+        ? `Captura analizada · ${datos.total_alumnos} ${datos.total_alumnos === 1 ? "persona" : "personas"} · identidad desconocida`
         : "No se detectaron personas en la imagen.";
       estadoCaptura(datos.estado_modelos === "modo_respaldo" ? `${mensaje} · Detección de respaldo` : mensaje);
     }
