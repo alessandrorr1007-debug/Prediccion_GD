@@ -1,0 +1,586 @@
+{
+  "objetivo": "ocho expresiones actuadas de RAVDESS",
+  "modelo": "regresion_logistica_escalada",
+  "version": "fusion-fase9-1.0",
+  "sklearn": "1.9.1",
+  "semilla": 42,
+  "fuente_tracking": "https://doi.org/10.5281/zenodo.3255102",
+  "sha256_audio": "5d208e01632cc3e5242106fa2af3273e6dc5239fb8143131979ac74c4aa40657",
+  "sha256_visual": "be0a814b63f07303d18c0de2c8268cf5f68f2bbb8156edf3f9e82a41aef34fb4",
+  "tracking_md5": "5753bbc64a9a790f8a8d3e03cba526ee",
+  "particiones": [
+    940,
+    228,
+    240
+  ],
+  "descartes": {
+    "SenalInsuficiente": 31,
+    "duplicado_exacto": 1
+  },
+  "historica_expuesta_para_audio": true,
+  "resultados": {
+    "solo_audio": {
+      "n": 240,
+      "clases": [
+        "alegria",
+        "asco",
+        "calma",
+        "enojo",
+        "miedo",
+        "neutral",
+        "sorpresa",
+        "tristeza"
+      ],
+      "reporte": {
+        "alegria": {
+          "precision": 0.24,
+          "recall": 0.375,
+          "f1-score": 0.2926829268292683,
+          "support": 32.0
+        },
+        "asco": {
+          "precision": 0.6470588235294118,
+          "recall": 0.34375,
+          "f1-score": 0.4489795918367347,
+          "support": 32.0
+        },
+        "calma": {
+          "precision": 0.6470588235294118,
+          "recall": 0.34375,
+          "f1-score": 0.4489795918367347,
+          "support": 32.0
+        },
+        "enojo": {
+          "precision": 0.4107142857142857,
+          "recall": 0.71875,
+          "f1-score": 0.5227272727272727,
+          "support": 32.0
+        },
+        "miedo": {
+          "precision": 0.7142857142857143,
+          "recall": 0.15625,
+          "f1-score": 0.2564102564102564,
+          "support": 32.0
+        },
+        "neutral": {
+          "precision": 0.22,
+          "recall": 0.6875,
+          "f1-score": 0.3333333333333333,
+          "support": 16.0
+        },
+        "sorpresa": {
+          "precision": 0.7428571428571429,
+          "recall": 0.8125,
+          "f1-score": 0.7761194029850746,
+          "support": 32.0
+        },
+        "tristeza": {
+          "precision": 0.375,
+          "recall": 0.09375,
+          "f1-score": 0.15,
+          "support": 32.0
+        },
+        "accuracy": 0.425,
+        "macro avg": {
+          "precision": 0.4996218487394958,
+          "recall": 0.44140625,
+          "f1-score": 0.40365404699483437,
+          "support": 240.0
+        },
+        "weighted avg": {
+          "precision": 0.5182633053221288,
+          "recall": 0.425,
+          "f1-score": 0.4083420945722678,
+          "support": 240.0
+        }
+      },
+      "matriz_confusion": [
+        [
+          12,
+          0,
+          1,
+          6,
+          2,
+          9,
+          2,
+          0
+        ],
+        [
+          3,
+          11,
+          1,
+          13,
+          0,
+          4,
+          0,
+          0
+        ],
+        [
+          10,
+          0,
+          11,
+          1,
+          0,
+          8,
+          0,
+          2
+        ],
+        [
+          2,
+          0,
+          0,
+          23,
+          0,
+          4,
+          3,
+          0
+        ],
+        [
+          10,
+          0,
+          0,
+          9,
+          5,
+          3,
+          2,
+          3
+        ],
+        [
+          3,
+          0,
+          0,
+          2,
+          0,
+          11,
+          0,
+          0
+        ],
+        [
+          4,
+          1,
+          0,
+          1,
+          0,
+          0,
+          26,
+          0
+        ],
+        [
+          6,
+          5,
+          4,
+          1,
+          0,
+          11,
+          2,
+          3
+        ]
+      ],
+      "log_loss": 1.5067004896527214,
+      "brier_multiclase": 0.7090243743416594,
+      "ece_10_tramos": 0.057947286552144255,
+      "roc_auc": null,
+      "cobertura": 0.04583333333333333,
+      "exactitud_selectiva": 0.8181818181818182,
+      "actores_prueba": {
+        "21": {
+          "n": 60,
+          "exactitud": 0.23333333333333334,
+          "cobertura": 0.11666666666666667
+        },
+        "22": {
+          "n": 60,
+          "exactitud": 0.4166666666666667,
+          "cobertura": 0.016666666666666666
+        },
+        "23": {
+          "n": 60,
+          "exactitud": 0.4166666666666667,
+          "cobertura": 0.0
+        },
+        "24": {
+          "n": 60,
+          "exactitud": 0.6333333333333333,
+          "cobertura": 0.05
+        }
+      }
+    },
+    "solo_visual": {
+      "n": 240,
+      "clases": [
+        "alegria",
+        "asco",
+        "calma",
+        "enojo",
+        "miedo",
+        "neutral",
+        "sorpresa",
+        "tristeza"
+      ],
+      "reporte": {
+        "alegria": {
+          "precision": 0.6756756756756757,
+          "recall": 0.78125,
+          "f1-score": 0.7246376811594203,
+          "support": 32.0
+        },
+        "asco": {
+          "precision": 1.0,
+          "recall": 0.3125,
+          "f1-score": 0.47619047619047616,
+          "support": 32.0
+        },
+        "calma": {
+          "precision": 0.9333333333333333,
+          "recall": 0.4375,
+          "f1-score": 0.5957446808510638,
+          "support": 32.0
+        },
+        "enojo": {
+          "precision": 0.5172413793103449,
+          "recall": 0.9375,
+          "f1-score": 0.6666666666666666,
+          "support": 32.0
+        },
+        "miedo": {
+          "precision": 0.4375,
+          "recall": 0.65625,
+          "f1-score": 0.525,
+          "support": 32.0
+        },
+        "neutral": {
+          "precision": 0.36363636363636365,
+          "recall": 1.0,
+          "f1-score": 0.5333333333333333,
+          "support": 16.0
+        },
+        "sorpresa": {
+          "precision": 0.4,
+          "recall": 0.125,
+          "f1-score": 0.19047619047619047,
+          "support": 32.0
+        },
+        "tristeza": {
+          "precision": 0.3888888888888889,
+          "recall": 0.21875,
+          "f1-score": 0.28,
+          "support": 32.0
+        },
+        "accuracy": 0.5291666666666667,
+        "macro avg": {
+          "precision": 0.5895344551055759,
+          "recall": 0.55859375,
+          "f1-score": 0.49900612858464377,
+          "support": 240.0
+        },
+        "weighted avg": {
+          "precision": 0.6045943278701901,
+          "recall": 0.5291666666666667,
+          "f1-score": 0.49671764826806447,
+          "support": 240.0
+        }
+      },
+      "matriz_confusion": [
+        [
+          25,
+          0,
+          0,
+          0,
+          4,
+          0,
+          0,
+          3
+        ],
+        [
+          0,
+          10,
+          0,
+          16,
+          2,
+          0,
+          2,
+          2
+        ],
+        [
+          4,
+          0,
+          14,
+          0,
+          0,
+          14,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          30,
+          0,
+          0,
+          2,
+          0
+        ],
+        [
+          3,
+          0,
+          0,
+          1,
+          21,
+          1,
+          2,
+          4
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          16,
+          0,
+          0
+        ],
+        [
+          4,
+          0,
+          0,
+          6,
+          16,
+          0,
+          4,
+          2
+        ],
+        [
+          1,
+          0,
+          1,
+          5,
+          5,
+          13,
+          0,
+          7
+        ]
+      ],
+      "log_loss": 1.2436427366852139,
+      "brier_multiclase": 0.6314909227547212,
+      "ece_10_tramos": 0.0926798809128535,
+      "roc_auc": null,
+      "cobertura": 0.22916666666666666,
+      "exactitud_selectiva": 0.6545454545454545,
+      "actores_prueba": {
+        "21": {
+          "n": 60,
+          "exactitud": 0.5333333333333333,
+          "cobertura": 0.21666666666666667
+        },
+        "22": {
+          "n": 60,
+          "exactitud": 0.6166666666666667,
+          "cobertura": 0.08333333333333333
+        },
+        "23": {
+          "n": 60,
+          "exactitud": 0.45,
+          "cobertura": 0.31666666666666665
+        },
+        "24": {
+          "n": 60,
+          "exactitud": 0.5166666666666667,
+          "cobertura": 0.3
+        }
+      }
+    },
+    "audio_visual": {
+      "n": 240,
+      "clases": [
+        "alegria",
+        "asco",
+        "calma",
+        "enojo",
+        "miedo",
+        "neutral",
+        "sorpresa",
+        "tristeza"
+      ],
+      "reporte": {
+        "alegria": {
+          "precision": 0.8846153846153846,
+          "recall": 0.71875,
+          "f1-score": 0.7931034482758621,
+          "support": 32.0
+        },
+        "asco": {
+          "precision": 1.0,
+          "recall": 0.46875,
+          "f1-score": 0.6382978723404256,
+          "support": 32.0
+        },
+        "calma": {
+          "precision": 0.7727272727272727,
+          "recall": 0.53125,
+          "f1-score": 0.6296296296296297,
+          "support": 32.0
+        },
+        "enojo": {
+          "precision": 0.5918367346938775,
+          "recall": 0.90625,
+          "f1-score": 0.7160493827160493,
+          "support": 32.0
+        },
+        "miedo": {
+          "precision": 0.7741935483870968,
+          "recall": 0.75,
+          "f1-score": 0.7619047619047619,
+          "support": 32.0
+        },
+        "neutral": {
+          "precision": 0.36363636363636365,
+          "recall": 1.0,
+          "f1-score": 0.5333333333333333,
+          "support": 16.0
+        },
+        "sorpresa": {
+          "precision": 0.6744186046511628,
+          "recall": 0.90625,
+          "f1-score": 0.7733333333333333,
+          "support": 32.0
+        },
+        "tristeza": {
+          "precision": 0.9,
+          "recall": 0.28125,
+          "f1-score": 0.42857142857142855,
+          "support": 32.0
+        },
+        "accuracy": 0.675,
+        "macro avg": {
+          "precision": 0.7451784885888947,
+          "recall": 0.6953125,
+          "f1-score": 0.6592778987631029,
+          "support": 240.0
+        },
+        "weighted avg": {
+          "precision": 0.7706146302523967,
+          "recall": 0.675,
+          "f1-score": 0.6676742031250876,
+          "support": 240.0
+        }
+      },
+      "matriz_confusion": [
+        [
+          23,
+          0,
+          0,
+          0,
+          4,
+          0,
+          5,
+          0
+        ],
+        [
+          0,
+          15,
+          3,
+          10,
+          0,
+          0,
+          3,
+          1
+        ],
+        [
+          2,
+          0,
+          17,
+          0,
+          0,
+          13,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          29,
+          0,
+          0,
+          3,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          5,
+          24,
+          0,
+          3,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          16,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          2,
+          0,
+          29,
+          0
+        ],
+        [
+          1,
+          0,
+          2,
+          4,
+          1,
+          15,
+          0,
+          9
+        ]
+      ],
+      "log_loss": 1.082796004571083,
+      "brier_multiclase": 0.5315846054090234,
+      "ece_10_tramos": 0.15018046905775195,
+      "roc_auc": null,
+      "cobertura": 0.4,
+      "exactitud_selectiva": 0.8229166666666666,
+      "actores_prueba": {
+        "21": {
+          "n": 60,
+          "exactitud": 0.5666666666666667,
+          "cobertura": 0.23333333333333334
+        },
+        "22": {
+          "n": 60,
+          "exactitud": 0.7666666666666667,
+          "cobertura": 0.43333333333333335
+        },
+        "23": {
+          "n": 60,
+          "exactitud": 0.6,
+          "cobertura": 0.5
+        },
+        "24": {
+          "n": 60,
+          "exactitud": 0.7666666666666667,
+          "cobertura": 0.43333333333333335
+        }
+      }
+    }
+  },
+  "entrada_ausente": {
+    "sin_visual": "solo_audio",
+    "sin_audio": "solo_visual",
+    "sin_ambas": "abstencion"
+  }
+}
