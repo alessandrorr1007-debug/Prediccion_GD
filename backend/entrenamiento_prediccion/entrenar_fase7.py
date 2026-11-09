@@ -42,9 +42,16 @@ def huella(ruta, algoritmo="sha256"):
 
 
 def evaluar(modelo, x, y):
-    p = modelo.predict_proba(x)
     clases = modelo.classes_
-    pred = clases[p.argmax(axis=1)]
+    p = modelo.predict_proba(x) if hasattr(modelo, "predict_proba") else None
+    pred = modelo.predict(x) if p is None else clases[p.argmax(axis=1)]
+    reporte = {
+        "n": len(y), "clases": clases.tolist(),
+        "reporte": classification_report(y, pred, labels=clases, output_dict=True, zero_division=0),
+        "matriz_confusion": confusion_matrix(y, pred, labels=clases).tolist(),
+    }
+    if p is None:
+        return reporte
     maximos = p.max(axis=1)
     tramo = np.minimum((maximos * 10).astype(int), 9)
     aciertos = pred == y
@@ -53,9 +60,7 @@ def evaluar(modelo, x, y):
     orden = np.sort(p, axis=1)
     cubiertos = (maximos >= UMBRAL) & (orden[:, -1] - orden[:, -2] >= MARGEN)
     return {
-        "n": len(y), "clases": clases.tolist(),
-        "reporte": classification_report(y, pred, labels=clases, output_dict=True, zero_division=0),
-        "matriz_confusion": confusion_matrix(y, pred, labels=clases).tolist(),
+        **reporte,
         "log_loss": float(log_loss(y, p, labels=clases)),
         "brier_multiclase": float(((p - (y[:, None] == clases)) ** 2).sum(axis=1).mean()),
         "ece_10_tramos": ece,
@@ -114,12 +119,10 @@ def entrenar_academico(ruta):
                         descartados=len(tabla) - len(datos), particiones=list(map(len, indices)))
 
 
-def entrenar_audio(ruta):
+def clips_ravdess(ruta, descartes):
     if huella(ruta, "md5") != RAVDESS_MD5:
         raise ValueError("El ZIP no coincide con el archivo de habla RAVDESS publicado en Zenodo.")
-    x, y, actores = [], [], []
     vistos = set()
-    descartes = Counter()
     with ZipFile(ruta) as archivo:
         for miembro in sorted(archivo.infolist(), key=lambda m: m.filename):
             nombre = Path(miembro.filename).name
@@ -132,15 +135,22 @@ def entrenar_audio(ruta):
                 descartes["duplicado_exacto"] += 1
                 continue
             vistos.add(h)
-            try:
-                rasgos, _ = rasgos_audio(contenido)
-            except (EntradaInvalida, SenalInsuficiente) as error:
-                descartes[type(error).__name__] += 1
-                continue
             clase, actor = map(int, partes.groups())
-            x.append(rasgos)
-            y.append(VOCALES[clase - 1])
-            actores.append(actor)
+            yield contenido, VOCALES[clase - 1], actor
+
+
+def entrenar_audio(ruta):
+    x, y, actores = [], [], []
+    descartes = Counter()
+    for contenido, clase, actor in clips_ravdess(ruta, descartes):
+        try:
+            rasgos, _ = rasgos_audio(contenido)
+        except (EntradaInvalida, SenalInsuficiente) as error:
+            descartes[type(error).__name__] += 1
+            continue
+        x.append(rasgos)
+        y.append(clase)
+        actores.append(actor)
     grupos = np.asarray(actores)
     # Cuatro actores por partición fuera de entrenamiento, con ambos sexos representados.
     rangos = ((1, 12), (13, 16), (17, 20), (21, 24))

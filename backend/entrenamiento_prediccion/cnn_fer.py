@@ -4,9 +4,10 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 
 
 class CNNFER(ClassifierMixin, BaseEstimator):
-    def __init__(self, epochs=8, seed=42):
+    def __init__(self, epochs=8, seed=42, regularizada=False):
         self.epochs = epochs
         self.seed = seed
+        self.regularizada = regularizada
 
     def fit(self, X, y):
         import torch
@@ -17,15 +18,21 @@ class CNNFER(ClassifierMixin, BaseEstimator):
         azar = torch.Generator().manual_seed(self.seed)
         self.classes_, etiquetas = np.unique(y, return_inverse=True)
         self.n_features_in_ = X.shape[1]
-        self.red_ = nn.Sequential(
-            nn.Conv2d(1, 16, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),
-            nn.Conv2d(16, 32, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),
-            nn.AdaptiveAvgPool2d((4, 4)), nn.Flatten(), nn.Linear(512, len(self.classes_)),
-        )
-        optimizador = torch.optim.Adam(self.red_.parameters(), lr=.001)
+        capas = []
+        for entrada, salida in ((1, 16), (16, 32)):
+            capas.append(nn.Conv2d(entrada, salida, 3, padding=1))
+            if self.regularizada:
+                capas.append(nn.BatchNorm2d(salida))
+            capas.extend((nn.ReLU(), nn.MaxPool2d(2)))
+        capas.extend((nn.AdaptiveAvgPool2d((4, 4)), nn.Flatten()))
+        if self.regularizada:
+            capas.append(nn.Dropout(.25))
+        self.red_ = nn.Sequential(*capas, nn.Linear(512, len(self.classes_)))
+        optimizador = torch.optim.Adam(self.red_.parameters(), lr=.001, weight_decay=.001 if self.regularizada else 0)
         perdida = nn.CrossEntropyLoss()
+        tamano_lote = 32 if self.regularizada else 128
         for _ in range(self.epochs):
-            for indices in torch.randperm(len(X), generator=azar).split(128):
+            for indices in torch.randperm(len(X), generator=azar).split(tamano_lote):
                 lote = torch.as_tensor(X[indices.numpy()], dtype=torch.float32).reshape(-1, 1, 48, 48) / 255
                 voltear = torch.rand(len(indices), generator=azar).reshape(-1, 1, 1, 1) < .5
                 lote = torch.where(voltear, lote.flip(-1), lote)

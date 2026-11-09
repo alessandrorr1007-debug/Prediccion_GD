@@ -16,14 +16,17 @@ FER = ("enojo", "asco", "miedo", "alegria", "tristeza", "sorpresa", "neutral")
 VOTOS = ("neutral", "happiness", "surprise", "sadness", "anger", "disgust", "fear", "contempt", "unknown", "nf")
 ETIQUETAS_PLUS = ("neutral", "alegria", "sorpresa", "tristeza", "enojo", "asco", "miedo")
 PARTICIONES = {"Training": 0, "PublicTest": 1, "PrivateTest": 2}
+TAMANOS_ORIGINALES = {"Training": 28709, "PublicTest": 3589, "PrivateTest": 3589}
 
 
-def importar(ruta, ruta_plus):
+def importar(ruta, ruta_plus, *, exigir_original=False):
     datos = pd.read_csv(ruta)
     if not {"Usage", "emotion", "pixels"} <= set(datos.columns) or not 1 <= len(datos) <= 40000:
         raise ValueError("Se requiere el CSV original FER2013 con Usage, emotion y pixels.")
     if not set(datos.Usage) <= PARTICIONES.keys():
         raise ValueError("FER2013 contiene particiones no reconocidas.")
+    if exigir_original and datos.Usage.value_counts().to_dict() != TAMANOS_ORIGINALES:
+        raise ValueError("Las cantidades por partición no corresponden al CSV original de FER2013.")
     votos = None
     if ruta_plus:
         plus = pd.read_csv(ruta_plus)
@@ -80,7 +83,7 @@ def hog_lote(X):
 def entrenar(ruta, ruta_plus, cnn):
     from .entrenar_fase7 import SEMILLA, ajustar, huella
 
-    x, y, grupo, descartes = importar(ruta, ruta_plus)
+    x, y, grupo, descartes = importar(ruta, ruta_plus, exigir_original=True)
     entrenamiento = np.flatnonzero(grupo == 0)
     tr, cal = train_test_split(entrenamiento, test_size=.15, stratify=y[entrenamiento], random_state=SEMILLA)
     indices = (tr, np.flatnonzero(grupo == 1), cal, np.flatnonzero(grupo == 2))
