@@ -1,0 +1,234 @@
+{
+  "seleccion": "regresion_logistica",
+  "f1_macro_validacion": {
+    "mayoria": 0.3979591836734694,
+    "regresion_logistica": 0.9243589743589744,
+    "random_forest": 0.8487179487179488
+  },
+  "prueba_candidatos_sin_calibrar": {
+    "mayoria": {
+      "n": 80,
+      "clases": [
+        "aprueba",
+        "no_aprueba"
+      ],
+      "reporte": {
+        "aprueba": {
+          "precision": 0.675,
+          "recall": 1.0,
+          "f1-score": 0.8059701492537313,
+          "support": 54.0
+        },
+        "no_aprueba": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 26.0
+        },
+        "accuracy": 0.675,
+        "macro avg": {
+          "precision": 0.3375,
+          "recall": 0.5,
+          "f1-score": 0.40298507462686567,
+          "support": 80.0
+        },
+        "weighted avg": {
+          "precision": 0.45562500000000006,
+          "recall": 0.675,
+          "f1-score": 0.5440298507462686,
+          "support": 80.0
+        }
+      },
+      "matriz_confusion": [
+        [
+          54,
+          0
+        ],
+        [
+          26,
+          0
+        ]
+      ],
+      "log_loss": 11.714187351463073,
+      "brier_multiclase": 0.65,
+      "ece_10_tramos": 0.32499999999999996,
+      "roc_auc": 0.5,
+      "cobertura": 1.0,
+      "exactitud_selectiva": 0.675
+    },
+    "regresion_logistica": {
+      "n": 80,
+      "clases": [
+        "aprueba",
+        "no_aprueba"
+      ],
+      "reporte": {
+        "aprueba": {
+          "precision": 0.9411764705882353,
+          "recall": 0.8888888888888888,
+          "f1-score": 0.9142857142857143,
+          "support": 54.0
+        },
+        "no_aprueba": {
+          "precision": 0.7931034482758621,
+          "recall": 0.8846153846153846,
+          "f1-score": 0.8363636363636363,
+          "support": 26.0
+        },
+        "accuracy": 0.8875,
+        "macro avg": {
+          "precision": 0.8671399594320487,
+          "recall": 0.8867521367521367,
+          "f1-score": 0.8753246753246753,
+          "support": 80.0
+        },
+        "weighted avg": {
+          "precision": 0.8930527383367138,
+          "recall": 0.8875,
+          "f1-score": 0.888961038961039,
+          "support": 80.0
+        }
+      },
+      "matriz_confusion": [
+        [
+          48,
+          6
+        ],
+        [
+          3,
+          23
+        ]
+      ],
+      "log_loss": 0.2227572310138636,
+      "brier_multiclase": 0.14329451671374344,
+      "ece_10_tramos": 0.07095394660687887,
+      "roc_auc": 0.9711538461538461,
+      "cobertura": 0.95,
+      "exactitud_selectiva": 0.9078947368421053
+    },
+    "random_forest": {
+      "n": 80,
+      "clases": [
+        "aprueba",
+        "no_aprueba"
+      ],
+      "reporte": {
+        "aprueba": {
+          "precision": 0.9607843137254902,
+          "recall": 0.9074074074074074,
+          "f1-score": 0.9333333333333333,
+          "support": 54.0
+        },
+        "no_aprueba": {
+          "precision": 0.8275862068965517,
+          "recall": 0.9230769230769231,
+          "f1-score": 0.8727272727272727,
+          "support": 26.0
+        },
+        "accuracy": 0.9125,
+        "macro avg": {
+          "precision": 0.894185260311021,
+          "recall": 0.9152421652421653,
+          "f1-score": 0.9030303030303031,
+          "support": 80.0
+        },
+        "weighted avg": {
+          "precision": 0.9174949290060852,
+          "recall": 0.9125,
+          "f1-score": 0.9136363636363637,
+          "support": 80.0
+        }
+      },
+      "matriz_confusion": [
+        [
+          49,
+          5
+        ],
+        [
+          2,
+          24
+        ]
+      ],
+      "log_loss": 0.20519961698869213,
+      "brier_multiclase": 0.1252638682743582,
+      "ece_10_tramos": 0.053219717736934125,
+      "roc_auc": 0.9725783475783476,
+      "cobertura": 0.975,
+      "exactitud_selectiva": 0.9230769230769231
+    }
+  },
+  "prueba_modelo_calibrado": {
+    "n": 80,
+    "clases": [
+      "aprueba",
+      "no_aprueba"
+    ],
+    "reporte": {
+      "aprueba": {
+        "precision": 0.9245283018867925,
+        "recall": 0.9074074074074074,
+        "f1-score": 0.9158878504672897,
+        "support": 54.0
+      },
+      "no_aprueba": {
+        "precision": 0.8148148148148148,
+        "recall": 0.8461538461538461,
+        "f1-score": 0.8301886792452831,
+        "support": 26.0
+      },
+      "accuracy": 0.8875,
+      "macro avg": {
+        "precision": 0.8696715583508037,
+        "recall": 0.8767806267806268,
+        "f1-score": 0.8730382648562864,
+        "support": 80.0
+      },
+      "weighted avg": {
+        "precision": 0.8888714185883998,
+        "recall": 0.8875,
+        "f1-score": 0.8880356198201376,
+        "support": 80.0
+      }
+    },
+    "matriz_confusion": [
+      [
+        49,
+        5
+      ],
+      [
+        4,
+        22
+      ]
+    ],
+    "log_loss": 0.23125961255229854,
+    "brier_multiclase": 0.14153427681160663,
+    "ece_10_tramos": 0.045375021871143624,
+    "roc_auc": 0.9711538461538461,
+    "cobertura": 0.925,
+    "exactitud_selectiva": 0.9324324324324325
+  },
+  "dataset": {
+    "fuente": "https://doi.org/10.24432/C5TG7T",
+    "licencia": "CC BY 4.0",
+    "dominio": "matematicas, secundaria portuguesa; corte posterior al segundo periodo"
+  },
+  "entradas": [
+    "G1",
+    "G2"
+  ],
+  "desenlace": "G3 < 10/20",
+  "descartados": 0,
+  "particiones": [
+    197,
+    59,
+    59,
+    80
+  ],
+  "tipo": "academico",
+  "version": "fase7-1.0",
+  "semilla": 42,
+  "sklearn": "1.9.1",
+  "dataset_sha256": "82ae9d66437b9808df42e8c89d2bb179c46e9cfbcf06f38abc1d20b3b747e177",
+  "umbral": 0.55,
+  "margen": 0.1
+}

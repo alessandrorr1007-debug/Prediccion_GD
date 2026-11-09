@@ -1,5 +1,7 @@
 # AulaPredict · Motor experimental y seguimiento académico
 
+La [Fase 7](ENTRENAMIENTO_FASE7.md) amplía este contrato con modelos opcionales de investigación, fragmentos WAV y calificaciones parciales. El flujo histórico descrito aquí se conserva.
+
 ## Auditoría de partida
 
 La captura visual existente ejecuta Haar y, si están instalados, YOLO Pose y YOLO de objetos. Usa dos Random Forest entrenados en vectores sintéticos. El clasificador estima expresiones a partir de nueve rasgos y el regresor de la captura histórica estima objetivos simulados. La proyección de `/api/vision/analizar` y los dos índices de revisión anteriores son heurísticas. Los adaptadores de imagen y video consumen JSON de objetos y eventos. La ruta de captura acepta una imagen en base64 simple o data URL mediante OpenCV. No existía un contrato de productor ni un formato de audio binario aceptado. El visor, la subida de foto y los flujos JSON se mantienen.
