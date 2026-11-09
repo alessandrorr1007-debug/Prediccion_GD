@@ -403,6 +403,20 @@
           <button id="actualizar-integracion" class="btn-secondary-capture" type="button">Actualizar estado</button>
         </section>
 
+        <details class="card seguimiento-panel">
+          <summary>Análisis experimental de expresiones y señales acústicas</summary>
+          <form id="analisis-experimental" class="tech-content">
+            <p class="capture-note">Evalúa una imagen de prueba o introduce características acústicas declaradas. Los resultados son independientes del seguimiento académico.</p>
+            <label for="experimental-foto">Imagen de prueba (opcional)</label>
+            <input id="experimental-foto" type="file" accept="image/*">
+            <label for="experimental-json">Entradas JSON por fuente</label>
+            <textarea id="experimental-json" rows="4">{"schema_version":1}</textarea>
+            <button id="experimental-ejecutar" type="submit" class="btn-primary-action">Analizar entradas</button>
+            <p id="experimental-estado" role="status"></p>
+            <div id="experimental-resultados"></div>
+          </form>
+        </details>
+
         <details id="technical-drawer" class="card seguimiento-panel">
           <summary>Seguimiento académico e integración JSON</summary>
           <div class="tech-content">
@@ -429,6 +443,7 @@
                 <option value="juan">Juan Pérez · concurrencia de factores</option>
                 <option value="coincidencia">Observación con registro adverso</option>
                     <option value="multimodal">Imagen, video, captura e historial</option>
+                    <option value="participacion">Asistencia y participación declaradas</option>
                 <option value="sin_adversos">Misma observación sin registros adversos</option>
                 <option value="sin_alerta">Sin alerta</option>
                 <option value="identidad_desconocida">Identidad desconocida</option>

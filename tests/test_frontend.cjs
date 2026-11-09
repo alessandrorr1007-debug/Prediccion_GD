@@ -64,7 +64,7 @@ function montar(globales = {}, configurar = () => {}) {
       }
     },
     location: { origin: base, protocol: "http:" }, URL, fetch,
-    AbortController, setTimeout, clearTimeout, ...globales,
+    AbortController, AbortSignal, setTimeout, clearTimeout, ...globales,
   });
   configurar(elementos);
   vm.runInContext(readFileSync(join(raiz, "frontend/app.js"), "utf8"), contexto);
@@ -170,6 +170,33 @@ test("seguimiento multimodal muestra procedencia, escena sin identidad y errores
   await e.ejecutar.listeners.click();
   assert.match(e.estado.textContent, /Fuente 1 \(audio, contrato_pendiente\)/);
   assert.equal(e["resultados-estudiantes"].children.length, 0);
+});
+
+test("panel experimental muestra características declaradas y fusión pendiente", async () => {
+  const e = montar();
+  e["experimental-json"].value = JSON.stringify({
+    schema_version: 1, audio: { duracion_segundos: 4, f0_hz: 150, naturaleza: "sintetica" }
+  });
+  await e["analisis-experimental"].listeners.submit({ preventDefault() {} });
+  assert.match(e["experimental-estado"].textContent, /Evaluación experimental completada/);
+  const salida = contenido(e["experimental-resultados"]);
+  assert.match(salida, /caracteristicas declaradas/);
+  assert.match(salida, /f0_hz: 150/);
+  assert.match(salida, /clasificador acústico pendientes/);
+  assert.match(salida, /Fusión estadística pendiente/);
+});
+
+test("seguimiento muestra asistencia, participación y prioridad académica separadas", async () => {
+  const e = montar();
+  e["ejemplo-seguimiento"].value = "participacion";
+  await e["abrir-seguimiento"].listeners.click();
+  await e.ejecutar.listeners.click();
+  const salida = contenido(e["resultados-estudiantes"]);
+  assert.match(salida, /Prioridad académica: 15/);
+  assert.match(salida, /Registros de asistencia: 5 · ausencias: 2/);
+  assert.match(salida, /Participaciones declaradas: 2/);
+  assert.match(salida, /Participaciones declaradas: 0/);
+  assert.match(salida, /Registros académicos excluidos/);
 });
 
 function montarCamara({ usarNativo = true, alternativo, responder, abrirCamara, sinAPI = false } = {}) {

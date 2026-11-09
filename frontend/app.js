@@ -924,6 +924,66 @@ async function cargarEstadoIntegracion() {
 elemento("actualizar-integracion").addEventListener("click", cargarEstadoIntegracion);
 if (typeof window !== "undefined") void cargarEstadoIntegracion();
 
+elemento("analisis-experimental").addEventListener("submit", async (evento) => {
+  evento.preventDefault();
+  const boton = elemento("experimental-ejecutar");
+  if (boton.disabled) return;
+  const estado = elemento("experimental-estado");
+  const resultados = elemento("experimental-resultados");
+  boton.disabled = true;
+  resultados.replaceChildren();
+  estado.textContent = "Analizando fuentes…";
+  try {
+    const entrada = JSON.parse(elemento("experimental-json").value);
+    if (!entrada || typeof entrada !== "object" || Array.isArray(entrada)) throw new Error("Se requiere un objeto JSON.");
+    const archivo = elemento("experimental-foto").files?.[0];
+    if (archivo) {
+      if (archivo.size > 5 * 1024 * 1024) throw new Error("La foto supera 5 MiB.");
+      if (entrada.imagen) throw new Error("Selecciona una foto o proporciona imagen en el JSON.");
+      const imagen_b64 = await new Promise((resolve, reject) => {
+        const lector = new FileReader();
+        lector.onload = () => resolve(lector.result);
+        lector.onerror = () => reject(new Error("No se pudo leer la foto."));
+        lector.readAsDataURL(archivo);
+      });
+      entrada.imagen = { imagen_b64 };
+    }
+    const respuesta = await fetch(`${location.origin}/api/prediccion/analisis-experimental`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(entrada),
+      signal: AbortSignal.timeout(30000)
+    });
+    const salida = await respuesta.json();
+    if (!respuesta.ok) throw new Error(salida.detail || `HTTP ${respuesta.status}`);
+    for (const [nombre, resultado] of Object.entries(salida.fuentes)) {
+      const lineas = [`Estado: ${resultado.estado.replaceAll("_", " ")}`];
+      if (resultado.referencia) {
+        const ref = resultado.referencia;
+        lineas.push(`Procedencia ${ref.naturaleza} · sesión ${ref.sesion_id ?? "sin dato"} · evento ${ref.evento_id ?? "sin dato"} · identidad no verificada`);
+      }
+      if (resultado.modelo) lineas.push(`Modelo ${resultado.modelo.nombre} v${resultado.modelo.version} · ${resultado.modelo.origen}`);
+      if (resultado.expresion) lineas.push(`Expresión estimada: ${resultado.expresion}`);
+      if (resultado.puntajes_no_calibrados) {
+        lineas.push("Puntajes sin calibración en rostros reales");
+        lineas.push(...Object.entries(resultado.puntajes_no_calibrados).map(([k, p]) => `${k}: ${p.toFixed(3)}`));
+      }
+      if (resultado.caracteristicas) lineas.push(...Object.entries(resultado.caracteristicas).map(([k, v]) => `${k}: ${v}`));
+      if (nombre === "audio") lineas.push("Productor y clasificador acústico pendientes.");
+      if (resultado.motivo) lineas.push(resultado.motivo);
+      lista(resultados, nombre.toUpperCase(), lineas);
+    }
+    lista(resultados, "Sincronización de fuentes", [
+      salida.sincronizacion.estado.replaceAll("_", " "),
+      "Fusión estadística pendiente."
+    ]);
+    estado.textContent = "Evaluación experimental completada.";
+  } catch (error) {
+    resultados.replaceChildren();
+    estado.textContent = `No se pudo evaluar: ${error.message}`;
+  } finally {
+    boton.disabled = false;
+  }
+});
+
 function describirEvidencia(e) {
   if (e.tipo === "evento_familiar" && e.evento_familiar) {
     const evento = e.evento_familiar;
@@ -937,7 +997,8 @@ function describirEvidencia(e) {
     e.presente === false && "ausencia explícita",
     e.modulo && `confianza: ${e.confianza ?? "sin dato"}`,
     e.modulo && `calidad: ${e.calidad ?? "sin dato"}${e.calidad_origen && e.calidad_origen !== "declarada" ? ` (${e.calidad_origen.replaceAll("_", " ")})` : ""}`,
-    e.asociacion && `identidad: ${e.asociacion.metodo} · referencia: ${e.asociacion.referencia}`];
+    e.asociacion && `identidad: ${e.asociacion.metodo} · referencia: ${e.asociacion.referencia}`,
+    !e.modulo && e.identidad_verificada && `identidad declarada verificada · confianza: ${e.confianza_identidad ?? "sin dato"}`];
   return partes.filter(p => p !== undefined && p !== null && p !== false && p !== "").join(" · ");
 }
 
@@ -969,6 +1030,15 @@ function mostrarSeguimiento(salida) {
       ? "Observaciones disponibles con asociación de identidad verificada según la entrada."
       : "Sin observaciones con identidad verificada para esta sesión.";
     articulo.append(titulo, nivel, identidad);
+    if (r.indicadores_academicos) {
+      const i = r.indicadores_academicos;
+      lista(articulo, "Indicadores académicos por reglas", [
+        `Prioridad académica: ${i.prioridad_academica ?? "datos insuficientes"}`,
+        `Registros de asistencia: ${i.asistencia_registros ?? "sin dato"} · ausencias: ${i.ausencias ?? "sin dato"}`,
+        `Participaciones declaradas: ${i.participaciones ?? "sin dato"}`,
+        ...(i.reglas || []).map(regla => `${regla.regla} (+${regla.puntos}): ${regla.explicacion}`)
+      ]);
+    }
 
     if (r.reglas_activadas) {
       lista(articulo, "Reglas activadas", r.reglas_activadas.map(x => `${x.regla} (+${x.puntos}): ${x.explicacion} Referencias: ${(x.referencias || []).join(", ")}`));
@@ -1003,6 +1073,8 @@ function mostrarSeguimiento(salida) {
     lista(contenedor, "Observaciones descartadas", salida.observaciones_descartadas.map(o =>
       `${o.modulo} · sesión ${o.sesion_id} · ${o.motivo} · ${describirEvidencia(o)}`));
   }
+  lista(contenedor, "Registros académicos excluidos", (salida.registros_academicos_excluidos || []).map(r =>
+    `${r.tipo} · ${r.id} · sesión ${r.sesion_id}: ${r.motivo}`));
   if (salida.duplicados_omitidos !== undefined) {
     lista(contenedor, "Control de duplicados", [`${salida.duplicados_omitidos} retransmisiones idénticas omitidas.`]);
   }
