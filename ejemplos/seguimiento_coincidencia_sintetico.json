@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "simulado": true,
+  "descripcion": "SINTÉTICO: observación facial atribuida, tarea pendiente y evento familiar declarado.",
+  "estudiantes": [
+    {
+      "estudiante_id": "demo-juan",
+      "sesiones": [
+        "demo-01"
+      ]
+    }
+  ],
+  "sesiones": [
+    {
+      "sesion_id": "demo-01",
+      "actividad": "clase",
+      "inicio": "2026-11-09T09:00:00-05:00",
+      "segundo_actual": 60
+    }
+  ],
+  "observaciones": [
+    {
+      "id": "imagen:emocion-demo",
+      "sesion_id": "demo-01",
+      "modulo": "imagen",
+      "segundo": 30,
+      "fecha_hora": "2026-11-09T09:00:30-05:00",
+      "origen": "ejemplo_IMAGEN_SINTETICO",
+      "tipo": "emocion",
+      "valor": "tristeza",
+      "porcentaje": 72,
+      "confianza": 0.9,
+      "calidad": 0.85
+    }
+  ],
+  "asociaciones": [
+    {
+      "observacion_id": "imagen:emocion-demo",
+      "modulo": "imagen",
+      "sesion_id": "demo-01",
+      "estudiante_id": "demo-juan",
+      "metodo": "revision_manual",
+      "referencia": "asociacion-demo-001",
+      "verificada": true,
+      "confianza": 0.98
+    }
+  ],
+  "contextos": [
+    {
+      "estudiante_id": "demo-juan",
+      "sesion_id": "demo-01",
+      "origen": "registro_academico_SINTETICO",
+      "tareas": [
+        {
+          "id": "tarea-demo-1",
+          "fecha": "2026-11-08",
+          "estado": "pendiente"
+        }
+      ],
+      "reuniones": [],
+      "asistencia": [],
+      "evaluacion_proxima": true,
+      "evento_familiar": {
+        "declarado": true,
+        "tipo": "situacion_personal",
+        "fecha": "2026-11-09",
+        "referencia": "contexto-demo-001",
+        "simulado": true
+      }
+    }
+  ]
+}

@@ -182,6 +182,68 @@ class SeguimientoTests(unittest.TestCase):
         self.assertFalse(r["reglas_activadas"])
         self.assertEqual(r["evidencia_por_modulo"]["video"][0]["porcentaje"], 70)
 
+    def test_coincidencia_explicita_sin_cambiar_prioridad(self):
+        datos = ejemplo("coincidencia")
+        r = actual(analizar_estudiantes(datos))
+        cruce = r["coincidencia_contextual"]
+        self.assertEqual([x["tipo"] for x in cruce["registros_academicos"]], ["tarea", "evaluacion_proxima"])
+        observacion, = cruce["observaciones"]
+        self.assertEqual((observacion["modulo"], observacion["valor"], observacion["calidad"]), ("imagen", "tristeza", .85))
+        self.assertTrue(observacion["origen"])
+        self.assertTrue(cruce["motivo"])
+        self.assertEqual(r["indice_prioridad"], 0)
+        self.assertFalse(r["avisar_a"])
+        self.assertIsNone(actual(analizar_estudiantes(ejemplo("sin_adversos")))["coincidencia_contextual"])
+
+    def test_alias_emocionales_preservan_etiquetas_del_contrato_y_deduplican(self):
+        for alias, etiqueta in (("felicidad", "alegria"), ("disgusto", "asco")):
+            with self.subTest(alias=alias):
+                datos = ejemplo("coincidencia")
+                datos["observaciones"][0]["valor"] = alias
+                datos["observaciones"].append(dict(datos["observaciones"][0], valor=etiqueta))
+                salida = analizar_estudiantes(datos)
+                self.assertEqual(salida["duplicados_omitidos"], 1)
+                self.assertEqual(actual(salida)["evidencia_por_modulo"]["imagen"][0]["valor"], etiqueta)
+
+    def test_cruce_excluye_identidad_desconocida_o_ambigua(self):
+        datos = ejemplo("coincidencia")
+        asociacion, = datos["asociaciones"]
+        datos["estudiantes"].append({"estudiante_id": "demo-otro", "sesiones": ["demo-01"]})
+        for asociaciones, estado in (([], "identidad_desconocida"),
+                                     ([asociacion, dict(asociacion, estudiante_id="demo-otro", confianza=.89)],
+                                      "identidad_ambigua")):
+            with self.subTest(estado=estado):
+                datos["asociaciones"] = asociaciones
+                salida = analizar_estudiantes(datos)
+                self.assertEqual(salida["observaciones_sin_atribuir"][0]["estado"], estado)
+                self.assertTrue(all(r["coincidencia_contextual"] is None for r in salida["resultados"]))
+
+    def test_cruce_excluye_observaciones_debiles_y_contradictorias(self):
+        for cambios, estado in (({"confianza": .59}, "confianza_insuficiente"),
+                                 ({"calidad": .39}, "calidad_insuficiente")):
+            with self.subTest(estado=estado):
+                datos = ejemplo("coincidencia")
+                datos["observaciones"][0].update(cambios)
+                salida = analizar_estudiantes(datos)
+                self.assertEqual(salida["observaciones_descartadas"][0]["estado"], estado)
+                self.assertIsNone(actual(salida)["coincidencia_contextual"])
+        datos = ejemplo("coincidencia")
+        datos["observaciones"].append(dict(datos["observaciones"][0], id="imagen:opuesta", presente=False))
+        datos["asociaciones"].append(dict(datos["asociaciones"][0], observacion_id="imagen:opuesta"))
+        r = actual(analizar_estudiantes(datos))
+        self.assertIsNone(r["coincidencia_contextual"])
+        self.assertTrue(r["contradicciones"])
+
+    def test_evento_familiar_solo_contextual(self):
+        datos = ejemplo("coincidencia")
+        r = actual(analizar_estudiantes(datos))
+        evento = next(x for x in r["evidencia_por_modulo"]["contexto"] if x["tipo"] == "evento_familiar")
+        self.assertEqual(evento["evento_familiar"], datos["contextos"][0]["evento_familiar"])
+        datos["contextos"][0]["tareas"] = []
+        solo_contexto = actual(analizar_estudiantes(datos))
+        self.assertIsNone(solo_contexto["coincidencia_contextual"])
+        self.assertEqual(solo_contexto["nivel_revision"], "datos_insuficientes")
+
     def test_objeto_desconocido_no_simula_datos_suficientes(self):
         datos = ejemplo("aislado"); datos["contextos"] = []
         datos["observaciones"][0]["valor"] = "objeto_nuevo"

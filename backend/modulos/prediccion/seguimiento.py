@@ -109,21 +109,26 @@ def analizar_estudiantes(datos):
         referencia = {"id": o.id, "modulo": o.modulo, "sesion_id": o.sesion_id}
         asociaciones = vinculos[clave]
         if clave in conflictivas:
-            descartadas.append(dict(referencia, motivo="mismo ID con contenidos contradictorios"))
+            descartadas.append(dict(referencia, estado="observacion_contradictoria", motivo="mismo ID con contenidos contradictorios"))
             for a in asociaciones:
                 conflictos_por_par[a.estudiante_id, a.sesion_id].append(f"evento:{o.id}: contenidos contradictorios; excluido")
             continue
-        candidatos = {a.estudiante_id for a in asociaciones if a.verificada and a.confianza >= reglas.identidad_minima}
-        if len(candidatos) != 1:
-            sin_atribuir.append(dict(referencia, motivo="identidad ambigua" if len(candidatos) > 1 else "sin asociación verificada suficiente"))
+        verificadas = [a for a in asociaciones if a.verificada]
+        identidades = {a.estudiante_id for a in verificadas}
+        if len(identidades) > 1:
+            sin_atribuir.append(dict(referencia, estado="identidad_ambigua", motivo="identidad ambigua"))
             continue
-        estudiante_id = next(iter(candidatos))
+        if not any(a.confianza >= reglas.identidad_minima for a in verificadas):
+            sin_atribuir.append(dict(referencia, estado="identidad_desconocida", motivo="sin asociación verificada suficiente"))
+            continue
+        estudiante_id = next(iter(identidades))
         sesion = sesiones[o.sesion_id]
         if not 0 <= sesion.segundo_actual - o.segundo <= reglas.ventana_segundos:
-            descartadas.append(dict(referencia, motivo="fuera de ventana o futura"))
+            descartadas.append(dict(referencia, estado="fuera_de_ventana", motivo="fuera de ventana o futura"))
             continue
         if o.confianza < reglas.confianza_minima or o.calidad is None or o.calidad < reglas.calidad_minima:
-            descartadas.append(dict(referencia, motivo="confianza/calidad insuficiente o calidad desconocida"))
+            estado = "confianza_insuficiente" if o.confianza < reglas.confianza_minima else "calidad_insuficiente"
+            descartadas.append(dict(referencia, estado=estado, motivo="confianza/calidad insuficiente o calidad desconocida"))
             continue
         if o.tipo == "objeto" and _senal(o) not in {
                 "telefono", "persona", "libro", "cuaderno", "audifonos", "reloj", "mochila", "laptop", "multiples_personas"}:
@@ -140,16 +145,19 @@ def analizar_estudiantes(datos):
         faltantes = []
         activadas = []
         evidencia = defaultdict(list)
+        por_senal = defaultdict(list)
 
         def activar(nombre, puntos, explicacion, referencias):
             if puntos:
                 activadas.append(dict(regla=nombre, puntos=puntos, explicacion=explicacion, referencias=referencias))
 
         for o in sorted(observaciones, key=lambda x: (x.segundo, x.modulo, x.id)):
-            evidencia[o.modulo].append(dict(id=o.id, segundo=o.segundo, fecha_hora=o.fecha_hora.isoformat(),
+            detalle = dict(id=o.id, segundo=o.segundo, fecha_hora=o.fecha_hora.isoformat(),
                 origen=o.origen, tipo=o.tipo, valor=_senal(o), presente=o.presente,
                 porcentaje=o.porcentaje, confianza=o.confianza, calidad=o.calidad,
-                evidencia_id=o.evidencia_id))
+                evidencia_id=o.evidencia_id)
+            evidencia[o.modulo].append(detalle)
+            por_senal[o.tipo, _senal(o)].append(o)
         if not observaciones:
             faltantes.append("observaciones recientes con identidad verificada y confianza/calidad suficientes")
         if not any(o.tipo == "objeto" for o in observaciones):
@@ -171,6 +179,9 @@ def analizar_estudiantes(datos):
                         estado=registro.estado, origen=contexto.origen))
             if contexto.evaluacion_proxima is not None:
                 evidencia["contexto"].append(dict(tipo="evaluacion_proxima", valor=contexto.evaluacion_proxima, origen=contexto.origen))
+            if contexto.evento_familiar is not None and contexto.evento_familiar.fecha <= fecha:
+                evidencia["contexto"].append(dict(tipo="evento_familiar", origen=contexto.origen,
+                    evento_familiar=contexto.evento_familiar.model_dump(mode="json")))
             if contexto.asistencia is not None and len(asistencia) < 5:
                 faltantes.append("asistencia: al menos cinco registros válidos para evaluar el patrón")
         pendientes = [t for t in tareas if t.estado == "pendiente"]
@@ -208,6 +219,30 @@ def analizar_estudiantes(datos):
         if contexto is not None and contexto.evaluacion_proxima and (recurrente or len(pendientes) >= 2):
             activar("evaluacion_proxima", reglas.puntos_evaluacion,
                     "Hay una evaluación próxima explícitamente indicada y factores de seguimiento; verificar necesidades de apoyo.", [f"contexto:{contexto.origen}:evaluacion_proxima"])
+
+        adversos = [r for r in evidencia.get("contexto", ())
+                    if r.get("estado") in {"pendiente", "ausente", "incumplida"}]
+        coincidencia = None
+        if adversos:
+            validas = set()
+            for (tipo, valor), eventos in por_senal.items():
+                if tipo == "objeto" and (valor in permitidos or valor == "persona"):
+                    continue
+                for muestra in _muestras(eventos):
+                    estados = {o.presente for o in muestra}
+                    if estados == {True}:
+                        validas.update((o.modulo, o.id) for o in muestra)
+                    elif len(estados) > 1 and (tipo, valor) != ("objeto", "telefono"):
+                        contradicciones.append(f"{valor}: observaciones opuestas correlacionadas; muestra excluida")
+            if validas:
+                evaluacion = [r for r in evidencia["contexto"]
+                              if r["tipo"] == "evaluacion_proxima" and r["valor"] is True]
+                coincidencia = dict(
+                    motivo="Coinciden observaciones atribuidas y registros académicos adversos en la sesión. La coincidencia se documenta sin asignar puntos.",
+                    observaciones=[dict(o, modulo=modulo) for modulo, items in evidencia.items()
+                                   if modulo != "contexto" for o in items if (modulo, o["id"]) in validas],
+                    registros_academicos=adversos + evaluacion,
+                )
 
         # No compara personas. Requiere tres sesiones previas finalizadas de la misma
         # actividad con muestras explícitas de presencia/ausencia y mismo permiso.
@@ -256,6 +291,7 @@ def analizar_estudiantes(datos):
         resultados.append(dict(estudiante_id=estudiante_id, nombre=estudiante.nombre, sesion_id=sesion_id,
             actividad=sesion.actividad, indice_prioridad=puntos, nivel_revision=nivel,
             reglas_activadas=activadas, evidencia_por_modulo=dict(evidencia), datos_faltantes=faltantes,
+            coincidencia_contextual=coincidencia,
             contradicciones=contradicciones,
             limitaciones=["Caso sintético: prioridad heurística sin calibración, no es probabilidad de desaprobación ni diagnóstico.",
                 "Solo usa observaciones y contexto aportados para esta persona/sesión; datos faltantes no equivalen a ausencia de dificultades.",

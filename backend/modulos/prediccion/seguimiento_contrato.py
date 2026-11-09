@@ -8,6 +8,13 @@ Texto = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, ma
 Numero = Annotated[float, Field(strict=True, ge=0, allow_inf_nan=False)]
 Unidad = Annotated[float, Field(strict=True, ge=0, le=1, allow_inf_nan=False)]
 Segundo = Annotated[float, Field(strict=True, ge=0, le=86400, allow_inf_nan=False)]
+EMOCIONES = {"alegria", "tristeza", "miedo", "enojo", "sorpresa", "asco", "neutral"}
+ALIAS_EMOCIONES = {"felicidad": "alegria", "disgusto": "asco"}
+
+
+def normalizar_emocion(valor: str) -> str:
+    etiqueta = valor.lower()
+    return ALIAS_EMOCIONES.get(etiqueta, etiqueta)
 
 
 class Contrato(BaseModel):
@@ -55,10 +62,10 @@ class Observacion(Contrato):
     def validar_tipo(self):
         if self.fecha_hora.tzinfo is None:
             raise ValueError("La observación requiere fecha_hora con zona horaria explícita")
-        if self.tipo == "emocion" and (self.valor not in {
-                "alegria", "tristeza", "miedo", "enojo", "sorpresa", "asco", "neutral"
-        } or self.porcentaje is None):
-            raise ValueError("Emoción requiere una de las siete clases y porcentaje; no es un diagnóstico")
+        if self.tipo == "emocion":
+            self.valor = normalizar_emocion(self.valor)
+            if self.valor not in EMOCIONES or self.porcentaje is None:
+                raise ValueError("Emoción requiere una de las siete clases y porcentaje; no es un diagnóstico")
         if self.tipo != "emocion" and self.porcentaje is not None:
             raise ValueError("porcentaje solo corresponde a una clasificación emocional")
         if self.tipo == "senal_voz" and self.modulo != "audio":
@@ -95,6 +102,20 @@ class Reunion(Contrato):
     estado: Literal["incumplida", "realizada", "cancelada"]
 
 
+class EventoFamiliar(Contrato):
+    declarado: StrictBool
+    tipo: Literal["situacion_personal"]
+    fecha: date
+    referencia: Texto
+    simulado: StrictBool
+
+    @model_validator(mode="after")
+    def declaracion_sintetica(self):
+        if not self.declarado or not self.simulado:
+            raise ValueError("El evento familiar debe estar declarado y ser simulado")
+        return self
+
+
 class ContextoAcademico(Contrato):
     estudiante_id: Texto
     sesion_id: Texto
@@ -103,6 +124,7 @@ class ContextoAcademico(Contrato):
     tareas: list[Tarea] | None = Field(default=None, max_length=1000)
     reuniones: list[Reunion] | None = Field(default=None, max_length=1000)
     evaluacion_proxima: StrictBool | None = None
+    evento_familiar: EventoFamiliar | None = None
 
 
 class FuenteResultados(Contrato):
@@ -171,6 +193,12 @@ class ReglaActivada(Contrato):
     referencias: list[str]
 
 
+class CoincidenciaContextual(Contrato):
+    motivo: str
+    observaciones: list[dict]
+    registros_academicos: list[dict]
+
+
 class ResultadoEstudiante(Contrato):
     estudiante_id: str
     nombre: str | None
@@ -180,6 +208,7 @@ class ResultadoEstudiante(Contrato):
     nivel_revision: Literal["datos_insuficientes", "bajo", "moderado", "alto"]
     reglas_activadas: list[ReglaActivada]
     evidencia_por_modulo: dict[str, list[dict]]
+    coincidencia_contextual: CoincidenciaContextual | None = None
     datos_faltantes: list[str]
     contradicciones: list[str]
     limitaciones: list[str]

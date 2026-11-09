@@ -29,7 +29,8 @@ class SeguimientoApiTests(unittest.TestCase):
         self.assertTrue(r.json()["simulado"])
 
     def test_todos_los_ejemplos_reproducibles(self):
-        casos = {"juan", "sin_alerta", "identidad_desconocida", "insuficientes", "contradictorio", "duplicados", "aislado", "cambio_patron"}
+        casos = {"juan", "sin_alerta", "identidad_desconocida", "insuficientes", "contradictorio", "duplicados",
+                 "aislado", "cambio_patron", "coincidencia", "sin_adversos"}
         for caso in casos:
             with self.subTest(caso=caso):
                 r = self.client.get(f"{RUTA}/ejemplos/{caso}")
@@ -37,6 +38,20 @@ class SeguimientoApiTests(unittest.TestCase):
                 self.assertTrue(r.json()["simulado"])
                 self.assertEqual(self.client.post(RUTA, json=r.json()).status_code, 200)
         self.assertEqual(self.client.get(f"{RUTA}/ejemplos/no-existe").status_code, 404)
+
+    def test_api_evento_familiar_solo_sintetico_y_sin_texto_libre(self):
+        datos = self.client.get(f"{RUTA}/ejemplos/coincidencia").json()
+        respuesta = self.client.post(RUTA, json=datos)
+        self.assertEqual(respuesta.status_code, 200, respuesta.text)
+        self.assertIsNotNone(respuesta.json()["resultados"][0]["coincidencia_contextual"])
+        evento = datos["contextos"][0]["evento_familiar"]
+        for cambios in ({"simulado": False}, {"declarado": 1}, {"detalle": "VALOR_PRIVADO"}):
+            with self.subTest(cambios=cambios):
+                invalido = copy.deepcopy(datos)
+                invalido["contextos"][0]["evento_familiar"] = {**evento, **cambios}
+                respuesta = self.client.post(RUTA, json=invalido)
+                self.assertEqual(respuesta.status_code, 422)
+                self.assertNotIn("VALOR_PRIVADO", respuesta.text)
 
     def test_openapi_documenta_request_y_response(self):
         especificacion = self.client.get("/openapi.json").json()
