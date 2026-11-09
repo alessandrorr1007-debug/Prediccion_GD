@@ -743,9 +743,10 @@ async function procesarCaptura(obtenerImagen, origen) {
       elemento("auto-capture-enabled").checked = false;
       if (sesionCamara) estadoAutomatico("Captura automática pausada. Revisa el estado de los modelos.");
     } else {
-      estadoCaptura(origen === "ejemplo" ? `Ejemplo sintético · ${datos.total_alumnos} perfiles ficticios` : datos.total_alumnos
+      const mensaje = origen === "ejemplo" ? `Ejemplo sintético · ${datos.total_alumnos} perfiles ficticios` : datos.total_alumnos
         ? `Captura analizada · ${datos.total_alumnos} personas · identidad desconocida`
-        : "No se detectaron personas en la imagen.");
+        : "No se detectaron personas en la imagen.";
+      estadoCaptura(datos.estado_modelos === "modo_respaldo" ? `${mensaje} · Detección de respaldo` : mensaje);
     }
   } catch (error) {
     if (signal.aborted && !agotado) return;

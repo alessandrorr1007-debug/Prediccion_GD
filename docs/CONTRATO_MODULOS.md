@@ -120,23 +120,29 @@ clasificación emocional futura se trata como observación incierta, sin puntos.
 
 ---
 
-## Ingesta Multimodal Directa por Captura (Producción v2.5)
+## Captura visual de predicción
 
-`POST /api/prediccion/analizar-captura`: Ingesta directa de imagen mejorada (entregada por el módulo de **IMAGEN**) y contexto de acciones detectadas (entregado por **VIDEO** o **IMAGEN**).
+`POST /api/prediccion/analizar-captura` acepta una imagen en base64 simple o data URL `data:image/...;base64,` y un contexto de acciones opcional. El contexto admite los alias históricos `distractorBox` y `distractor_box`, más referencias numéricas del encuadre en `estudiante_id` o `alumno_id`. Una referencia de encuadre conserva identidad desconocida. `objetos` puede contener etiquetas o detecciones estructuradas con cajas y confianza.
 
-### Esquema de Entrada:
 ```json
 {
   "imagen_b64": "data:image/jpeg;base64,...",
   "contexto_externo": {
-    "acciones_detectadas": ["uso_celular", "uso_audifonos", "mirada_desviada", "postura_cansancio"],
-    "objetos": ["telefono", "audifonos", "laptop"]
+    "acciones_detectadas": ["uso_celular", "mirada_desviada"],
+    "objetos": ["telefono"]
   }
 }
 ```
 
-### Comportamiento y Garantías:
-1. **Detección Híbrida Real:** Ejecuta YOLO Pose (`yolo11n-pose.pt`) y YOLO Best (`best.pt`) para detectar alumnos y objetos por proximidad espacial. Calcula inclinación de cabeza vertical (`head_pitch`).
-2. **Cero Estudiantes Falsos:** Si la imagen capturada tiene 0 personas (pared, escritorio vacío), retorna inmediatamente `total_alumnos: 0`, `estudiantes: []` y estado `"sin_personas"`.
-3. **Predicción Multimodal:** Para cada alumno detectado evalúa las **7 emociones universales en porcentaje** con `modelo_emociones_facial.pkl` (99.02% accuracy) e infiere acontecimientos previos, consecuencias y riesgo de desaprobar el parcial (`prob_jalar_parcial`) con `modelo_sucesos_academicos.pkl` (R²=0.902).
+`POST /api/vision/analizar` recibe el mismo campo de imagen, más `modo` (por defecto `en_vivo`), `aplicar_mejora` (booleano, por defecto `true`) y `segundos_distraccion` (no negativo). En `modo: captura` y con mejora habilitada puede devolver el JPEG mejorado.
+
+Ambas rutas limitan el cuerpo JSON a **8 MiB** y la imagen a **20 megapíxeles**. Responden 400 para JSON mal formado, 413 por tamaño del cuerpo, 422 para datos o imágenes inválidos y 500 con `estado: error_inferencia` si falla el análisis principal. El error no incluye rutas, contenido de la solicitud ni mensajes internos.
+
+### Disponibilidad e inferencia
+
+- `GET /api/vision/estado` mantiene la disponibilidad del servicio y agrega `modelo_yolo` con `pesos_presentes`, `carga` e `inferencia`. `modelo_yolo_disponible` refleja carga efectiva y `ruta_modelo_yolo` expone solo el nombre del archivo.
+- `modelo_disponible` indica carga correcta. `carga_pendiente` significa que aún no se cargó. `modelo_no_disponible` distingue ausencia de pesos de error de carga. `inferencia` describe la solicitud, con `no_ejecutada`, `ejecutada` o `error`; este último produce el diagnóstico `error_inferencia`.
+- `modo_respaldo` señala que el pipeline continuó con capacidades reducidas. La captura puede usar Haar sin los `.pt` y mantiene separados el diagnóstico YOLO y los dos Random Forest.
+- Sin candidatos, la captura devuelve `estado: sin_personas`, `total_alumnos: 0` y `estudiantes: []`. Si detecta personas pero faltan los modelos predictivos, conserva el conteo en `personas_detectadas`, indica `estado: modelo_no_disponible` y devuelve cero estimaciones en `estudiantes`. En visión, sin rostro, `emociones` y `prediccion` son `null`.
+- Los modelos de captura se entrenan con datos sintéticos. Sus estimaciones no verifican emociones, identidad, conflictos ni resultados académicos reales.
 

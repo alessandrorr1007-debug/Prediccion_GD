@@ -1,5 +1,5 @@
 """
-Paquete Oficial de Entrenamiento e Inferencia Predictiva (AulaPredict v2.5)
+Entrenamiento sintético e inferencia experimental de AulaPredict.
 ===========================================================================
 
 Este paquete contiene los modelos entrenados y los algoritmos de inferencia
@@ -7,16 +7,14 @@ multimodal para la predicción de rendimiento, emociones y sucesos académicos.
 
 Exportaciones Principales:
 - procesar_captura_imagen(imagen_b64, contexto_externo=None)
-    Detecta automáticamente los alumnos presentes en la imagen capturada,
-    evalúa sus 7 emociones universales (neutral, felicidad, tristeza, enojo,
-    miedo, sorpresa, disgusto) y predice causas previas, consecuencias futuras
-    y probabilidad de desaprobar ("jalar") el examen parcial.
-- predecir_estudiante_multimodal(id_estudiante, rasgos_faciales, bounding_box, contexto_alumno=None)
-    Inferencia directa para un alumno individual a partir de sus rasgos biométricos y contexto.
+    Detecta candidatos sin verificar su identidad y estima expresiones y
+    sucesos cuando los modelos de demostración están disponibles.
+- predecir_estudiante_multimodal(estudiante_id, rasgos, bbox_rel, acciones_contexto=None)
+    Ejecuta la estimación experimental a partir de rasgos y acciones.
 - obtener_metricas_modelo()
-    Devuelve las métricas de rendimiento y validación de los modelos (99.02% Accuracy, R²=0.902).
+    Devuelve las métricas del experimento con datos sintéticos.
 - obtener_escenario_aula_ejemplo()
-    Devuelve una simulación calibrada de aula universitaria con 5 estudiantes.
+    Devuelve un aula de demostración con cinco perfiles ficticios.
 """
 
 from .predictor import (

@@ -13,8 +13,10 @@ Integra:
 import base64
 import logging
 import os
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+from backend.entrenamiento_prediccion.imagenes import decodificar_imagen
+from backend.entrenamiento_prediccion.modelos_yolo import YOLO_BEST
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 os.environ["OMP_NUM_THREADS"] = "2"
@@ -26,27 +28,10 @@ cv2.setNumThreads(1)
 
 logger = logging.getLogger("vision_service")
 
-RAIZ = Path(__file__).resolve().parent.parent.parent
-
-# Rutas de modelos
-RUTA_BEST_LOCAL = RAIZ / "backend" / "modelo_ia" / "best.pt"
-RUTA_BEST_EXTERNA = Path("D:/Proyectos/VIDEO_PRUEBA_INDEPENDIENTE/modelo_ia/best.pt")
-RUTA_POSE_LOCAL = RAIZ / "backend" / "modelo_ia" / "yolo11n-pose.pt"
-RUTA_POSE_EXTERNA = Path("D:/Proyectos/VIDEO_PRUEBA_INDEPENDIENTE/modelo_ia/yolo11n-pose.pt")
-
-_modelo_yolo = None
 _cascadas_cargadas = False
 _face_cascade = None
 _eye_cascade = None
 _smile_cascade = None
-
-
-def _obtener_ruta_modelo() -> Optional[Path]:
-    if RUTA_BEST_LOCAL.is_file():
-        return RUTA_BEST_LOCAL
-    if RUTA_BEST_EXTERNA.is_file():
-        return RUTA_BEST_EXTERNA
-    return None
 
 
 def _cargar_cascadas():
@@ -66,24 +51,6 @@ def _cargar_cascadas():
     _cascadas_cargadas = True
 
 
-def _cargar_modelo_yolo():
-    global _modelo_yolo
-    if _modelo_yolo is not None:
-        return _modelo_yolo
-    ruta = _obtener_ruta_modelo()
-    if ruta and ruta.is_file():
-        try:
-            import torch
-            torch.set_num_threads(2)
-            from ultralytics import YOLO
-            _modelo_yolo = YOLO(str(ruta))
-            logger.info("Modelo YOLO cargado exitosamente desde %s", ruta)
-        except Exception as e:
-            logger.warning("No se pudo cargar modelo YOLO (%s): %s", ruta, e)
-            _modelo_yolo = False
-    else:
-        _modelo_yolo = False
-    return _modelo_yolo
 
 
 # ============================================================
@@ -294,11 +261,11 @@ def analizar_rostro_y_mirada(imagen: np.ndarray) -> Dict[str, Any]:
 # DETECCIÓN DE OBJETOS CON YOLO (best.pt)
 # ============================================================
 
-def detectar_objetos_en_frame(imagen: np.ndarray) -> List[Dict[str, Any]]:
+def detectar_objetos_en_frame(imagen: np.ndarray) -> Tuple[List[Dict[str, Any]], str]:
     """Ejecuta inferencia con el modelo entrenado best.pt."""
-    modelo = _cargar_modelo_yolo()
-    if not modelo:
-        return []
+    modelo = YOLO_BEST.cargar()
+    if modelo is None:
+        return [], "no_ejecutada"
 
     try:
         resultados = modelo.predict(source=imagen, imgsz=480, conf=0.35, verbose=False)
@@ -317,10 +284,10 @@ def detectar_objetos_en_frame(imagen: np.ndarray) -> List[Dict[str, Any]]:
                         "confianza": round(conf, 2),
                         "x1": x1, "y1": y1, "x2": x2, "y2": y2,
                     })
-        return detecciones
+        return detecciones, "ejecutada"
     except Exception as err:
-        logger.warning("Error en inferencia YOLO: %s", err)
-        return []
+        logger.warning("Error en inferencia YOLO: %s", type(err).__name__)
+        return [], "error"
 
 
 # ============================================================
@@ -333,17 +300,6 @@ def inferir_vector_emociones(
     segundos_distraccion: float = 0.0
 ) -> Dict[str, float]:
     """Calcula los porcentajes exactos normalizados al 100% de las 5 emociones."""
-    if not analisis_facial["detectado"]:
-        # Sin rostro en encuadre
-        return {
-            "alegria": 2.0,
-            "neutral": 8.0,
-            "tristeza": 15.0,
-            "estres": 25.0,
-            "fatiga": 50.0,
-            "emocion_dominante": "Fatiga / Ausencia",
-        }
-
     # Pesos base derivados de la geometría facial y contexto
     sonrisa = analisis_facial.get("curvatura_boca", 0.0)
     desviado = analisis_facial.get("mirada_desviada", False)
@@ -546,15 +502,7 @@ def procesar_frame(
     segundos_distraccion: float = 0.0
 ) -> Dict[str, Any]:
     """Punto de entrada principal para procesar un frame enviado desde el frontend."""
-    # Decodificar imagen
-    if "," in imagen_b64:
-        imagen_b64 = imagen_b64.split(",", 1)[1]
-    raw_data = base64.b64decode(imagen_b64)
-    arr = np.frombuffer(raw_data, dtype=np.uint8)
-    frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
-
-    if frame is None:
-        raise ValueError("No se pudo decodificar la imagen proporcionada")
+    frame = decodificar_imagen(imagen_b64)
 
     alto, ancho = frame.shape[:2]
 
@@ -582,17 +530,17 @@ def procesar_frame(
     analisis_facial = analizar_rostro_y_mirada(frame_para_deteccion)
 
     # 3. Detección de Objetos con YOLO (best.pt)
-    detecciones = detectar_objetos_en_frame(frame_para_deteccion)
+    detecciones, inferencia = detectar_objetos_en_frame(frame_para_deteccion)
 
     # 4. Vector de Emociones con Porcentajes Exactos (0% - 100%)
-    emociones = inferir_vector_emociones(
-        analisis_facial, detecciones, segundos_distraccion=segundos_distraccion
-    )
-
-    # 5. Motor de Predicción Profunda (Explicable y Académica)
-    prediccion = generar_prediccion_profunda(
-        emociones, detecciones, analisis_facial, segundos_distraccion=segundos_distraccion
-    )
+    emociones = prediccion = None
+    if analisis_facial["detectado"]:
+        emociones = inferir_vector_emociones(
+            analisis_facial, detecciones, segundos_distraccion=segundos_distraccion
+        )
+        prediccion = generar_prediccion_profunda(
+            emociones, detecciones, analisis_facial, segundos_distraccion=segundos_distraccion
+        )
 
     return {
         "modo": modo,
@@ -603,5 +551,7 @@ def procesar_frame(
         "emociones": emociones,
         "prediccion": prediccion,
         "imagen_mejorada_hd": frame_mejorado_b64,
-        "modelo_yolo_activo": bool(_modelo_yolo),
+        "modelo_yolo_activo": inferencia == "ejecutada",
+        "estado_modelos": {"ejecutada": "modelo_disponible", "error": "error_inferencia"}.get(inferencia, "modo_respaldo"),
+        "modelo_yolo": YOLO_BEST.diagnostico(inferencia),
     }

@@ -8,77 +8,81 @@ Integra:
 5. Predicción de Acontecimientos Previos, Futuros y Riesgo de Desaprobar ("Jalar") el Parcial
 6. Respuesta limpia y estricta: 0 alumnos cuando no hay personas reales en la captura
 """
-import base64
 import json
+import logging
 import math
 import pickle
+import warnings
 from pathlib import Path
+from threading import Lock
 from typing import List, Dict, Any, Optional, Tuple
+
+from .imagenes import decodificar_imagen
+from .modelos_yolo import YOLO_BEST, YOLO_POSE
 
 import cv2
 import numpy as np
 
+logger = logging.getLogger(__name__)
 CARPETA_ACTUAL = Path(__file__).resolve().parent
 RUTA_MODELO_FACIAL = CARPETA_ACTUAL / "modelo_emociones_facial.pkl"
 RUTA_MODELO_SUCESOS = CARPETA_ACTUAL / "modelo_sucesos_academicos.pkl"
 
 _MODELO_FACIAL = None
 _MODELO_SUCESOS = None
-_YOLO_POSE = None
-_YOLO_BEST = None
+_CARGA_PICKLE = {}
+_LOCK_MODELOS = Lock()
 _FACE_CASCADE = None
+
+
+def _cargar_pickle(ruta, metodo):
+    if not ruta.is_file():
+        _CARGA_PICKLE[ruta.name] = "sin_pesos"
+        return None
+    try:
+        from sklearn.exceptions import InconsistentVersionWarning
+
+        with warnings.catch_warnings(), ruta.open("rb") as archivo:
+            warnings.simplefilter("error", InconsistentVersionWarning)
+            modelo = pickle.load(archivo)
+        if not callable(getattr(modelo, metodo, None)):
+            raise TypeError("El modelo no ofrece el método de inferencia esperado")
+    except Exception as error:
+        _CARGA_PICKLE[ruta.name] = "error"
+        logger.warning("Carga de modelo predictivo fallida (%s): %s", ruta.name, type(error).__name__)
+        return None
+    _CARGA_PICKLE[ruta.name] = "cargado"
+    return modelo
+
 
 def _cargar_modelos():
     global _MODELO_FACIAL, _MODELO_SUCESOS
-    if _MODELO_FACIAL is None and RUTA_MODELO_FACIAL.is_file():
-        with open(RUTA_MODELO_FACIAL, "rb") as f:
-            _MODELO_FACIAL = pickle.load(f)
-    if _MODELO_SUCESOS is None and RUTA_MODELO_SUCESOS.is_file():
-        with open(RUTA_MODELO_SUCESOS, "rb") as f:
-            _MODELO_SUCESOS = pickle.load(f)
+    with _LOCK_MODELOS:
+        if RUTA_MODELO_FACIAL.name not in _CARGA_PICKLE:
+            _MODELO_FACIAL = _cargar_pickle(RUTA_MODELO_FACIAL, "predict_proba")
+        if RUTA_MODELO_SUCESOS.name not in _CARGA_PICKLE:
+            _MODELO_SUCESOS = _cargar_pickle(RUTA_MODELO_SUCESOS, "predict")
 
-# Carga perezosa inicial de clasificadores Scikit-Learn
-_cargar_modelos()
+
+def _diagnostico_predictivo(ejecutado=False):
+    salida = {}
+    for ruta, modelo in ((RUTA_MODELO_FACIAL, _MODELO_FACIAL), (RUTA_MODELO_SUCESOS, _MODELO_SUCESOS)):
+        cargado = modelo is not None
+        salida[ruta.stem] = {
+            "estado": "modelo_disponible" if cargado else "modelo_no_disponible",
+            "pesos_presentes": ruta.is_file(),
+            "carga": _CARGA_PICKLE.get(ruta.name, "pendiente"),
+            "inferencia": "ejecutada" if cargado and ejecutado else "no_ejecutada",
+        }
+    return salida
+
 
 def _obtener_yolo_pose():
-    global _YOLO_POSE
-    if _YOLO_POSE is None:
-        try:
-            from ultralytics import YOLO
-            candidatos = [
-                CARPETA_ACTUAL.parent / "modelo_ia" / "yolo11n-pose.pt",
-                CARPETA_ACTUAL / "yolo11n-pose.pt",
-                CARPETA_ACTUAL / "modelo_ia" / "yolo11n-pose.pt",
-                CARPETA_ACTUAL.parent.parent / "modelo_ia" / "yolo11n-pose.pt",
-            ]
-            ruta_pose = next((p for p in candidatos if p.is_file()), None)
-            if ruta_pose is not None:
-                _YOLO_POSE = YOLO(str(ruta_pose))
-            else:
-                _YOLO_POSE = False
-        except Exception:
-            _YOLO_POSE = False
-    return _YOLO_POSE if _YOLO_POSE is not False else None
+    return YOLO_POSE.cargar()
+
 
 def _obtener_yolo_best():
-    global _YOLO_BEST
-    if _YOLO_BEST is None:
-        try:
-            from ultralytics import YOLO
-            candidatos = [
-                CARPETA_ACTUAL.parent / "modelo_ia" / "best.pt",
-                CARPETA_ACTUAL / "best.pt",
-                CARPETA_ACTUAL / "modelo_ia" / "best.pt",
-                CARPETA_ACTUAL.parent.parent / "modelo_ia" / "best.pt",
-            ]
-            ruta_best = next((p for p in candidatos if p.is_file()), None)
-            if ruta_best is not None:
-                _YOLO_BEST = YOLO(str(ruta_best))
-            else:
-                _YOLO_BEST = False
-        except Exception:
-            _YOLO_BEST = False
-    return _YOLO_BEST if _YOLO_BEST is not False else None
+    return YOLO_BEST.cargar()
 
 def _obtener_face_cascade():
     global _FACE_CASCADE
@@ -92,15 +96,6 @@ def _tensor_a_numpy(t: Any) -> np.ndarray:
         return t.cpu().numpy()
     return np.asarray(t)
 
-def _decodificar_imagen_b64(imagen_b64: str) -> np.ndarray:
-    if "," in imagen_b64:
-        imagen_b64 = imagen_b64.split(",", 1)[1]
-    datos_binarios = base64.b64decode(imagen_b64)
-    np_arr = np.frombuffer(datos_binarios, np.uint8)
-    img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-    if img is None:
-        raise ValueError("No se pudo decodificar la imagen enviada")
-    return img
 
 def _extraer_caja_pixel(obj_data: Any, w_img: int, h_img: int) -> Optional[Tuple[int, int, int, int]]:
     """Convierte cualquier representación de bounding box (relativa o absoluta) a píxeles (x1, y1, x2, y2)."""
@@ -503,7 +498,8 @@ def procesar_captura_imagen(imagen_b64: str, contexto_externo: Optional[Dict[str
     4. REGLA ESTRICTA: Si no hay personas ni rostros reales en la captura, retorna
        limpiamente total_alumnos: 0 y estudiantes: [] (NUNCA inventa estudiantes).
     """
-    img = _decodificar_imagen_b64(imagen_b64)
+    img = decodificar_imagen(imagen_b64)
+    _cargar_modelos()
     h_img, w_img = img.shape[:2]
 
     # 1. Parsear objetos y distractores externos con coordenadas (si vienen de Imagen o Video)
@@ -555,6 +551,7 @@ def procesar_captura_imagen(imagen_b64: str, contexto_externo: Optional[Dict[str
 
     # 2. DETECCIÓN CON YOLO POSE (Detección de personas y posturas reales)
     candidatos_personas: List[Dict[str, Any]] = []
+    inferencia_pose = inferencia_best = "no_ejecutada"
     yolo_pose = _obtener_yolo_pose()
     if yolo_pose is not None:
         try:
@@ -576,8 +573,11 @@ def procesar_captura_imagen(imagen_b64: str, contexto_externo: Optional[Dict[str
                         "keypoints": kpts,
                         "tipo": "pose"
                     })
-        except Exception as e:
-            print(f"[Aviso] YOLO Pose en fallback: {e}")
+            inferencia_pose = "ejecutada"
+        except Exception as error:
+            inferencia_pose = "error"
+            candidatos_personas.clear()
+            logger.warning("Inferencia YOLO Pose fallida: %s", type(error).__name__)
 
     # 3. DETECCIÓN DE OBJETOS DISTRACTORES CON YOLO BEST (Celular, audífonos, laptop)
     telefonos_detectados: List[Dict[str, Any]] = list(distractores_externos_celular)
@@ -612,11 +612,17 @@ def procesar_captura_imagen(imagen_b64: str, contexto_externo: Optional[Dict[str
                             "keypoints": None,
                             "tipo": "best_persona"
                         })
-        except Exception as e:
-            print(f"[Aviso] YOLO Best en fallback: {e}")
+            inferencia_best = "ejecutada"
+        except Exception as error:
+            inferencia_best = "error"
+            telefonos_detectados = list(distractores_externos_celular)
+            audifonos_detectados = list(distractores_externos_audifonos)
+            candidatos_personas = [c for c in candidatos_personas if c["tipo"] != "best_persona"]
+            logger.warning("Inferencia YOLO Best fallida: %s", type(error).__name__)
 
     # 4. RESPALDO SECUNDARIO CON HAAR CASCADE (Si YOLO no detectó personas completas)
-    if len(candidatos_personas) == 0:
+    uso_haar = not candidatos_personas
+    if uso_haar:
         cascade = _obtener_face_cascade()
         gris = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         caras = cascade.detectMultiScale(gris, scaleFactor=1.15, minNeighbors=4, minSize=(35, 35))
@@ -635,15 +641,27 @@ def procesar_captura_imagen(imagen_b64: str, contexto_externo: Optional[Dict[str
     # REGLA DE ORO DE AUDITORÍA: SI NO HAY PERSONAS DETECTADAS, RETORNA CERO
     # NUNCA MÁS SE INVENTA UN "ESTUDIANTE 1" SOBRE LA PARED O ESCRITORIO VACÍO
     # =========================================================================
-    if len(candidatos_personas) == 0:
+    disponibles = _MODELO_FACIAL is not None and _MODELO_SUCESOS is not None
+    respaldo = uso_haar or inferencia_pose != "ejecutada" or inferencia_best != "ejecutada"
+    diagnostico = {
+        "estado_modelos": "modelo_no_disponible" if not disponibles else
+            "modo_respaldo" if respaldo else "modelo_disponible",
+        "modelos_predictivos_disponibles": disponibles,
+        "modelos_yolo": {"pose": YOLO_POSE.diagnostico(inferencia_pose), "objetos": YOLO_BEST.diagnostico(inferencia_best)},
+        "detector_personas": "haar" if uso_haar else candidatos_personas[0]["tipo"],
+        "personas_detectadas": len(candidatos_personas),
+    }
+    if not candidatos_personas or not disponibles:
         return {
-            "estado": "sin_personas",
-            "mensaje": "No se detectaron estudiantes en la captura. No hay predicciones para generar.",
+            "estado": "modelo_no_disponible" if candidatos_personas else "sin_personas",
+            "mensaje": "No están disponibles los modelos predictivos." if candidatos_personas else
+                "No se detectaron estudiantes en la captura. No hay predicciones para generar.",
             "total_alumnos": 0,
             "estudiantes": [],
             "resolucion_captura": f"{w_img}x{h_img}",
-            "modelos_predictivos_disponibles": _MODELO_FACIAL is not None and _MODELO_SUCESOS is not None,
-            "soporte_emociones": 7
+            "soporte_emociones": 7,
+            "modelos_predictivos": _diagnostico_predictivo(),
+            **diagnostico,
         }
 
     # Ordenar estudiantes de izquierda a derecha en el aula
@@ -881,8 +899,9 @@ def procesar_captura_imagen(imagen_b64: str, contexto_externo: Optional[Dict[str
         "total_alumnos": len(estudiantes_resultado),
         "estudiantes": estudiantes_resultado,
         "resolucion_captura": f"{w_img}x{h_img}",
-        "modelos_predictivos_disponibles": _MODELO_FACIAL is not None and _MODELO_SUCESOS is not None,
-        "soporte_emociones": 7
+        "soporte_emociones": 7,
+        "modelos_predictivos": _diagnostico_predictivo(ejecutado=True),
+        **diagnostico,
     }
 
 def obtener_escenario_aula_ejemplo() -> Dict[str, Any]:
@@ -908,12 +927,16 @@ def obtener_escenario_aula_ejemplo() -> Dict[str, Any]:
         est = predecir_estudiante_multimodal(id_est, rasgos, box, ctx)
         estudiantes.append(est)
 
+    disponibles = _MODELO_FACIAL is not None and _MODELO_SUCESOS is not None
     return {
         "estado": "exito",
         "total_alumnos": 5,
         "estudiantes": estudiantes,
         "resolucion_captura": "1280x720 (Simulación Aula 301)",
-        "modelos_predictivos_disponibles": _MODELO_FACIAL is not None and _MODELO_SUCESOS is not None,
+        "simulado": True,
+        "estado_modelos": "modelo_disponible" if disponibles else "modo_respaldo",
+        "modelos_predictivos_disponibles": disponibles,
+        "modelos_predictivos": _diagnostico_predictivo(ejecutado=True),
         "soporte_emociones": 7
     }
 
