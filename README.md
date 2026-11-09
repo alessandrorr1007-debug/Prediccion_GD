@@ -50,7 +50,7 @@ Pulsa **Iniciar visor de cámara** para conceder acceso. La captura automática 
 
 - `GET /api/salud` y `GET /api/modulos` — salud del motor de reglas y manifiestos de integración.
 - `POST /api/prediccion` y `POST /api/prediccion/integrar` — eventos normalizados y formatos de imagen/video.
-- `POST /api/prediccion/estudiantes` y `GET /api/prediccion/estudiantes/ejemplos/{caso}` — seguimiento y diez ejemplos sintéticos, solo en local.
+- `POST /api/prediccion/estudiantes` y `GET /api/prediccion/estudiantes/ejemplos/{caso}` — seguimiento y once ejemplos sintéticos, solo en local.
 - `POST /api/prediccion/analizar-captura` y `POST /api/vision/analizar` — JSON con `imagen_b64` y opciones de cada ruta. Véase el [contrato de captura](docs/CONTRATO_MODULOS.md#captura-visual-de-predicción).
 - `GET /api/vision/estado`, `GET /api/prediccion/ejemplo-aula` y `GET /api/prediccion/modelo/metricas` — diagnóstico, cinco perfiles ficticios y métricas.
 - `GET /docs` — documentación interactiva.
@@ -73,7 +73,7 @@ En Linux usa `backend/.venv/bin/python`. El [notebook reproducible](docs/entrena
 
 ## Seguimiento por estudiante
 
-En la interfaz selecciona **Seguimiento por estudiante**, carga un ejemplo y evalúa.
+En la interfaz, **Integración de fuentes** consulta `GET /api/modulos`. Muestra disponibilidad declarada del adaptador y validación pendiente del productor. En **Seguimiento académico** carga un ejemplo y evalúa.
 La demo de Juan Pérez (personaje ficticio) combina tres observaciones de teléfono
 no permitido, dos tareas pendientes, una reunión incumplida y evaluación próxima:
 prioridad **90/100**, con evidencia, reglas activadas y revisión sugerida por docente/tutor.
@@ -88,6 +88,8 @@ También existen ejemplos sin alerta, identidad desconocida, datos insuficientes
 contradicciones, duplicados, observación aislada y cambio de patrón observado.
 Todos se identifican como sintéticos en nombre y contenido. El historial se aporta
 en cada petición: no se almacena ni se consulta una base institucional.
+
+El [caso multimodal](ejemplos/seguimiento_multimodal_sintetico.json) combina JSON de imagen y video, un conteo de captura sin identidad y tareas pendientes. Devuelve prioridad **30/100** por tareas y evaluación próxima. Ambas fuentes visuales describen una sola ocurrencia de teléfono. Su coincidencia queda documentada sin sumar puntos. El [contrato de seguimiento](docs/SEGUIMIENTO_ESTUDIANTES.md#reutilización-de-resultados-actuales) detalla procedencia, atribución, deduplicación y errores por fuente.
 
 La API B **rechaza conexiones remotas y proxies**, exige `simulado:true` y no guarda
 datos. No tiene autenticación: usar exclusivamente datos ficticios y conexión local

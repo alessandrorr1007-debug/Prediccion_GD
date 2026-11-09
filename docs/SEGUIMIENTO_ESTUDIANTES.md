@@ -38,7 +38,7 @@ Invoke-RestMethod -Uri http://localhost:8001/api/prediccion/estudiantes -Method 
 ```
 
 El POST tiene esquemas de entrada/salida en `/docs` y `/openapi.json`.
-`GET /api/prediccion/estudiantes/ejemplos/{caso}` entrega únicamente los ocho
+`GET /api/prediccion/estudiantes/ejemplos/{caso}` entrega únicamente los once
 ejemplos ficticios permitidos; no sirve archivos arbitrarios ni perfiles reales.
 
 ## Contrato B, versión 1
@@ -99,12 +99,13 @@ explícitamente hasta recibir contrato y adaptador; no se simula una integració
 
 ## Reutilización de resultados actuales
 
-Una fuente tiene `modulo`, `sesion_id`, `origen`, `datos` (JSON productor) y
-`evidencias` opcional (mapa ID normalizado → referencia de captura compartida).
-El puente llama a `adaptar_video` o `adaptar_imagen`; no ejecuta modelos.
-Los IDs emitidos por esos adaptadores se preservan. Se construye la fecha desde
-el reloj explícito de la sesión. Los vínculos se declaran aparte en `asociaciones`.
-La función `reunir_observaciones` permite inspeccionar los IDs antes de asociarlos.
+Se conserva `schema_version: 1`. Una fuente declara `modulo`, `sesion_id`, `origen`, `datos` (JSON del productor), `naturaleza` opcional y `evidencias` opcional (mapa ID normalizado → referencia del mismo evento). El puente reutiliza `adaptar_video` y `adaptar_imagen`. Conserva sus IDs, modelo reportado, confianza y calidad. Construye la marca temporal desde el inicio y segundo de la sesión. `fuentes_recibidas` agrupa por módulo, sesión, origen y naturaleza y cuenta observaciones antes de deduplicar. Una fuente válida vacía aparece con cero observaciones.
+
+`naturaleza` se declara también en observaciones normalizadas y en el contexto académico. Distingue `sintetica`, `real` y `desconocida`. El valor omitido queda como `desconocida` por compatibilidad con JSON anteriores. El modo local sigue exigiendo `simulado: true` y rechaza evidencia explícitamente real. El campo expresa una declaración de origen, sin certificar al productor. Usa exclusivamente perfiles y registros ficticios.
+
+**Captura local.** Una fuente `captura` recibe en `datos` los campos `captura_id`, `segundo` y `personas_detectadas`. El integrador aporta el ID y el tiempo en la sesión. `personas_detectadas` puede copiarse del resultado de captura. Se normaliza como `conteo_personas` de toda la escena, con confianza y calidad nulas e identidad no aplicable. No se puntúa ni se atribuye, incluso si la entrada incluye una asociación individual. El panel de cámara y este contrato se mantienen separados. Para observaciones individuales normalizadas, la identidad se declara aparte en `asociaciones` y requiere una referencia verificable.
+
+**Respuesta.** La evidencia atribuida contiene el ID de estudiante, el estado de verificación y los datos de la asociación. Las listas de observaciones sin atribuir o descartadas conservan origen, valor, módulo, sesión, fecha y motivo. Cuando falta confianza o calidad en una observación normalizada, se conserva como dato faltante y no participa en las reglas. Si una fuente tiene un error, HTTP 422 conserva `detail` y añade `error_integracion` con `modulo`, `codigo` e `indice` (base cero en `fuentes`). Audio sigue pendiente y devuelve `contrato_pendiente`.
 
 Fechas IMAGEN requieren `datos.origen_temporal`, incluso si llega como única fuente
 del motor B. Debe coincidir con el inicio de sesión. Si IMAGEN exporta fechas sin
@@ -112,9 +113,9 @@ zona, se declara el origen en ese mismo reloj local; el inicio de sesión aporta
 la zona explícita. No se deduce ubicación ni identidad a partir de metadatos.
 Los índices de carpetas no son segundos reales: el integrador debe mapearlos.
 
-Los adaptadores antiguos mantienen calidad **1 provisional** cuando el productor
-no aporta un valor normalizado. El motor B informa esa limitación: no es calidad
-medida. Todos conservan un único diccionario ALIAS en `video/adapter.py`.
+Los adaptadores antiguos mantienen calidad **1 provisional** cuando el productor no aporta un valor normalizado. La respuesta identifica `supuesto_heredado`. Si el lote mezcla fotogramas con y sin calidad declarada y el evento devuelve 1, lo marca `no_distinguible`. Se conserva el cálculo previo para esas fuentes. Para auditoría, una calidad provisional no equivale a una medición. Los alias se mantienen en `video/adapter.py`.
+
+Para probar el flujo completo, selecciona **Imagen, video, captura e historial** o usa `GET /api/prediccion/estudiantes/ejemplos/multimodal` y envía ese JSON al POST. Puedes quitar las asociaciones en el editor para observar la diferencia entre fuentes recibidas y evidencia elegible.
 
 ## Reglas de demostración y puntos predeterminados
 
@@ -214,7 +215,7 @@ no se modificó.
 Archivos de esta evolución:
 
 - Nuevos: `backend/modulos/prediccion/seguimiento.py`, `seguimiento_contrato.py`,
-  `seguimiento_integracion.py`, `seguimiento_api.py`; ocho JSON `seguimiento_*_sintetico.json`;
+  `seguimiento_integracion.py`, `seguimiento_api.py`; once JSON `seguimiento_*_sintetico.json`;
   `tests/test_seguimiento.py`, `tests/test_seguimiento_api.py`, `tests/test_frontend.cjs`;
   este documento.
 - Modificados: `backend/app.py`, `backend/requirements.txt`, manifiesto y README de

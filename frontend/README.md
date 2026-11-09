@@ -18,6 +18,7 @@ Se usa `FaceDetector` del navegador cuando funciona. Como alternativa se carga M
 ## Seguimiento académico
 
 El enlace **Seguimiento académico** abre el panel de integración. El selector de motor permite **Supervisión de exámenes** o **Seguimiento por estudiante**.
+**Integración de fuentes** consulta `/api/modulos` y distingue un adaptador instalado de un productor validado. El escenario **Imagen, video, captura e historial** muestra procedencia, identidad declarada, observaciones de escena sin atribución, coincidencias y registros académicos. Si un JSON de seguimiento contiene una fuente inválida, el panel indica su posición, módulo y motivo.
 El segundo ofrece ejemplos desde `/api/prediccion/estudiantes/ejemplos/{caso}`,
 envía `/api/prediccion/estudiantes` y presenta evidencias por módulo/contexto,
 identidad, reglas, datos faltantes, contradicciones, prioridad y recomendaciones.
