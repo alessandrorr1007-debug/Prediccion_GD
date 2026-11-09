@@ -13,7 +13,7 @@ La cámara se solicita al pulsar **Iniciar visor de cámara** en localhost o HTT
 
 Se usa `FaceDetector` del navegador cuando funciona. Como alternativa se carga MediaPipe Tasks Vision 0.10.32 con BlazeFace. La alternativa requiere acceso a jsDelivr para el código y WASM y a Google Cloud Storage para el modelo. El detector procesa los fotogramas en el navegador y el JPEG seleccionado se envía al servidor de AulaPredict. Si el detector no está disponible, sigue habilitada la captura manual. [Documentación de MediaPipe](https://developers.google.com/edge/mediapipe/solutions/vision/face_detector?tab=Web)
 
-**Detener cámara** libera el stream y cancela la solicitud de cámara en el cliente. La captura manual y la subida de archivos usan el mismo endpoint de análisis y dejan la foto fija. **Nueva captura** vuelve al visor. Si falla un análisis automático, se pausa la captura automática y se puede reactivar con el selector. La captura visual asigna referencias del encuadre con identidad desconocida.
+**Detener cámara** libera el stream y cancela la solicitud de cámara en el cliente. La captura manual y la subida de archivos usan el mismo endpoint de análisis y dejan la foto fija. **Nueva captura** vuelve al visor. Si falla un análisis automático, se pausa la captura automática y se puede reactivar con el selector. La captura visual asigna referencias del encuadre con identidad desconocida. El panel indica cuándo el servidor usa el respaldo visual y omite las estimaciones si faltan los modelos predictivos.
 
 ## Seguimiento académico
 

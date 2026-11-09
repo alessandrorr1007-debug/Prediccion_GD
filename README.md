@@ -1,183 +1,75 @@
 # AulaPredict · Predicción
 
-Servicio de integración del equipo de **PREDICCIÓN**. Recibe los resultados de IMAGEN, VIDEO y, cuando esté disponible, AUDIO; no entrena ni duplica los modelos de esos equipos.
+Prototipo académico de Percepción Computacional. Predicción consume resultados de los otros grupos mediante adaptadores, cruza observaciones atribuidas con registros sintéticos y produce evidencia para revisión humana. Los modelos de los grupos externos se mantienen en sus propios proyectos.
 
-Ahora ofrece **dos motores independientes**: supervisión de exámenes (existente)
-y seguimiento por estudiante (demostración sintética local). El segundo cruza
-observaciones con identidad explícitamente asociada y contexto académico;
-no predice notas, diagnósticos ni sanciones. [Diseño, reglas y contrato B](docs/SEGUIMIENTO_ESTUDIANTES.md).
+## Arquitectura
 
----
+- **Revisión de exámenes.** `backend/modulos/prediccion/engine.py` calcula un índice heurístico a partir de eventos normalizados. El adaptador conjunto usa exportaciones JSON de imagen y video.
+- **Seguimiento académico.** `backend/modulos/prediccion/seguimiento.py` usa identidad explícita, sesión, observaciones e historial aportado. La coincidencia con emociones se documenta como evidencia. La emoción y el evento familiar no suman puntos.
+- **Predicción experimental por captura.** `backend/entrenamiento_prediccion/predictor.py` detecta candidatos con YOLO opcional o Haar, obtiene rasgos visuales y ejecuta dos Random Forest entrenados con datos sintéticos. Las referencias del encuadre no identifican institucionalmente a una persona.
+- **Visión heurística.** `backend/modulos/vision_service.py` mejora imágenes, analiza rasgos y calcula una proyección experimental cuando hay rostro. Su salida se mantiene separada del seguimiento académico.
+- **Web.** FastAPI sirve `frontend/index.html`, `app.js` y `style.css`. Node se usa para pruebas. El archivo TSX es una referencia aparte.
 
-## 🔌 Guía Rápida para el Integrador General (Cómo consumir el Entrenamiento de Predicción)
+## Instalación y arranque
 
-Si eres el encargado de unir los módulos del curso (**VIDEO**, **IMAGEN** y **PREDICCIÓN**), puedes consumir nuestro motor entrenado de dos maneras directas:
+**Python 3.11.15.** La instalación base usa una sola variante de OpenCV, `opencv-python-headless`. Se fijan las dependencias directas y SciPy en `backend/requirements-core.txt`, con scikit-learn 1.9.1 para los pickle versionados. Los pesos YOLO y PyTorch son opcionales.
 
-### Opción A: Importación directa del entrenamiento en Python (Librería Autocontenida)
+### Windows
 
-1. **Carpetas requeridas:** Copia a tu proyecto las carpetas de este repositorio:
-   - `backend/entrenamiento_prediccion/` (contiene los modelos `modelo_emociones_facial.pkl`, `modelo_sucesos_academicos.pkl` e inferencia).
-   - `backend/modelo_ia/` (contiene los modelos de visión `yolo11n-pose.pt` y `best.pt`).
-
-2. **Código de Inferencia en 3 líneas:**
-```python
-from backend.entrenamiento_prediccion import procesar_captura_imagen
-
-# 1. Recibe la imagen mejorada de IMAGEN (base64) y las acciones detectadas de VIDEO/IMAGEN
-contexto = {"acciones_detectadas": ["uso_celular"], "objetos": ["telefono"]}
-resultado = procesar_captura_imagen(imagen_b64, contexto_externo=contexto)
-
-# 2. Acceso a alumnos detectados y sus 7 emociones universales + predicción de riesgo parcial
-print(f"Alumnos detectados: {resultado['total_alumnos']}")
-for est in resultado["estudiantes"]:
-    print(f"Estudiante: {est['nombre']} | Dominante: {est['emociones']['dominante']} | Score Riesgo: {est['score']}/100")
-```
-
----
-
-### Opción B: Consumo vía API REST en Producción
-
-1. **Petición HTTP:** Envía un `POST /api/prediccion/analizar-captura`:
-```http
-POST /api/prediccion/analizar-captura HTTP/1.1
-Content-Type: application/json
-
-{
-  "imagen_b64": "data:image/jpeg;base64,...",
-  "contexto_externo": {
-    "acciones_detectadas": ["uso_celular", "mirada_desviada"],
-    "objetos": ["telefono"]
-  }
-}
-```
-
-2. **Formato JSON de Respuesta en Producción:**
-- **Sin personas en captura (0 alumnos falsos):**
-```json
-{
-  "estado": "sin_personas",
-  "mensaje": "No se detectaron estudiantes en la captura. No hay predicciones para generar.",
-  "total_alumnos": 0,
-  "estudiantes": [],
-  "resolucion_captura": "1280x720",
-  "soporte_emociones": 7
-}
-```
-
-- **Con alumnos detectados:**
-```json
-{
-  "estado": "exito",
-  "total_alumnos": 1,
-  "resolucion_captura": "1280x720",
-  "soporte_emociones": 7,
-  "estudiantes": [
-    {
-      "id": 1,
-      "nombre": "Estudiante 1",
-      "subId": "0.91",
-      "estado": "Distracción detectada",
-      "accionDetectada": "Uso de celular detectado en regazo o pupitre",
-      "atencion": 28,
-      "emociones": {
-        "neutral": 15,
-        "felicidad": 8,
-        "tristeza": 12,
-        "enojo": 18,
-        "miedo": 42,
-        "sorpresa": 3,
-        "disgusto": 2,
-        "dominante": "Miedo / Ansiedad (😨)"
-      },
-      "causas": [
-        { "texto": "Distracción o consulta no autorizada mediante dispositivo móvil", "prob": 88 },
-        { "texto": "Bloqueo cognitivo o falta de preparación conceptual", "prob": 74 }
-      ],
-      "consecuencias": [
-        { "texto": "Riesgo crítico de desaprobación ('jalar') en el examen parcial", "prob": 82 },
-        { "texto": "Pérdida de continuidad académica en la sesión evaluativa", "prob": 79 }
-      ],
-      "score": 85,
-      "nivelRiesgo": "Riesgo de Desempeño: ALTO / CRÍTICO",
-      "esRiesgoAlto": true,
-      "alertaExamen": "Riesgo inminente de desaprobar ('jalar') el examen parcial.",
-      "narrativa": "El Estudiante 1 presenta patrones de mirada hacia el regazo y manipulación de smartphone...",
-      "box": { "x": 0.35, "y": 0.18, "w": 0.30, "h": 0.54 },
-      "distractor": true,
-      "distractorBox": { "x": 0.42, "y": 0.58, "w": 0.10, "h": 0.14, "label": "Celular (0.91)" }
-    }
-  ]
-}
-```
-
----
-
-## Equipos conectados
-
-- **VIDEO:** [SistemaSupervisionExamenes](https://github.com/cesarcabanillas1921-bit/SistemaSupervisionExamenes). Entrega detecciones por fotograma con clase, confianza y tiempo.
-- **IMAGEN:** [SistemaSupervisionExamenes-Imagen](https://github.com/Zudo45/SistemaSupervisionExamenes-Imagen). Verifica detecciones, mide calidad y exporta JSON/CSV.
-- **AUDIO:** pendiente de repositorio y contrato de salida.
-- **PREDICCIÓN:** normaliza las señales, aplica reglas explicables y devuelve evidencia para revisión humana.
-
-Los entrenamientos, pesos y aplicaciones de cada modalidad permanecen en sus repositorios. Este proyecto conserva únicamente adaptadores y contratos de integración.
-
-## Inicio local y Requisitos
-
-Requiere Python 3.11:
+Desde la raíz del clon, con [uv](https://docs.astral.sh/uv/) instalado:
 
 ```powershell
-py -3.11 -m venv backend/.venv
-./backend/.venv/Scripts/python.exe -m pip install -r requirements.txt
+uv venv --python 3.11.15 backend/.venv
+uv pip install --python ./backend/.venv/Scripts/python.exe -r requirements.txt
 ./iniciar-prediccion.ps1
 ```
 
-> [!NOTE]
-> ### Archivos de Pesos del Motor de Visión (`yolo11n-pose.pt` y `best.pt`)
-> El motor de predicción multimodal incorpora dos modelos neuronales de visión artificial para la delimitación espacial y análisis de postura/distractores:
-> - **YOLO Pose (`backend/modelo_ia/yolo11n-pose.pt`):** Detección de personas y keypoints corporales y faciales para medir la postura de estudio y el ángulo vertical de la cabeza (`head_pitch`).
-> - **YOLO Distractores (`backend/modelo_ia/best.pt`):** Detección y localización espacial de objetos distractores en aula (celulares/teléfonos móviles, audífonos y laptops).
-> 
-> **Mecanismo de Carga Automatizada (*Lazy Loading*):**
-> Ambos pesos se cargan automáticamente bajo demanda (*lazy loading singleton*) en `backend/entrenamiento_prediccion/predictor.py` a través de `_obtener_yolo_pose()` y `_obtener_yolo_best()`. Esto permite que el servicio web y las pruebas inicien instantáneamente sin congelar recursos; los modelos se inicializan en memoria únicamente al recibir la primera solicitud de inferencia visual. Además, si los pesos no están presentes en el entorno o si falla la aceleración por hardware, el pipeline conmuta automáticamente a un respaldo de detección facial Haar Cascade y análisis cinemático para mantener 100% de disponibilidad.
+Con Python 3.11.15 disponible en el lanzador, también puedes crear el entorno con `py -3.11 -m venv backend/.venv` e instalar con `./backend/.venv/Scripts/python.exe -m pip install -r requirements.txt`.
 
-Abrir `http://localhost:8001`. La interfaz permite editar una entrada conjunta de IMAGEN y VIDEO y ejecutar PREDICCIÓN.
+### Linux
 
-También permite importar JSON de un módulo y seleccionar su formato. No solicita
-cámara ni micrófono: las rutas locales `/api/medios/*` quedaron retiradas.
-El material previo de entrenamiento/inferencia está archivado fuera del repo,
-con respaldo verificado; ver [inventario y restauración](docs/ORDEN_Y_ARCHIVO.md).
+```bash
+uv venv --python 3.11.15 backend/.venv
+uv pip install --python backend/.venv/bin/python -r requirements.txt
+backend/.venv/bin/python -m uvicorn backend.app:app --host 127.0.0.1 --port 8001
+```
+
+Abre [el panel](http://localhost:8001) o verifica [el endpoint de salud](http://localhost:8001/api/salud). En [Render](https://render.com/docs/python-version), `render.yaml` fija Python 3.11.15, instala `requirements.txt` y escucha en `$PORT`. El seguimiento académico sigue siendo una demo local y rechaza accesos remotos.
+
+### Cámara y seguimiento en la web
+
+Pulsa **Iniciar visor de cámara** para conceder acceso. La captura automática busca un rostro localmente con `FaceDetector` o con MediaPipe y envía solo el fotograma elegido a AulaPredict. El intervalo inicial es de 5 segundos por cámara. El respaldo de MediaPipe necesita acceso a los recursos indicados en la [guía del frontend](frontend/README.md). Puedes capturar manualmente, subir una foto o detener el visor. En **Seguimiento académico** puedes evaluar los JSON sintéticos y revisar fuentes, coincidencias y destinatarios sugeridos.
+
+### Modelos opcionales y diagnóstico
+
+- El perfil base ejecuta los motores de reglas y, con los dos `.pkl` versionados, el predictor visual con respaldo Haar. Sin rostro, visión devuelve `emociones: null` y `prediccion: null`. Si faltan los clasificadores de captura, el endpoint indica la cantidad de personas detectadas por separado y entrega cero estimaciones.
+- Para usar YOLO en otro entorno nuevo, instala `backend/requirements-yolo.txt` **en lugar de** `requirements.txt`. Ese perfil incluye Ultralytics, PyTorch, torchvision y únicamente `opencv-python`. Usa pesos de procedencia conocida, `best.pt` y/o `yolo11n-pose.pt`, en `backend/modelo_ia/` o exporta `AULAPREDICT_YOLO_DIR` con su directorio. Reinicia el proceso después de cambiar pesos o dependencias. Los `.pt` están ignorados en Git.
+- `GET /api/vision/estado` distingue presencia de pesos y carga. Las respuestas visuales indican `estado_modelos` y si la inferencia se ejecutó. `modo_respaldo` identifica resultados con capacidades reducidas. Un fallo de inferencia principal devuelve HTTP 500 con `estado: error_inferencia`.
 
 ## API
 
-- `GET /api/salud`: estado del motor.
-- `GET /api/modulos`: estado, repositorio y adaptadores de cada equipo.
-- `POST /api/prediccion`: contrato interno de eventos ya normalizados.
-- `POST /api/prediccion/integrar`: formatos entregados por IMAGEN y VIDEO.
-- `POST /api/prediccion/estudiantes`: seguimiento por estudiante, solo demo sintética local.
-- `GET /api/prediccion/estudiantes/ejemplos/{caso}`: ocho escenarios ficticios de seguimiento.
-- `GET /docs`: documentación interactiva.
+- `GET /api/salud` y `GET /api/modulos` — salud del motor de reglas y manifiestos de integración.
+- `POST /api/prediccion` y `POST /api/prediccion/integrar` — eventos normalizados y formatos de imagen/video.
+- `POST /api/prediccion/estudiantes` y `GET /api/prediccion/estudiantes/ejemplos/{caso}` — seguimiento y diez ejemplos sintéticos, solo en local.
+- `POST /api/prediccion/analizar-captura` y `POST /api/vision/analizar` — JSON con `imagen_b64` y opciones de cada ruta. Véase el [contrato de captura](docs/CONTRATO_MODULOS.md#captura-visual-de-predicción).
+- `GET /api/vision/estado`, `GET /api/prediccion/ejemplo-aula` y `GET /api/prediccion/modelo/metricas` — diagnóstico, cinco perfiles ficticios y métricas.
+- `GET /docs` — documentación interactiva.
 
-Prueba de integración:
+## Entrenamiento sintético
+
+Con el entorno instalado, ejecuta desde la raíz:
 
 ```powershell
-Invoke-RestMethod -Uri http://localhost:8001/api/prediccion/integrar -Method Post -ContentType 'application/json' -Body (Get-Content ejemplos/integracion_imagen_video.json -Raw)
+./backend/.venv/Scripts/python.exe -m backend.entrenamiento_prediccion.entrenar_prediccion --salida _archivo/entrenamiento_demo
 ```
 
-## Estructura
+En Linux usa `backend/.venv/bin/python`. El [notebook reproducible](docs/entrenamiento_sintetico.ipynb) ejecuta el mismo pipeline. La carpeta de salida es local y no reemplaza los pesos versionados. Los porcentajes y métricas corresponden a distribuciones y etiquetas generadas en código. Sirven para reproducir el experimento, con validez desconocida en estudiantes reales. El índice de examen, la prioridad académica y las estimaciones por captura tienen significados distintos.
 
-```text
-backend/app.py                         Entrada de FastAPI
-backend/modulos/imagen/adapter.py      Adaptador de la exportación de IMAGEN
-backend/modulos/video/adapter.py       Adaptador de detecciones de VIDEO
-backend/modulos/audio/modulo.json      Integración pendiente
-backend/modulos/prediccion/            Integración, API y motor de reglas
-ejemplos/                              Entradas reproducibles
-frontend/                              Prueba local del contrato conjunto
-tests/                                 Pruebas de API, adaptadores y motor
-docs/                                  Contratos e inventario del archivo externo
-```
+## Equipos conectados
 
-El índice generado es heurístico y no calibrado: no representa una probabilidad de fraude ni debe producir sanciones automáticas.
+- **Imagen:** [SistemaSupervisionExamenes-Imagen](https://github.com/Zudo45/SistemaSupervisionExamenes-Imagen).
+- **Video:** [SistemaSupervisionExamenes](https://github.com/cesarcabanillas1921-bit/SistemaSupervisionExamenes).
+- **Audio:** pendiente de productor y contrato. Los adaptadores y manifiestos están en `backend/modulos/`; los ejemplos sintéticos están en `ejemplos/`.
 
 ## Seguimiento por estudiante
 
@@ -291,7 +183,9 @@ Invoke-RestMethod -Uri http://localhost:8001/api/prediccion/integrar -Method Pos
 ## Verificación
 
 ```powershell
-./backend/.venv/Scripts/python.exe -m pip install -r tests/requirements.txt
-./backend/.venv/Scripts/python.exe -m unittest discover -s tests -v
+uv pip install --python ./backend/.venv/Scripts/python.exe -r tests/requirements.txt
+./backend/.venv/Scripts/python.exe -B -m unittest discover -s tests -v
 node --test tests/test_frontend.cjs
 ```
+
+En Linux usa `backend/.venv/bin/python`. Si el entorno está en otra ruta, fija `PYTHON_FOR_TESTS` al ejecutable antes de correr Node.

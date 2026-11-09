@@ -33,7 +33,7 @@ from backend.entrenamiento_prediccion.dataset_generator import (
     NOMBRES_7_EMOCIONES
 )
 
-def entrenar_modelo_7_emociones():
+def entrenar_modelo_7_emociones(salida=CARPETA_ACTUAL):
     print("=" * 75)
     print(">>> 1. ENTRENAMIENTO DEL MODELO FACIAL: 7 EMOCIONES UNIVERSALES")
     print("=" * 75)
@@ -83,7 +83,7 @@ def entrenar_modelo_7_emociones():
             m = report[clase]
             print(f"  - {clase:<22}: Precision={m['precision']:.3f} | Recall={m['recall']:.3f} | F1={m['f1-score']:.3f}")
 
-    ruta_modelo = CARPETA_ACTUAL / "modelo_emociones_facial.pkl"
+    ruta_modelo = salida / "modelo_emociones_facial.pkl"
     with open(ruta_modelo, "wb") as f:
         pickle.dump(pipeline_facial, f)
     print(f"\n[OK] Modelo de 7 emociones guardado en: {ruta_modelo.name}")
@@ -97,7 +97,7 @@ def entrenar_modelo_7_emociones():
         "features": feature_cols
     }
 
-def entrenar_modelo_sucesos_multimodal():
+def entrenar_modelo_sucesos_multimodal(salida=CARPETA_ACTUAL):
     print("\n" + "=" * 75)
     print(">>> 2. ENTRENAMIENTO DEL MODELO DE SUCESOS Y RIESGO (7 EMOCIONES + ACCIÓN)")
     print("=" * 75)
@@ -145,7 +145,7 @@ def entrenar_modelo_sucesos_multimodal():
     for col, m in zip(target_cols, mae_por_col):
         print(f"  - {col:<32}: MAE = {m:.2f}%")
 
-    ruta_modelo = CARPETA_ACTUAL / "modelo_sucesos_academicos.pkl"
+    ruta_modelo = salida / "modelo_sucesos_academicos.pkl"
     with open(ruta_modelo, "wb") as f:
         pickle.dump(regresor, f)
     print(f"\n[OK] Modelo de sucesos multimodal guardado en: {ruta_modelo.name}")
@@ -158,10 +158,11 @@ def entrenar_modelo_sucesos_multimodal():
         "targets": target_cols
     }
 
-def main():
+def main(salida=CARPETA_ACTUAL):
+    salida.mkdir(parents=True, exist_ok=True)
     print("Iniciando pipeline de entrenamiento oficial de Predicción (AulaPredict v2.5)...\n")
-    metricas_facial = entrenar_modelo_7_emociones()
-    metricas_sucesos = entrenar_modelo_sucesos_multimodal()
+    metricas_facial = entrenar_modelo_7_emociones(salida)
+    metricas_sucesos = entrenar_modelo_sucesos_multimodal(salida)
 
     metricas_totales = {
         "modulo": "AulaPredict - Predicción Universitaria",
@@ -172,7 +173,7 @@ def main():
         "modelo_sucesos_multimodal": metricas_sucesos
     }
 
-    ruta_json = CARPETA_ACTUAL / "metricas_entrenamiento.json"
+    ruta_json = salida / "metricas_entrenamiento.json"
     with open(ruta_json, "w", encoding="utf-8") as f:
         json.dump(metricas_totales, f, indent=2, ensure_ascii=False)
 
@@ -185,4 +186,8 @@ def main():
     print("=" * 75)
 
 if __name__ == "__main__":
-    main()
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser(description="Entrenamiento con datos sintéticos de AulaPredict")
+    parser.add_argument("--salida", type=Path, default=CARPETA_ACTUAL, help="Directorio para los modelos y métricas")
+    main(parser.parse_args().salida)
