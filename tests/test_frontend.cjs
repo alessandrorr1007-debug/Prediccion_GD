@@ -242,6 +242,25 @@ test("panel experimental selecciona el modelo facial y muestra conflictos declar
   assert.match(salida, /sesiones distintas/);
 });
 
+test("demostración integral usa la API y muestra cuatro casos con procedencia", async () => {
+  const e = montar();
+  const real = process.env.AULAPREDICT_E2E_FASE10 === "1";
+  e["demo-integral-fusion"].checked = real;
+  await e["ejecutar-demo-integral"].listeners.click();
+  assert.match(e["estado-demo-integral"].textContent, /Demostración sintética completada/);
+  const salida = contenido(e["resultados-demo-integral"]);
+  for (const caso of "ABCD") assert.match(salida, new RegExp(`Caso ${caso}`));
+  assert.match(salida, /Campos faltantes.*G2/);
+  assert.match(salida, /Registros académicos excluidos/);
+  assert.match(salida, /sesion distinta/);
+  if (real) {
+    assert.match(salida, /compatible · ejecutada/);
+    assert.match(salida, /Probabilidades.*RAVDESS|RAVDESS.*Probabilidades/);
+  } else {
+    assert.match(salida, /sin ejecutar/);
+  }
+});
+
 test("seguimiento muestra asistencia, participación y prioridad académica separadas", async () => {
   const e = montar();
   e["ejemplo-seguimiento"].value = "participacion";

@@ -929,6 +929,76 @@ function describirModeloExperimental(modelo) {
   return `${modelo.nombre ?? modelo.algoritmo} · ${modelo.version} · ${fuente}`;
 }
 
+function lineasDemoModelo(nombre, resultado) {
+  const lineas = [`${nombre} · ${resultado.estado.replaceAll("_", " ")}`];
+  if (resultado.modelo) lineas.push(describirModeloExperimental(resultado.modelo));
+  if (resultado.referencia?.origen) lineas.push(`Procedencia · ${resultado.referencia.origen} · ${resultado.referencia.naturaleza}`);
+  if (resultado.procedencia) lineas.push(resultado.procedencia.replaceAll("_", " "));
+  const categoria = resultado.expresion ?? resultado.expresion_vocal ?? resultado.desenlace_estimado;
+  if (categoria) lineas.push(`Categoría · ${categoria}`);
+  if (resultado.desenlace) lineas.push(`Desenlace · ${resultado.desenlace}`);
+  if (resultado.campos_faltantes) lineas.push(`Campos faltantes · ${resultado.campos_faltantes.join(", ")}`);
+  if (resultado.motivo) lineas.push(resultado.motivo.replaceAll("_", " "));
+  if (resultado.criterio_abstencion?.motivos.length) lineas.push(resultado.criterio_abstencion.motivos.join(", ").replaceAll("_", " "));
+  if (resultado.puntajes_calibrados) {
+    lineas.push(`Probabilidades · ${Object.entries(resultado.puntajes_calibrados).map(([k, p]) => `${k} ${p.toFixed(3)}`).join(" · ")}`);
+  }
+  if (resultado.duplicado_de) lineas.push(`Resultado reutilizado de ${resultado.duplicado_de}`);
+  return lineas;
+}
+
+elemento("ejecutar-demo-integral").addEventListener("click", async () => {
+  const boton = elemento("ejecutar-demo-integral");
+  const estado = elemento("estado-demo-integral");
+  const panel = elemento("resultados-demo-integral");
+  boton.disabled = true;
+  panel.replaceChildren();
+  estado.textContent = "Ejecutando la demostración local…";
+  try {
+    const respuesta = await fetch(`${location.origin}/api/prediccion/demostracion-integral`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ solicitar_fusion: elemento("demo-integral-fusion").checked === true }),
+      signal: AbortSignal.timeout(60000)
+    });
+    if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`);
+    const salida = await respuesta.json();
+    for (const caso of salida.casos) {
+      const regla = caso.seguimiento.indicadores_academicos;
+      const lineas = [
+        `Asistencia registrada · ${regla.asistencia_registros ?? "sin datos"} · ausencias ${regla.ausencias ?? "sin datos"}`,
+        `Participación · ${regla.participaciones ?? "sin datos"}`,
+        `Prioridad por reglas · ${regla.prioridad_academica ?? "sin datos"}`,
+        ...lineasDemoModelo("Modelo académico", caso.analisis.academico),
+        ...Object.entries(caso.analisis.fuentes).flatMap(([nombre, resultado]) => lineasDemoModelo(nombre, resultado)),
+        ...caso.analisis.sincronizacion.conflictos_referencia.map(conflicto => conflicto.replaceAll("_", " ")),
+      ];
+      for (const [modulo, evidencias] of Object.entries(caso.seguimiento.evidencia_por_modulo)) {
+        if (modulo !== "contexto") lineas.push(`${modulo} · ${evidencias.length} observaciones del fixture`);
+      }
+      lista(panel, `Caso ${caso.caso} · ${caso.estudiante_id_ficticio}`, lineas);
+    }
+    lista(panel, "Integración de fuentes", [
+      ...salida.fuentes_seguimiento.map(fuente => `${fuente.modulo} · ${fuente.origen} · ${fuente.observaciones_recibidas} observaciones`),
+      `Registros académicos excluidos · ${salida.registros_academicos_excluidos.length}`,
+      `Foto pública sin atribución · ${salida.muestras_publicas_sin_atribuir.imagen ? "disponible" : "ausente"}`,
+      `WAV público sin atribución · ${salida.muestras_publicas_sin_atribuir.audio ? "disponible" : "ausente"}`,
+    ]);
+    const fusion = salida.fusion;
+    const compatibilidad = fusion.compatible === null ? "compatibilidad sin comprobar" : fusion.compatible ? "compatible" : "incompatible";
+    lista(panel, "Fusión experimental · muestra pública independiente", [
+      `Artefacto ${fusion.disponible ? "disponible" : "ausente"} · ${compatibilidad} · ${fusion.ejecutada ? "ejecutada" : "sin ejecutar"}`,
+      fusion.motivo.replaceAll("_", " "),
+      ...(fusion.resultado ? lineasDemoModelo("RAVDESS", fusion.resultado) : []),
+    ]);
+    estado.textContent = "Demostración sintética completada. Las muestras públicas carecen de atribución a los perfiles ficticios.";
+  } catch (error) {
+    panel.replaceChildren();
+    estado.textContent = `No se pudo ejecutar la demostración local (${error.message}).`;
+  } finally {
+    boton.disabled = false;
+  }
+});
+
 elemento("experimental-consultar-modelos").addEventListener("click", async () => {
   const boton = elemento("experimental-consultar-modelos");
   const panel = elemento("experimental-modelos");
