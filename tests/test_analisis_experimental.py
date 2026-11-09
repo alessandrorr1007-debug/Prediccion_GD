@@ -57,7 +57,8 @@ class ExperimentalTests(unittest.TestCase):
         modelo = Mock()
         modelo.classes_ = list(range(7))
         modelo.predict_proba.return_value = [[.4, .35, .1, .05, .04, .03, .03]]
-        with patch.object(experimental.predictor, "_obtener_face_cascade", return_value=cara):
+        with (patch.object(experimental.predictor, "_obtener_face_cascade", return_value=cara),
+              patch.object(experimental.modelos_fase7, "obtener_modelo", return_value=None)):
             with patch.object(experimental.predictor, "obtener_modelo_facial", return_value=modelo):
                 salida = self.enviar(imagen={"imagen_b64": imagen_b64()}).json()["fuentes"]["imagen"]
                 self.assertEqual(salida["estado"], "abstencion")
