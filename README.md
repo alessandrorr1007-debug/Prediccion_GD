@@ -4,6 +4,8 @@ Prototipo académico de Percepción Computacional. Predicción consume resultado
 
 Consulta la [guía de demostración de Predicción](docs/GUIA_DEMOSTRACION_PREDICCION.md) para repetir la sustentación con casos sintéticos.
 
+El [motor experimental](docs/MOTOR_PREDICCION_EXPERIMENTAL.md) evalúa expresiones y descriptores acústicos declarados por separado, y documenta los indicadores de asistencia, participación y prioridad académica.
+
 ## Arquitectura
 
 - **Revisión de exámenes.** `backend/modulos/prediccion/engine.py` calcula un índice heurístico a partir de eventos normalizados. El adaptador conjunto usa exportaciones JSON de imagen y video.
@@ -52,7 +54,8 @@ Pulsa **Iniciar visor de cámara** para conceder acceso. La captura automática 
 
 - `GET /api/salud` y `GET /api/modulos` — salud del motor de reglas y manifiestos de integración.
 - `POST /api/prediccion` y `POST /api/prediccion/integrar` — eventos normalizados y formatos de imagen/video.
-- `POST /api/prediccion/estudiantes` y `GET /api/prediccion/estudiantes/ejemplos/{caso}` — seguimiento y once ejemplos sintéticos, solo en local.
+- `POST /api/prediccion/estudiantes` y `GET /api/prediccion/estudiantes/ejemplos/{caso}` — seguimiento y doce ejemplos sintéticos, solo en local.
+- `POST /api/prediccion/analisis-experimental` — análisis independiente de imagen, fotograma o descriptores acústicos.
 - `POST /api/prediccion/analizar-captura` y `POST /api/vision/analizar` — JSON con `imagen_b64` y opciones de cada ruta. Véase el [contrato de captura](docs/CONTRATO_MODULOS.md#captura-visual-de-predicción).
 - `GET /api/vision/estado`, `GET /api/prediccion/ejemplo-aula` y `GET /api/prediccion/modelo/metricas` — diagnóstico, cinco perfiles ficticios y métricas.
 - `GET /docs` — documentación interactiva.

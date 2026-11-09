@@ -38,7 +38,7 @@ Invoke-RestMethod -Uri http://localhost:8001/api/prediccion/estudiantes -Method 
 ```
 
 El POST tiene esquemas de entrada/salida en `/docs` y `/openapi.json`.
-`GET /api/prediccion/estudiantes/ejemplos/{caso}` entrega únicamente los once
+`GET /api/prediccion/estudiantes/ejemplos/{caso}` entrega únicamente los doce
 ejemplos ficticios permitidos; no sirve archivos arbitrarios ni perfiles reales.
 
 ## Contrato B, versión 1
@@ -215,7 +215,7 @@ no se modificó.
 Archivos de esta evolución:
 
 - Nuevos: `backend/modulos/prediccion/seguimiento.py`, `seguimiento_contrato.py`,
-  `seguimiento_integracion.py`, `seguimiento_api.py`; once JSON `seguimiento_*_sintetico.json`;
+  `seguimiento_integracion.py`, `seguimiento_api.py`; doce JSON `seguimiento_*_sintetico.json`;
   `tests/test_seguimiento.py`, `tests/test_seguimiento_api.py`, `tests/test_frontend.cjs`;
   este documento.
 - Modificados: `backend/app.py`, `backend/requirements.txt`, manifiesto y README de
