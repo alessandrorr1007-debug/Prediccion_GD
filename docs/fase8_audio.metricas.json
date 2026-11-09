@@ -1,0 +1,506 @@
+{
+  "tipo": "audio",
+  "version": "fase8-1.0",
+  "dataset": {
+    "fuente": "https://zenodo.org/records/1188976",
+    "licencia": "CC BY-NC-SA 4.0",
+    "version": "1.0.0",
+    "dominio": "habla actuada en ingles norteamericano",
+    "nombre": "RAVDESS"
+  },
+  "dataset_sha256": "5d208e01632cc3e5242106fa2af3273e6dc5239fb8143131979ac74c4aa40657",
+  "sklearn": "1.9.1",
+  "semilla": 42,
+  "umbral": 0.55,
+  "margen": 0.1,
+  "particiones": [
+    940,
+    228,
+    240
+  ],
+  "descartados": {
+    "SenalInsuficiente": 31,
+    "duplicado_exacto": 1
+  },
+  "actores_validacion": [
+    [
+      3,
+      6,
+      11,
+      16
+    ],
+    [
+      2,
+      5,
+      10,
+      15
+    ],
+    [
+      1,
+      8,
+      9,
+      13
+    ],
+    [
+      4,
+      7,
+      12,
+      14
+    ]
+  ],
+  "actores_calibracion": [
+    17,
+    18,
+    19,
+    20
+  ],
+  "actores_prueba": [
+    21,
+    22,
+    23,
+    24
+  ],
+  "categorias": {
+    "alegria": 191,
+    "asco": 189,
+    "calma": 178,
+    "enojo": 192,
+    "miedo": 188,
+    "neutral": 96,
+    "sorpresa": 192,
+    "tristeza": 182
+  },
+  "duracion_p05_p50_p95": [
+    3.2365625,
+    3.6703333333333332,
+    4.325992708333328
+  ],
+  "f1_macro_por_fold": {
+    "rf_fase7": [
+      0.3079682443498532,
+      0.3757602403702148,
+      0.3667540878315091,
+      0.4031505232659427
+    ],
+    "regresion_logistica": [
+      0.4583530199663115,
+      0.44697360219481236,
+      0.4604316819064659,
+      0.45993132393728986
+    ],
+    "rf_optimizado": [
+      0.39968347164253726,
+      0.4063669381465992,
+      0.3737366494728729,
+      0.4087724160676463
+    ],
+    "svm_rbf": [
+      0.48091637620038064,
+      0.43774905641653056,
+      0.4680028197688691,
+      0.4351222554138481
+    ],
+    "hist_gradient_boosting": [
+      0.42625486499008125,
+      0.3908520545063303,
+      0.40877637415214363,
+      0.4367340527612834
+    ]
+  },
+  "f1_macro_validacion": {
+    "rf_fase7": 0.3634082739543799,
+    "regresion_logistica": 0.45642240700121994,
+    "rf_optimizado": 0.39713986883241387,
+    "svm_rbf": 0.4554476269499071,
+    "hist_gradient_boosting": 0.41565433660245965
+  },
+  "seleccion": "regresion_logistica",
+  "alternativa": "regresion_logistica",
+  "promocion": true,
+  "evaluacion": {
+    "rf_fase7": {
+      "prueba_calibrada": {
+        "n": 240,
+        "clases": [
+          "alegria",
+          "asco",
+          "calma",
+          "enojo",
+          "miedo",
+          "neutral",
+          "sorpresa",
+          "tristeza"
+        ],
+        "reporte": {
+          "alegria": {
+            "precision": 0.3,
+            "recall": 0.46875,
+            "f1-score": 0.36585365853658536,
+            "support": 32.0
+          },
+          "asco": {
+            "precision": 0.3728813559322034,
+            "recall": 0.6875,
+            "f1-score": 0.4835164835164835,
+            "support": 32.0
+          },
+          "calma": {
+            "precision": 0.8333333333333334,
+            "recall": 0.3125,
+            "f1-score": 0.45454545454545453,
+            "support": 32.0
+          },
+          "enojo": {
+            "precision": 0.6538461538461539,
+            "recall": 0.53125,
+            "f1-score": 0.5862068965517241,
+            "support": 32.0
+          },
+          "miedo": {
+            "precision": 0.6666666666666666,
+            "recall": 0.125,
+            "f1-score": 0.21052631578947367,
+            "support": 32.0
+          },
+          "neutral": {
+            "precision": 0.2916666666666667,
+            "recall": 0.4375,
+            "f1-score": 0.35,
+            "support": 16.0
+          },
+          "sorpresa": {
+            "precision": 0.48,
+            "recall": 0.75,
+            "f1-score": 0.5853658536585366,
+            "support": 32.0
+          },
+          "tristeza": {
+            "precision": 0.38461538461538464,
+            "recall": 0.15625,
+            "f1-score": 0.2222222222222222,
+            "support": 32.0
+          },
+          "accuracy": 0.43333333333333335,
+          "macro avg": {
+            "precision": 0.497876195132551,
+            "recall": 0.43359375,
+            "f1-score": 0.40727961060256,
+            "support": 240.0
+          },
+          "weighted avg": {
+            "precision": 0.5116234970302767,
+            "recall": 0.43333333333333335,
+            "f1-score": 0.4110982513093973,
+            "support": 240.0
+          }
+        },
+        "matriz_confusion": [
+          [
+            15,
+            4,
+            0,
+            0,
+            0,
+            2,
+            11,
+            0
+          ],
+          [
+            3,
+            22,
+            0,
+            6,
+            0,
+            0,
+            1,
+            0
+          ],
+          [
+            2,
+            6,
+            10,
+            0,
+            0,
+            9,
+            0,
+            5
+          ],
+          [
+            3,
+            4,
+            0,
+            17,
+            1,
+            0,
+            7,
+            0
+          ],
+          [
+            13,
+            7,
+            0,
+            0,
+            4,
+            1,
+            7,
+            0
+          ],
+          [
+            6,
+            0,
+            0,
+            0,
+            0,
+            7,
+            0,
+            3
+          ],
+          [
+            4,
+            0,
+            0,
+            3,
+            1,
+            0,
+            24,
+            0
+          ],
+          [
+            4,
+            16,
+            2,
+            0,
+            0,
+            5,
+            0,
+            5
+          ]
+        ],
+        "log_loss": 1.4651769181020522,
+        "brier_multiclase": 0.6739016364061235,
+        "ece_10_tramos": 0.0959895594787575,
+        "roc_auc": null,
+        "cobertura": 0.1125,
+        "exactitud_selectiva": 0.8518518518518519
+      },
+      "actores_prueba": {
+        "21": {
+          "n": 60,
+          "exactitud": 0.36666666666666664,
+          "f1_macro": 0.29277917131178,
+          "cobertura": 0.11666666666666667
+        },
+        "22": {
+          "n": 60,
+          "exactitud": 0.45,
+          "f1_macro": 0.40523504273504274,
+          "cobertura": 0.1
+        },
+        "23": {
+          "n": 60,
+          "exactitud": 0.3,
+          "f1_macro": 0.21882284382284378,
+          "cobertura": 0.1
+        },
+        "24": {
+          "n": 60,
+          "exactitud": 0.6166666666666667,
+          "f1_macro": 0.5859824957651045,
+          "cobertura": 0.13333333333333333
+        }
+      }
+    },
+    "regresion_logistica": {
+      "prueba_calibrada": {
+        "n": 240,
+        "clases": [
+          "alegria",
+          "asco",
+          "calma",
+          "enojo",
+          "miedo",
+          "neutral",
+          "sorpresa",
+          "tristeza"
+        ],
+        "reporte": {
+          "alegria": {
+            "precision": 0.24,
+            "recall": 0.375,
+            "f1-score": 0.2926829268292683,
+            "support": 32.0
+          },
+          "asco": {
+            "precision": 0.6470588235294118,
+            "recall": 0.34375,
+            "f1-score": 0.4489795918367347,
+            "support": 32.0
+          },
+          "calma": {
+            "precision": 0.6470588235294118,
+            "recall": 0.34375,
+            "f1-score": 0.4489795918367347,
+            "support": 32.0
+          },
+          "enojo": {
+            "precision": 0.4107142857142857,
+            "recall": 0.71875,
+            "f1-score": 0.5227272727272727,
+            "support": 32.0
+          },
+          "miedo": {
+            "precision": 0.7142857142857143,
+            "recall": 0.15625,
+            "f1-score": 0.2564102564102564,
+            "support": 32.0
+          },
+          "neutral": {
+            "precision": 0.22,
+            "recall": 0.6875,
+            "f1-score": 0.3333333333333333,
+            "support": 16.0
+          },
+          "sorpresa": {
+            "precision": 0.7428571428571429,
+            "recall": 0.8125,
+            "f1-score": 0.7761194029850746,
+            "support": 32.0
+          },
+          "tristeza": {
+            "precision": 0.375,
+            "recall": 0.09375,
+            "f1-score": 0.15,
+            "support": 32.0
+          },
+          "accuracy": 0.425,
+          "macro avg": {
+            "precision": 0.4996218487394958,
+            "recall": 0.44140625,
+            "f1-score": 0.40365404699483437,
+            "support": 240.0
+          },
+          "weighted avg": {
+            "precision": 0.5182633053221288,
+            "recall": 0.425,
+            "f1-score": 0.4083420945722678,
+            "support": 240.0
+          }
+        },
+        "matriz_confusion": [
+          [
+            12,
+            0,
+            1,
+            6,
+            2,
+            9,
+            2,
+            0
+          ],
+          [
+            3,
+            11,
+            1,
+            13,
+            0,
+            4,
+            0,
+            0
+          ],
+          [
+            10,
+            0,
+            11,
+            1,
+            0,
+            8,
+            0,
+            2
+          ],
+          [
+            2,
+            0,
+            0,
+            23,
+            0,
+            4,
+            3,
+            0
+          ],
+          [
+            10,
+            0,
+            0,
+            9,
+            5,
+            3,
+            2,
+            3
+          ],
+          [
+            3,
+            0,
+            0,
+            2,
+            0,
+            11,
+            0,
+            0
+          ],
+          [
+            4,
+            1,
+            0,
+            1,
+            0,
+            0,
+            26,
+            0
+          ],
+          [
+            6,
+            5,
+            4,
+            1,
+            0,
+            11,
+            2,
+            3
+          ]
+        ],
+        "log_loss": 1.5067004896527214,
+        "brier_multiclase": 0.7090243743416594,
+        "ece_10_tramos": 0.057947286552144255,
+        "roc_auc": null,
+        "cobertura": 0.04583333333333333,
+        "exactitud_selectiva": 0.8181818181818182
+      },
+      "actores_prueba": {
+        "21": {
+          "n": 60,
+          "exactitud": 0.23333333333333334,
+          "f1_macro": 0.13994708994708993,
+          "cobertura": 0.11666666666666667
+        },
+        "22": {
+          "n": 60,
+          "exactitud": 0.4166666666666667,
+          "f1_macro": 0.41875485625485626,
+          "cobertura": 0.016666666666666666
+        },
+        "23": {
+          "n": 60,
+          "exactitud": 0.4166666666666667,
+          "f1_macro": 0.35439158794421954,
+          "cobertura": 0.0
+        },
+        "24": {
+          "n": 60,
+          "exactitud": 0.6333333333333333,
+          "f1_macro": 0.604923956762192,
+          "cobertura": 0.05
+        }
+      }
+    }
+  }
+}

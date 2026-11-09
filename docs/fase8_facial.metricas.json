@@ -1,0 +1,458 @@
+{
+  "seleccion": "hog_svm",
+  "f1_macro_validacion": {
+    "mayoria": 0.08974358974358974,
+    "hog_logistica": 0.2971014492753623,
+    "hog_svm": 0.47316982534373836,
+    "cnn_regularizada": 0.09523809523809523
+  },
+  "prueba_candidatos_sin_calibrar": {
+    "mayoria": {
+      "n": 38,
+      "clases": [
+        "alegria",
+        "enojo",
+        "neutral",
+        "tristeza"
+      ],
+      "reporte": {
+        "alegria": {
+          "precision": 0.2894736842105263,
+          "recall": 1.0,
+          "f1-score": 0.4489795918367347,
+          "support": 11.0
+        },
+        "enojo": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 8.0
+        },
+        "neutral": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 10.0
+        },
+        "tristeza": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 9.0
+        },
+        "accuracy": 0.2894736842105263,
+        "macro avg": {
+          "precision": 0.07236842105263158,
+          "recall": 0.25,
+          "f1-score": 0.11224489795918367,
+          "support": 38.0
+        },
+        "weighted avg": {
+          "precision": 0.0837950138504155,
+          "recall": 0.2894736842105263,
+          "f1-score": 0.12996777658431793,
+          "support": 38.0
+        }
+      },
+      "matriz_confusion": [
+        [
+          11,
+          0,
+          0,
+          0
+        ],
+        [
+          8,
+          0,
+          0,
+          0
+        ],
+        [
+          10,
+          0,
+          0,
+          0
+        ],
+        [
+          9,
+          0,
+          0,
+          0
+        ]
+      ],
+      "log_loss": 25.609964250162182,
+      "brier_multiclase": 1.4210526315789473,
+      "ece_10_tramos": 0.7105263157894737,
+      "roc_auc": null,
+      "cobertura": 1.0,
+      "exactitud_selectiva": 0.2894736842105263
+    },
+    "hog_logistica": {
+      "n": 38,
+      "clases": [
+        "alegria",
+        "enojo",
+        "neutral",
+        "tristeza"
+      ],
+      "reporte": {
+        "alegria": {
+          "precision": 0.5384615384615384,
+          "recall": 0.6363636363636364,
+          "f1-score": 0.5833333333333334,
+          "support": 11.0
+        },
+        "enojo": {
+          "precision": 0.4166666666666667,
+          "recall": 0.625,
+          "f1-score": 0.5,
+          "support": 8.0
+        },
+        "neutral": {
+          "precision": 0.4,
+          "recall": 0.4,
+          "f1-score": 0.4,
+          "support": 10.0
+        },
+        "tristeza": {
+          "precision": 0.3333333333333333,
+          "recall": 0.1111111111111111,
+          "f1-score": 0.16666666666666666,
+          "support": 9.0
+        },
+        "accuracy": 0.4473684210526316,
+        "macro avg": {
+          "precision": 0.4221153846153846,
+          "recall": 0.44311868686868683,
+          "f1-score": 0.41250000000000003,
+          "support": 38.0
+        },
+        "weighted avg": {
+          "precision": 0.42780026990553305,
+          "recall": 0.4473684210526316,
+          "f1-score": 0.41885964912280704,
+          "support": 38.0
+        }
+      },
+      "matriz_confusion": [
+        [
+          7,
+          2,
+          2,
+          0
+        ],
+        [
+          1,
+          5,
+          2,
+          0
+        ],
+        [
+          2,
+          2,
+          4,
+          2
+        ],
+        [
+          3,
+          3,
+          2,
+          1
+        ]
+      ],
+      "log_loss": 2.197333574295044,
+      "brier_multiclase": 0.8324863314628601,
+      "ece_10_tramos": 0.3223804596223329,
+      "roc_auc": null,
+      "cobertura": 0.7894736842105263,
+      "exactitud_selectiva": 0.43333333333333335
+    },
+    "hog_svm": {
+      "n": 38,
+      "clases": [
+        "alegria",
+        "enojo",
+        "neutral",
+        "tristeza"
+      ],
+      "reporte": {
+        "alegria": {
+          "precision": 0.4375,
+          "recall": 0.6363636363636364,
+          "f1-score": 0.5185185185185185,
+          "support": 11.0
+        },
+        "enojo": {
+          "precision": 0.2857142857142857,
+          "recall": 0.25,
+          "f1-score": 0.26666666666666666,
+          "support": 8.0
+        },
+        "neutral": {
+          "precision": 0.4444444444444444,
+          "recall": 0.4,
+          "f1-score": 0.42105263157894735,
+          "support": 10.0
+        },
+        "tristeza": {
+          "precision": 0.3333333333333333,
+          "recall": 0.2222222222222222,
+          "f1-score": 0.26666666666666666,
+          "support": 9.0
+        },
+        "accuracy": 0.39473684210526316,
+        "macro avg": {
+          "precision": 0.37524801587301587,
+          "recall": 0.3771464646464646,
+          "f1-score": 0.3682261208576998,
+          "support": 38.0
+        },
+        "weighted avg": {
+          "precision": 0.3827015455304929,
+          "recall": 0.39473684210526316,
+          "f1-score": 0.3801990356006977,
+          "support": 38.0
+        }
+      },
+      "matriz_confusion": [
+        [
+          7,
+          2,
+          1,
+          1
+        ],
+        [
+          4,
+          2,
+          2,
+          0
+        ],
+        [
+          2,
+          1,
+          4,
+          3
+        ],
+        [
+          3,
+          2,
+          2,
+          2
+        ]
+      ]
+    },
+    "cnn_regularizada": {
+      "n": 38,
+      "clases": [
+        "alegria",
+        "enojo",
+        "neutral",
+        "tristeza"
+      ],
+      "reporte": {
+        "alegria": {
+          "precision": 0.3333333333333333,
+          "recall": 0.7272727272727273,
+          "f1-score": 0.45714285714285713,
+          "support": 11.0
+        },
+        "enojo": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 8.0
+        },
+        "neutral": {
+          "precision": 0.6,
+          "recall": 0.3,
+          "f1-score": 0.4,
+          "support": 10.0
+        },
+        "tristeza": {
+          "precision": 0.2222222222222222,
+          "recall": 0.2222222222222222,
+          "f1-score": 0.2222222222222222,
+          "support": 9.0
+        },
+        "accuracy": 0.34210526315789475,
+        "macro avg": {
+          "precision": 0.28888888888888886,
+          "recall": 0.3123737373737374,
+          "f1-score": 0.2698412698412699,
+          "support": 38.0
+        },
+        "weighted avg": {
+          "precision": 0.30701754385964913,
+          "recall": 0.34210526315789475,
+          "f1-score": 0.29022556390977444,
+          "support": 38.0
+        }
+      },
+      "matriz_confusion": [
+        [
+          8,
+          0,
+          0,
+          3
+        ],
+        [
+          6,
+          0,
+          1,
+          1
+        ],
+        [
+          4,
+          0,
+          3,
+          3
+        ],
+        [
+          6,
+          0,
+          1,
+          2
+        ]
+      ],
+      "log_loss": 1.3867064714431763,
+      "brier_multiclase": 0.7511698007583618,
+      "ece_10_tramos": 0.07394616305828093,
+      "roc_auc": null,
+      "cobertura": 0.0,
+      "exactitud_selectiva": null
+    }
+  },
+  "prueba_modelo_calibrado": {
+    "n": 38,
+    "clases": [
+      "alegria",
+      "enojo",
+      "neutral",
+      "tristeza"
+    ],
+    "reporte": {
+      "alegria": {
+        "precision": 0.4166666666666667,
+        "recall": 0.45454545454545453,
+        "f1-score": 0.43478260869565216,
+        "support": 11.0
+      },
+      "enojo": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 8.0
+      },
+      "neutral": {
+        "precision": 0.35294117647058826,
+        "recall": 0.6,
+        "f1-score": 0.4444444444444444,
+        "support": 10.0
+      },
+      "tristeza": {
+        "precision": 0.375,
+        "recall": 0.3333333333333333,
+        "f1-score": 0.35294117647058826,
+        "support": 9.0
+      },
+      "accuracy": 0.3684210526315789,
+      "macro avg": {
+        "precision": 0.2861519607843137,
+        "recall": 0.34696969696969693,
+        "f1-score": 0.3080420574026712,
+        "support": 38.0
+      },
+      "weighted avg": {
+        "precision": 0.3023090815273478,
+        "recall": 0.3684210526315789,
+        "f1-score": 0.3264085191666293,
+        "support": 38.0
+      }
+    },
+    "matriz_confusion": [
+      [
+        5,
+        1,
+        3,
+        2
+      ],
+      [
+        4,
+        0,
+        4,
+        0
+      ],
+      [
+        1,
+        0,
+        6,
+        3
+      ],
+      [
+        2,
+        0,
+        4,
+        3
+      ]
+    ],
+    "log_loss": 1.3463624954784763,
+    "brier_multiclase": 0.7290514285631094,
+    "ece_10_tramos": 0.021873667351731962,
+    "roc_auc": null,
+    "cobertura": 0.0,
+    "exactitud_selectiva": null
+  },
+  "tipo": "facial",
+  "version": "fase8-1.0",
+  "dataset": {
+    "fuente": "https://doi.org/10.24432/C5JC79",
+    "licencia": "CC BY 4.0",
+    "nombre": "CMU Face Images",
+    "dominio": "expresiones posadas de 20 personas en condiciones de captura controladas"
+  },
+  "dataset_sha256": "01a8b6cc58ac2f825f72abd6cf2b393df067c6529d96f7a90b22dede71b142cc",
+  "sklearn": "1.9.1",
+  "semilla": 42,
+  "umbral": 0.55,
+  "margen": 0.1,
+  "personas_por_particion": [
+    10,
+    3,
+    3,
+    4
+  ],
+  "particiones": [
+    92,
+    32,
+    34,
+    38
+  ],
+  "categorias": {
+    "alegria": 49,
+    "enojo": 48,
+    "neutral": 52,
+    "tristeza": 47
+  },
+  "poses": {
+    "left": 40,
+    "right": 30,
+    "straight": 70,
+    "up": 56
+  },
+  "descartes": {
+    "sin_un_rostro": 117,
+    "pgm_invalido": 7,
+    "personas_sin_recortes": 0
+  },
+  "ic95_exploratorio": {
+    "exactitud": [
+      0.32142857142857145,
+      0.4117647058823529
+    ],
+    "f1_macro": [
+      0.23636363636363636,
+      0.33122312470138554
+    ],
+    "remuestreos_por_persona": 1000
+  }
+}
