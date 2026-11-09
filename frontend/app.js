@@ -882,6 +882,55 @@ function lista(contenedor, titulo, textos) {
   contenedor.append(encabezado, ul);
 }
 
+async function cargarEstadoIntegracion() {
+  const panel = elemento("integracion-modulos");
+  const boton = elemento("actualizar-integracion");
+  boton.disabled = true;
+  try {
+    const respuesta = await fetch(`${servidor()}/api/modulos`);
+    if (!respuesta.ok) throw new Error();
+    const datos = await respuesta.json();
+    if (!Array.isArray(datos.modulos)) throw new Error();
+    panel.replaceChildren();
+    for (const fuente of ["imagen", "video", "audio"]) {
+      const modulo = datos.modulos.find(m => m.nombre === fuente);
+      const li = document.createElement("li");
+      const nombre = fuente.toUpperCase();
+      if (!modulo) li.textContent = `${nombre} · estado no disponible`;
+      else if (fuente === "audio") li.textContent = `${nombre} · productor y contrato pendientes`;
+      else if (!modulo.archivos_presentes?.length) li.textContent = `${nombre} · adaptador no disponible`;
+      else li.textContent = `${nombre} · adaptador disponible · ${modulo.validacion || "Validación del productor pendiente"}`;
+      panel.append(li);
+    }
+  } catch {
+    const li = document.createElement("li");
+    li.textContent = "No se pudo consultar el estado de imagen, video y audio.";
+    panel.replaceChildren(li);
+  } finally {
+    boton.disabled = false;
+  }
+}
+
+elemento("actualizar-integracion").addEventListener("click", cargarEstadoIntegracion);
+if (typeof window !== "undefined") void cargarEstadoIntegracion();
+
+function describirEvidencia(e) {
+  if (e.tipo === "evento_familiar" && e.evento_familiar) {
+    const evento = e.evento_familiar;
+    return `Evento familiar declarado (simulado) · ${evento.fecha} · referencia: ${evento.referencia} · origen: ${e.origen}`;
+  }
+  const dato = typeof e.valor === "boolean" ? (e.valor ? "sí" : "no") : e.valor ?? e.estado;
+  const partes = [e.id || e.tipo, dato, e.fecha_hora || e.fecha,
+    e.origen && `origen: ${e.origen}`, e.naturaleza && `procedencia: ${e.naturaleza}`,
+    e.modelo && `modelo: ${e.modelo}`,
+    e.estudiante_id && `ID ${e.estudiante_id}`,
+    e.presente === false && "ausencia explícita",
+    e.modulo && `confianza: ${e.confianza ?? "sin dato"}`,
+    e.modulo && `calidad: ${e.calidad ?? "sin dato"}${e.calidad_origen && e.calidad_origen !== "declarada" ? ` (${e.calidad_origen.replaceAll("_", " ")})` : ""}`,
+    e.asociacion && `identidad: ${e.asociacion.metodo} · referencia: ${e.asociacion.referencia}`];
+  return partes.filter(p => p !== undefined && p !== null && p !== false && p !== "").join(" · ");
+}
+
 function mostrarSeguimiento(salida) {
   const contenedor = elemento("resultados-estudiantes");
   if (!contenedor) return;
@@ -894,6 +943,8 @@ function mostrarSeguimiento(salida) {
   const textoNivel = `DEMO SINTÉTICA · ${maximo ? maximo.nivel_revision : "datos insuficientes"}`;
   if (elemento("nivel")) elemento("nivel").textContent = textoNivel;
   if (elemento("recomendacion")) elemento("recomendacion").textContent = "Prioridades para revisión humana. Los avisos son sugerencias: no se envían mensajes ni se guardan historiales.";
+  lista(contenedor, "Fuentes recibidas en esta evaluación",
+    (salida.fuentes_recibidas || []).map(f => `${f.modulo} · sesión ${f.sesion_id} · ${f.origen} · ${f.naturaleza} · ${f.observaciones_recibidas} observaciones antes de deduplicar`));
 
   for (const r of (salida.resultados || [])) {
     const articulo = document.createElement("article");
@@ -904,7 +955,7 @@ function mostrarSeguimiento(salida) {
     nivel.textContent = `${r.actividad} · ${(r.nivel_revision || "").replaceAll("_", " ")} · prioridad ${r.indice_prioridad ?? "sin datos"}`;
     const identidad = document.createElement("p");
     const observaciones = Object.entries(r.evidencia_por_modulo || {}).filter(([modulo]) => modulo !== "contexto");
-    identidad.textContent = observaciones.some(([, items]) => items.length)
+    identidad.textContent = (r.tiene_observaciones_verificadas ?? observaciones.some(([, items]) => items.length))
       ? "Observaciones disponibles con asociación de identidad verificada según la entrada."
       : "Sin observaciones con identidad verificada para esta sesión.";
     articulo.append(titulo, nivel, identidad);
@@ -916,15 +967,8 @@ function mostrarSeguimiento(salida) {
 
     if (r.evidencia_por_modulo) {
       for (const [modulo, evidencias] of Object.entries(r.evidencia_por_modulo)) {
-        lista(articulo, `Evidencia · ${modulo}`, evidencias.map(e => {
-          if (e.tipo === "evento_familiar" && e.evento_familiar) {
-            const evento = e.evento_familiar;
-            return `Evento familiar declarado (simulado) · ${evento.fecha} · referencia: ${evento.referencia} · origen: ${e.origen}`;
-          }
-          const tiempo = e.fecha_hora || e.fecha || "";
-          const dato = e.valor ?? e.estado ?? "";
-          return `${e.id || e.tipo} · ${dato}${e.presente === false ? " (ausencia explícita)" : ""} · ${tiempo} · origen: ${e.origen}${e.confianza != null ? ` · confianza: ${e.confianza} · calidad: ${e.calidad}` : ""}`;
-        }));
+        lista(articulo, modulo === "contexto" ? "Evidencia · contexto e historial académico" : `Evidencia · ${modulo}`,
+          evidencias.map(describirEvidencia));
       }
     }
 
@@ -942,10 +986,12 @@ function mostrarSeguimiento(salida) {
   }
 
   if (salida.observaciones_sin_atribuir) {
-    lista(contenedor, "Observaciones sin atribuir", salida.observaciones_sin_atribuir.map(o => `${o.modulo} · ${o.id}: ${o.motivo}`));
+    lista(contenedor, "Observaciones sin atribuir", salida.observaciones_sin_atribuir.map(o =>
+      `${o.modulo} · sesión ${o.sesion_id} · ${o.motivo} · ${describirEvidencia(o)}`));
   }
   if (salida.observaciones_descartadas) {
-    lista(contenedor, "Observaciones descartadas", salida.observaciones_descartadas.map(o => `${o.modulo} · ${o.id}: ${o.motivo}`));
+    lista(contenedor, "Observaciones descartadas", salida.observaciones_descartadas.map(o =>
+      `${o.modulo} · sesión ${o.sesion_id} · ${o.motivo} · ${describirEvidencia(o)}`));
   }
   if (salida.duplicados_omitidos !== undefined) {
     lista(contenedor, "Control de duplicados", [`${salida.duplicados_omitidos} retransmisiones idénticas omitidas.`]);
@@ -1049,7 +1095,11 @@ if (elemento("ejecutar")) {
       });
       const salida = await respuesta.json();
 
-      if (!respuesta.ok) throw new Error(typeof salida.detail === "string" ? salida.detail : JSON.stringify(salida.detail || salida));
+      if (!respuesta.ok) {
+        const error = salida.error_integracion;
+        const origen = error ? `Fuente ${error.indice + 1} (${error.modulo}, ${error.codigo}) · ` : "";
+        throw new Error(origen + (typeof salida.detail === "string" ? salida.detail : JSON.stringify(salida.detail || salida)));
+      }
 
       if (elemento("salida")) elemento("salida").textContent = JSON.stringify(salida, null, 2);
 

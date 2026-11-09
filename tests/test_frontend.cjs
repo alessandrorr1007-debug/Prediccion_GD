@@ -136,6 +136,39 @@ test("el acceso del panel abre seguimiento y muestra la coincidencia con sus fue
   assert.match(texto, /Destinatarios sugeridos/);
 });
 
+test("panel de integración muestra estados y distingue un servidor no disponible", async () => {
+  const e = montar();
+  await e["actualizar-integracion"].listeners.click();
+  const modulos = contenido(e["integracion-modulos"]);
+  assert.match(modulos, /IMAGEN · adaptador disponible/);
+  assert.match(modulos, /VIDEO · adaptador disponible/);
+  assert.match(modulos, /AUDIO · productor y contrato pendientes/);
+  const offline = montar({ fetch: async () => { throw new Error("sin conexión"); } });
+  await offline["actualizar-integracion"].listeners.click();
+  assert.match(contenido(offline["integracion-modulos"]), /No se pudo consultar/);
+  assert.equal(offline["actualizar-integracion"].disabled, false);
+});
+
+test("seguimiento multimodal muestra procedencia, escena sin identidad y errores por fuente", async () => {
+  const e = montar();
+  e["ejemplo-seguimiento"].value = "multimodal";
+  await e["abrir-seguimiento"].listeners.click();
+  await e.ejecutar.listeners.click();
+  assert.equal(e.indice.textContent, "30");
+  const texto = contenido(e["resultados-estudiantes"]);
+  assert.match(texto, /Fuentes recibidas en esta evaluación/);
+  assert.match(texto, /fixture-imagen.*sintetica/);
+  assert.match(texto, /registro-demo/);
+  assert.match(texto, /revision-demo-1/);
+  assert.match(texto, /conteo de escena sin identidad individual.*cap-demo-1/);
+  const datos = JSON.parse(e.entrada.value);
+  datos.fuentes[0].modulo = "audio";
+  e.entrada.value = JSON.stringify(datos);
+  await e.ejecutar.listeners.click();
+  assert.match(e.estado.textContent, /Fuente 1 \(audio, contrato_pendiente\)/);
+  assert.equal(e["resultados-estudiantes"].children.length, 0);
+});
+
 function montarCamara({ usarNativo = true, alternativo, responder } = {}) {
   let reloj = 0;
   let siguienteId = 0;

@@ -1326,6 +1326,15 @@ body {
   font-weight: 700;
 }
 
+#integracion-modulos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin: 10px 0 14px;
+  padding-left: 20px;
+  color: var(--text-body);
+}
+
 .tech-content {
   display: grid;
   gap: 8px;
