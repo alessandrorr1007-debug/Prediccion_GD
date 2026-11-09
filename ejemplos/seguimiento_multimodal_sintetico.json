@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "simulado": true,
+  "descripcion": "SINTÉTICO: imagen y video describen el mismo teléfono, captura de escena sin identidad y tareas pendientes.",
+  "estudiantes": [
+    {
+      "estudiante_id": "demo-integracion",
+      "sesiones": [
+        "demo-multimodal"
+      ]
+    }
+  ],
+  "sesiones": [
+    {
+      "sesion_id": "demo-multimodal",
+      "actividad": "clase",
+      "inicio": "2026-11-09T10:00:00-05:00",
+      "segundo_actual": 40
+    }
+  ],
+  "fuentes": [
+    {
+      "modulo": "imagen",
+      "sesion_id": "demo-multimodal",
+      "origen": "fixture-imagen",
+      "naturaleza": "sintetica",
+      "datos": {
+        "frames": [
+          {
+            "frame_id": "i1",
+            "segundo": 10,
+            "calidad_normalizada": 0.85,
+            "objetos": [
+              {
+                "id": "t1",
+                "clase": "celular",
+                "confianza": 0.91,
+                "estado": "confirmada"
+              }
+            ]
+          }
+        ]
+      },
+      "evidencias": {
+        "imagen:i1:t1": "instante-1"
+      }
+    },
+    {
+      "modulo": "video",
+      "sesion_id": "demo-multimodal",
+      "origen": "fixture-video",
+      "naturaleza": "sintetica",
+      "datos": {
+        "frames": [
+          {
+            "frame_id": "v1",
+            "segundo": 10,
+            "calidad": 0.8,
+            "detecciones": [
+              {
+                "id": "t1",
+                "clase": "cell phone",
+                "confianza": 0.93
+              }
+            ]
+          }
+        ]
+      },
+      "evidencias": {
+        "video:t1": "instante-1"
+      }
+    },
+    {
+      "modulo": "captura",
+      "sesion_id": "demo-multimodal",
+      "origen": "captura-demo",
+      "naturaleza": "sintetica",
+      "datos": {
+        "captura_id": "cap-demo-1",
+        "segundo": 12,
+        "personas_detectadas": 2
+      }
+    }
+  ],
+  "asociaciones": [
+    {
+      "observacion_id": "imagen:i1:t1",
+      "modulo": "imagen",
+      "sesion_id": "demo-multimodal",
+      "estudiante_id": "demo-integracion",
+      "metodo": "revision_manual",
+      "referencia": "revision-demo-1",
+      "verificada": true,
+      "confianza": 0.97
+    },
+    {
+      "observacion_id": "video:t1",
+      "modulo": "video",
+      "sesion_id": "demo-multimodal",
+      "estudiante_id": "demo-integracion",
+      "metodo": "revision_manual",
+      "referencia": "revision-demo-1",
+      "verificada": true,
+      "confianza": 0.97
+    }
+  ],
+  "contextos": [
+    {
+      "estudiante_id": "demo-integracion",
+      "sesion_id": "demo-multimodal",
+      "origen": "registro-demo",
+      "naturaleza": "sintetica",
+      "tareas": [
+        {
+          "id": "tarea-1",
+          "fecha": "2026-11-08",
+          "estado": "pendiente"
+        },
+        {
+          "id": "tarea-2",
+          "fecha": "2026-11-08",
+          "estado": "pendiente"
+        }
+      ],
+      "reuniones": [],
+      "evaluacion_proxima": true
+    }
+  ]
+}

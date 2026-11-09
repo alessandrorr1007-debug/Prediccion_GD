@@ -8,6 +8,8 @@ Texto = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, ma
 Numero = Annotated[float, Field(strict=True, ge=0, allow_inf_nan=False)]
 Unidad = Annotated[float, Field(strict=True, ge=0, le=1, allow_inf_nan=False)]
 Segundo = Annotated[float, Field(strict=True, ge=0, le=86400, allow_inf_nan=False)]
+ModuloObservacion = Literal["imagen", "video", "audio", "captura"]
+Naturaleza = Literal["real", "sintetica", "desconocida"]
 EMOCIONES = {"alegria", "tristeza", "miedo", "enojo", "sorpresa", "asco", "neutral"}
 ALIAS_EMOCIONES = {"felicidad": "alegria", "disgusto": "asco"}
 
@@ -46,17 +48,20 @@ class Sesion(Contrato):
 class Observacion(Contrato):
     id: Texto
     sesion_id: Texto
-    modulo: Literal["imagen", "video", "audio"]
+    modulo: ModuloObservacion
     segundo: Segundo
     fecha_hora: datetime
     origen: Texto
-    tipo: Literal["objeto", "emocion", "senal_voz"]
+    tipo: Literal["objeto", "emocion", "senal_voz", "conteo_personas"]
     valor: Texto
     presente: StrictBool = True
     porcentaje: Annotated[float, Field(strict=True, ge=0, le=100, allow_inf_nan=False)] | None = None
-    confianza: Unidad
+    confianza: Unidad | None = None
     calidad: Unidad | None = None
     evidencia_id: Texto | None = None
+    naturaleza: Naturaleza = "desconocida"
+    modelo: Texto | None = None
+    calidad_origen: Literal["declarada", "supuesto_heredado", "no_distinguible"] = "declarada"
 
     @model_validator(mode="after")
     def validar_tipo(self):
@@ -70,12 +75,17 @@ class Observacion(Contrato):
             raise ValueError("porcentaje solo corresponde a una clasificación emocional")
         if self.tipo == "senal_voz" and self.modulo != "audio":
             raise ValueError("senal_voz requiere el módulo AUDIO, que permanece pendiente")
+        if self.tipo == "conteo_personas" and (
+            self.modulo != "captura" or not self.valor.isascii() or not self.valor.isdecimal()
+            or len(self.valor) > 5 or int(self.valor) > 10000
+        ):
+            raise ValueError("conteo_personas requiere una captura y un conteo de 0 a 10000")
         return self
 
 
 class Asociacion(Contrato):
     observacion_id: Texto
-    modulo: Literal["imagen", "video", "audio"]
+    modulo: ModuloObservacion
     sesion_id: Texto
     estudiante_id: Texto
     metodo: Literal["revision_manual", "registro_institucional"]
@@ -120,6 +130,7 @@ class ContextoAcademico(Contrato):
     estudiante_id: Texto
     sesion_id: Texto
     origen: Texto
+    naturaleza: Naturaleza = "desconocida"
     asistencia: list[Asistencia] | None = Field(default=None, max_length=366)
     tareas: list[Tarea] | None = Field(default=None, max_length=1000)
     reuniones: list[Reunion] | None = Field(default=None, max_length=1000)
@@ -128,13 +139,20 @@ class ContextoAcademico(Contrato):
 
 
 class FuenteResultados(Contrato):
-    """Reutiliza exclusivamente los adaptadores existentes, sin ejecutar modelos."""
-    modulo: Literal["imagen", "video", "audio"]
+    """Envuelve un resultado producido fuera del seguimiento."""
+    modulo: ModuloObservacion
     sesion_id: Texto
     origen: Texto
+    naturaleza: Naturaleza = "desconocida"
     datos: dict
     # El integrador aporta una referencia compartida cuando conoce la correlación.
     evidencias: dict[str, Texto] = Field(default_factory=dict)
+
+
+class ConteoCaptura(Contrato):
+    captura_id: Texto
+    segundo: Segundo
+    personas_detectadas: Annotated[int, Field(strict=True, ge=0, le=10000)]
 
 
 class ReglasSeguimiento(Contrato):
@@ -204,6 +222,7 @@ class ResultadoEstudiante(Contrato):
     nombre: str | None
     sesion_id: str
     actividad: str
+    tiene_observaciones_verificadas: bool = False
     indice_prioridad: int | None
     nivel_revision: Literal["datos_insuficientes", "bajo", "moderado", "alto"]
     reglas_activadas: list[ReglaActivada]
@@ -217,6 +236,14 @@ class ResultadoEstudiante(Contrato):
     requiere_revision_humana: Literal[True] = True
 
 
+class FuenteRecibida(Contrato):
+    modulo: ModuloObservacion
+    sesion_id: Texto
+    origen: Texto
+    naturaleza: Naturaleza
+    observaciones_recibidas: int
+
+
 class SalidaSeguimiento(Contrato):
     version_motor: str
     simulado: Literal[True] = True
@@ -228,3 +255,4 @@ class SalidaSeguimiento(Contrato):
     duplicados_omitidos: int
     limitaciones: list[str]
     estado_modulos: dict[str, str]
+    fuentes_recibidas: list[FuenteRecibida] = Field(default_factory=list)

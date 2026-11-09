@@ -11,6 +11,7 @@ from starlette.concurrency import run_in_threadpool
 
 from .seguimiento import analizar_estudiantes
 from .seguimiento_contrato import EntradaSeguimiento, SalidaSeguimiento
+from .seguimiento_integracion import ErrorFuente
 
 
 class RutaDemoLocal(APIRoute):
@@ -57,6 +58,8 @@ async def seguimiento(entrada: EntradaSeguimiento):
     """
     try:
         return await run_in_threadpool(analizar_estudiantes, entrada)
+    except ErrorFuente as error:
+        return JSONResponse(status_code=422, content={"detail": str(error), "error_integracion": error.detalle})
     except ValidationError as error:
         detalle = [{"campo": ".".join(map(str, e["loc"])), "mensaje": e["msg"]} for e in error.errors()]
         raise HTTPException(422, detalle) from None
@@ -68,7 +71,8 @@ async def seguimiento(entrada: EntradaSeguimiento):
 async def ejemplo_seguimiento(caso: str):
     from pathlib import Path
     permitidos = {"juan", "sin_alerta", "identidad_desconocida", "insuficientes",
-                  "contradictorio", "duplicados", "aislado", "cambio_patron", "coincidencia", "sin_adversos"}
+                  "contradictorio", "duplicados", "aislado", "cambio_patron", "coincidencia", "sin_adversos",
+                  "multimodal"}
     if caso not in permitidos:
         raise HTTPException(404, "Ejemplo no disponible")
     ruta = Path(__file__).resolve().parents[3] / "ejemplos" / f"seguimiento_{caso}_sintetico.json"

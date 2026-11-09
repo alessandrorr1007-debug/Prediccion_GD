@@ -5,7 +5,7 @@ from statistics import mean
 
 from backend.modulos.video.adapter import ALIAS
 from .seguimiento_contrato import EntradaSeguimiento, SalidaSeguimiento
-from .seguimiento_integracion import reunir_observaciones
+from .seguimiento_integracion import reunir_observaciones, resumir_fuentes
 
 
 def _clave(o):
@@ -14,6 +14,14 @@ def _clave(o):
 
 def _senal(o):
     return ALIAS.get(o.valor.lower(), o.valor.lower())
+
+
+def _detalle_observacion(o):
+    detalle = o.model_dump(mode="json")
+    detalle["fecha_hora"] = o.fecha_hora.isoformat()
+    if o.calidad is None:
+        detalle["calidad_origen"] = "no_informada"
+    return detalle
 
 
 def _muestras(observaciones):
@@ -79,6 +87,9 @@ def analizar_estudiantes(datos):
     unicas, conflictivas = {}, set()
     duplicados = 0
     for o in originales:
+        valor = _senal(o)
+        if valor != o.valor:
+            o = o.model_copy(update={"valor": valor})
         if o.sesion_id not in sesiones:
             raise ValueError("Observación con sesión desconocida")
         sesion = sesiones[o.sesion_id]
@@ -103,31 +114,45 @@ def analizar_estudiantes(datos):
         vinculos[clave].append(asociacion)
 
     agrupadas = defaultdict(list)
+    atribuciones = {}
+    pares_verificados = set()
     sin_atribuir, descartadas = [], []
     conflictos_por_par = defaultdict(list)
     for clave, o in unicas.items():
-        referencia = {"id": o.id, "modulo": o.modulo, "sesion_id": o.sesion_id}
+        referencia = dict(_detalle_observacion(o), identidad_verificada=False)
         asociaciones = vinculos[clave]
         if clave in conflictivas:
             descartadas.append(dict(referencia, estado="observacion_contradictoria", motivo="mismo ID con contenidos contradictorios"))
             for a in asociaciones:
                 conflictos_por_par[a.estudiante_id, a.sesion_id].append(f"evento:{o.id}: contenidos contradictorios; excluido")
             continue
+        if o.tipo == "conteo_personas":
+            sin_atribuir.append(dict(referencia, estado="identidad_no_aplicable", motivo="conteo de escena sin identidad individual"))
+            continue
         verificadas = [a for a in asociaciones if a.verificada]
         identidades = {a.estudiante_id for a in verificadas}
         if len(identidades) > 1:
             sin_atribuir.append(dict(referencia, estado="identidad_ambigua", motivo="identidad ambigua"))
+            for estudiante_id in identidades:
+                conflictos_por_par[estudiante_id, o.sesion_id].append(f"evento:{o.id}: asociaciones de identidad incompatibles")
             continue
         if not any(a.confianza >= reglas.identidad_minima for a in verificadas):
             sin_atribuir.append(dict(referencia, estado="identidad_desconocida", motivo="sin asociación verificada suficiente"))
             continue
-        estudiante_id = next(iter(identidades))
+        asociacion = max(verificadas, key=lambda a: (a.confianza, a.referencia, a.metodo))
+        estudiante_id = asociacion.estudiante_id
+        pares_verificados.add((estudiante_id, o.sesion_id))
+        identidad = dict(estudiante_id=estudiante_id, identidad_verificada=True,
+                         asociacion=dict(metodo=asociacion.metodo, referencia=asociacion.referencia,
+                                         confianza=asociacion.confianza))
+        referencia.update(identidad)
         sesion = sesiones[o.sesion_id]
         if not 0 <= sesion.segundo_actual - o.segundo <= reglas.ventana_segundos:
             descartadas.append(dict(referencia, estado="fuera_de_ventana", motivo="fuera de ventana o futura"))
             continue
-        if o.confianza < reglas.confianza_minima or o.calidad is None or o.calidad < reglas.calidad_minima:
-            estado = "confianza_insuficiente" if o.confianza < reglas.confianza_minima else "calidad_insuficiente"
+        confianza_insuficiente = o.confianza is None or o.confianza < reglas.confianza_minima
+        if confianza_insuficiente or o.calidad is None or o.calidad < reglas.calidad_minima:
+            estado = "confianza_insuficiente" if confianza_insuficiente else "calidad_insuficiente"
             descartadas.append(dict(referencia, estado=estado, motivo="confianza/calidad insuficiente o calidad desconocida"))
             continue
         if o.tipo == "objeto" and _senal(o) not in {
@@ -135,6 +160,7 @@ def analizar_estudiantes(datos):
             descartadas.append(dict(referencia, motivo="objeto desconocido: no hay regla ni interpretación disponible"))
             continue
         agrupadas[estudiante_id, o.sesion_id].append(o)
+        atribuciones[clave] = identidad
 
     resultados = []
     for estudiante_id, sesion_id in sorted(inscritos):
@@ -152,10 +178,7 @@ def analizar_estudiantes(datos):
                 activadas.append(dict(regla=nombre, puntos=puntos, explicacion=explicacion, referencias=referencias))
 
         for o in sorted(observaciones, key=lambda x: (x.segundo, x.modulo, x.id)):
-            detalle = dict(id=o.id, segundo=o.segundo, fecha_hora=o.fecha_hora.isoformat(),
-                origen=o.origen, tipo=o.tipo, valor=_senal(o), presente=o.presente,
-                porcentaje=o.porcentaje, confianza=o.confianza, calidad=o.calidad,
-                evidencia_id=o.evidencia_id)
+            detalle = dict(_detalle_observacion(o), **atribuciones[_clave(o)])
             evidencia[o.modulo].append(detalle)
             por_senal[o.tipo, _senal(o)].append(o)
         if not observaciones:
@@ -176,11 +199,14 @@ def analizar_estudiantes(datos):
             for tipo, registros in (("tarea", tareas), ("reunion", reuniones), ("asistencia", asistencia)):
                 for registro in registros:
                     evidencia["contexto"].append(dict(id=registro.id, tipo=tipo, fecha=registro.fecha.isoformat(),
-                        estado=registro.estado, origen=contexto.origen))
+                        estado=registro.estado, origen=contexto.origen, naturaleza=contexto.naturaleza,
+                        sesion_id=sesion_id, estudiante_id=estudiante_id))
             if contexto.evaluacion_proxima is not None:
-                evidencia["contexto"].append(dict(tipo="evaluacion_proxima", valor=contexto.evaluacion_proxima, origen=contexto.origen))
+                evidencia["contexto"].append(dict(tipo="evaluacion_proxima", valor=contexto.evaluacion_proxima,
+                    origen=contexto.origen, naturaleza=contexto.naturaleza, sesion_id=sesion_id, estudiante_id=estudiante_id))
             if contexto.evento_familiar is not None and contexto.evento_familiar.fecha <= fecha:
                 evidencia["contexto"].append(dict(tipo="evento_familiar", origen=contexto.origen,
+                    naturaleza="sintetica", sesion_id=sesion_id, estudiante_id=estudiante_id,
                     evento_familiar=contexto.evento_familiar.model_dump(mode="json")))
             if contexto.asistencia is not None and len(asistencia) < 5:
                 faltantes.append("asistencia: al menos cinco registros válidos para evaluar el patrón")
@@ -222,27 +248,25 @@ def analizar_estudiantes(datos):
 
         adversos = [r for r in evidencia.get("contexto", ())
                     if r.get("estado") in {"pendiente", "ausente", "incumplida"}]
+        validas = set()
+        for (tipo, valor), eventos in por_senal.items():
+            permitido = tipo == "objeto" and (valor in permitidos or valor == "persona")
+            for muestra in (grupos if (tipo, valor) == ("objeto", "telefono") else _muestras(eventos)):
+                estados = {o.presente for o in muestra}
+                if len(estados) > 1 and (tipo, valor) != ("objeto", "telefono"):
+                    contradicciones.append(f"{valor}: observaciones opuestas correlacionadas; muestra excluida")
+                if adversos and not permitido and estados == {True}:
+                    validas.update((o.modulo, o.id) for o in muestra)
         coincidencia = None
-        if adversos:
-            validas = set()
-            for (tipo, valor), eventos in por_senal.items():
-                if tipo == "objeto" and (valor in permitidos or valor == "persona"):
-                    continue
-                for muestra in _muestras(eventos):
-                    estados = {o.presente for o in muestra}
-                    if estados == {True}:
-                        validas.update((o.modulo, o.id) for o in muestra)
-                    elif len(estados) > 1 and (tipo, valor) != ("objeto", "telefono"):
-                        contradicciones.append(f"{valor}: observaciones opuestas correlacionadas; muestra excluida")
-            if validas:
-                evaluacion = [r for r in evidencia["contexto"]
-                              if r["tipo"] == "evaluacion_proxima" and r["valor"] is True]
-                coincidencia = dict(
-                    motivo="Coinciden observaciones atribuidas y registros académicos adversos en la sesión. La coincidencia se documenta sin asignar puntos.",
-                    observaciones=[dict(o, modulo=modulo) for modulo, items in evidencia.items()
-                                   if modulo != "contexto" for o in items if (modulo, o["id"]) in validas],
-                    registros_academicos=adversos + evaluacion,
-                )
+        if validas:
+            evaluacion = [r for r in evidencia["contexto"]
+                          if r["tipo"] == "evaluacion_proxima" and r["valor"] is True]
+            coincidencia = dict(
+                motivo="Coinciden observaciones atribuidas y registros académicos adversos en la sesión. La coincidencia se documenta sin asignar puntos.",
+                observaciones=[o for modulo, items in evidencia.items()
+                               if modulo != "contexto" for o in items if (modulo, o["id"]) in validas],
+                registros_academicos=adversos + evaluacion,
+            )
 
         # No compara personas. Requiere tres sesiones previas finalizadas de la misma
         # actividad con muestras explícitas de presencia/ausencia y mismo permiso.
@@ -289,6 +313,7 @@ def analizar_estudiantes(datos):
             recomendaciones.append("Resolver las observaciones o registros contradictorios antes de tomar decisiones.")
         avisar = ["docente", "tutor"] if nivel == "alto" else (["docente"] if activadas else [])
         resultados.append(dict(estudiante_id=estudiante_id, nombre=estudiante.nombre, sesion_id=sesion_id,
+            tiene_observaciones_verificadas=(estudiante_id, sesion_id) in pares_verificados,
             actividad=sesion.actividad, indice_prioridad=puntos, nivel_revision=nivel,
             reglas_activadas=activadas, evidencia_por_modulo=dict(evidencia), datos_faltantes=faltantes,
             coincidencia_contextual=coincidencia,
@@ -302,7 +327,7 @@ def analizar_estudiantes(datos):
 
     return SalidaSeguimiento(version_motor="seguimiento-1.0.0", metodo="reglas_configurables_no_calibradas", reglas_aplicadas=reglas,
         resultados=resultados, observaciones_sin_atribuir=sin_atribuir, observaciones_descartadas=descartadas,
-        duplicados_omitidos=duplicados,
+        duplicados_omitidos=duplicados, fuentes_recibidas=resumir_fuentes(entrada.fuentes, originales),
         limitaciones=["Demostración sintética sin autenticación: no admite datos reales ni almacena historiales.",
             "Identidad declarada mediante referencia revisada; PREDICCIÓN no reconoce rostros ni verifica documentos externos.",
             "No predice notas, desaprobación, fraude, estados psicológicos ni deserción; siempre revisión humana.",
@@ -312,4 +337,5 @@ def analizar_estudiantes(datos):
             "Asistencia, tareas y reuniones usan únicamente registros proporcionados; no hay conexión institucional.",
             "Cambios de patrón comparan muestras aportadas, no cobertura continua ni comportamiento real."],
         estado_modulos={"imagen": "objetos; identidad/emociones no acreditadas por productor",
-                        "video": "detecciones; seguimiento local no es identidad", "audio": "pendiente"}).model_dump(mode="json")
+                        "video": "detecciones; seguimiento local no es identidad", "audio": "pendiente",
+                        "captura": "conteo de escena u observaciones normalizadas sin identidad implícita"}).model_dump(mode="json")
