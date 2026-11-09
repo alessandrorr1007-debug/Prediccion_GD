@@ -1,0 +1,10 @@
+{
+  "_nota": "Fixture sintético de referencia, sin exportación de productor validada.",
+  "schema_version": 1,
+  "sesion_id": "demo-local",
+  "origen_temporal": "2026-11-09T10:00:00-05:00",
+  "frames": [
+    {"frame_id": "i-demo", "timestamp": "2026-11-09T10:00:02-05:00", "calidad_normalizada": 0.85,
+     "objetos": [{"id": "o-demo", "clase": "celular", "estado": "confirmada", "confianza": 0.91}]}
+  ]
+}

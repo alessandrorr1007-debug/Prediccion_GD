@@ -261,6 +261,19 @@ test("demostración integral usa la API y muestra cuatro casos con procedencia",
   }
 });
 
+test("panel comprueba el servidor, selecciona un caso y reinicia", async () => {
+  const e = montar();
+  await e["verificar-demo-integral"].listeners.click();
+  assert.match(contenido(e["inventario-demo-integral"]), /Backend disponible/);
+  e["demo-integral-caso"].value = "D";
+  await e["ejecutar-demo-integral"].listeners.click();
+  assert.match(contenido(e["resultados-demo-integral"]), /Caso D.*sesion distinta/);
+  assert.doesNotMatch(contenido(e["resultados-demo-integral"]), /Caso A/);
+  e["reiniciar-demo-integral"].listeners.click();
+  assert.equal(e["demo-integral-caso"].value, "todos");
+  assert.equal(contenido(e["resultados-demo-integral"]), "");
+});
+
 test("seguimiento muestra asistencia, participación y prioridad académica separadas", async () => {
   const e = montar();
   e["ejemplo-seguimiento"].value = "participacion";

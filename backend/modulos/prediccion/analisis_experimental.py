@@ -83,7 +83,7 @@ def analizar_expresion(entrada):
     except ImagenInvalida as error:
         return {"estado": "imagen_invalida", "motivo": str(error)}
     gris = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
-    caras = predictor._obtener_face_cascade().detectMultiScale(gris, scaleFactor=1.15, minNeighbors=4, minSize=(64, 64))
+    caras = predictor.detectar_rostros(gris, (64, 64))
     if len(caras) != 1:
         return {"estado": "evidencia_insuficiente", "motivo": "Se requiere un solo rostro frontal de al menos 64 × 64.",
                 "rostros_detectados": len(caras)}

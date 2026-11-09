@@ -28,9 +28,9 @@ class RutaDemoLocal(APIRoute):
                 return JSONResponse(status_code=403, content={"detail": "Seguimiento disponible solo como demo sintética local; requiere autenticación antes de un despliegue público."}, headers={"Cache-Control": "no-store"})
             cuerpo = bytearray()
             async for bloque in request.stream():
-                cuerpo.extend(bloque)
-                if len(cuerpo) > 2 * 1024 * 1024:
+                if len(cuerpo) + len(bloque) > 2 * 1024 * 1024:
                     return JSONResponse(status_code=413, content={"detail": "El JSON supera 2 MB"}, headers={"Cache-Control": "no-store"})
+                cuerpo.extend(bloque)
             request._body = bytes(cuerpo)  # Reutiliza la lectura acotada en la validación de FastAPI.
             try:
                 respuesta = await manejar(request)

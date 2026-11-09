@@ -933,6 +933,7 @@ function lineasDemoModelo(nombre, resultado) {
   const lineas = [`${nombre} · ${resultado.estado.replaceAll("_", " ")}`];
   if (resultado.modelo) lineas.push(describirModeloExperimental(resultado.modelo));
   if (resultado.referencia?.origen) lineas.push(`Procedencia · ${resultado.referencia.origen} · ${resultado.referencia.naturaleza}`);
+  if (resultado.referencia?.sesion_id) lineas.push(`Sesión declarada · ${resultado.referencia.sesion_id}`);
   if (resultado.procedencia) lineas.push(resultado.procedencia.replaceAll("_", " "));
   const categoria = resultado.expresion ?? resultado.expresion_vocal ?? resultado.desenlace_estimado;
   if (categoria) lineas.push(`Categoría · ${categoria}`);
@@ -947,21 +948,59 @@ function lineasDemoModelo(nombre, resultado) {
   return lineas;
 }
 
+let solicitudDemoIntegral = null;
+
+elemento("verificar-demo-integral").addEventListener("click", async () => {
+  const boton = elemento("verificar-demo-integral");
+  const inventario = elemento("inventario-demo-integral");
+  boton.disabled = true;
+  inventario.textContent = "Consultando el backend y los archivos de modelos…";
+  try {
+    const respuestas = await Promise.all(["/api/salud", "/api/prediccion/modelos-investigacion?cargar=false"].map(ruta =>
+      fetch(`${location.origin}${ruta}`, { signal: AbortSignal.timeout(10000) })));
+    if (respuestas.some(r => !r.ok)) throw new Error();
+    const modelos = await respuestas[1].json();
+    inventario.textContent = "";
+    lista(inventario, "Backend disponible", Object.entries(modelos).map(([tipo, datos]) =>
+      `${tipo.replaceAll("_", " ")} · ${datos.estado === "archivo_presente" ? "archivo presente" : "no disponible"}`));
+  } catch {
+    inventario.textContent = "No se pudo comprobar el backend o el inventario.";
+  } finally {
+    boton.disabled = false;
+  }
+});
+
+elemento("reiniciar-demo-integral").addEventListener("click", () => {
+  solicitudDemoIntegral?.abort();
+  solicitudDemoIntegral = null;
+  elemento("ejecutar-demo-integral").disabled = false;
+  elemento("demo-integral-caso").value = "todos";
+  elemento("demo-integral-fusion").checked = false;
+  elemento("resultados-demo-integral").replaceChildren();
+  elemento("estado-demo-integral").textContent = "Demostración lista para volver a ejecutar.";
+});
+
 elemento("ejecutar-demo-integral").addEventListener("click", async () => {
   const boton = elemento("ejecutar-demo-integral");
   const estado = elemento("estado-demo-integral");
   const panel = elemento("resultados-demo-integral");
+  if (solicitudDemoIntegral) return;
+  const solicitud = new AbortController();
+  solicitudDemoIntegral = solicitud;
   boton.disabled = true;
   panel.replaceChildren();
   estado.textContent = "Ejecutando la demostración local…";
   try {
     const respuesta = await fetch(`${location.origin}/api/prediccion/demostracion-integral`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ solicitar_fusion: elemento("demo-integral-fusion").checked === true }),
-      signal: AbortSignal.timeout(60000)
+      body: JSON.stringify({ caso: elemento("demo-integral-caso").value || "todos",
+        solicitar_fusion: elemento("demo-integral-fusion").checked === true }),
+      signal: AbortSignal.any([solicitud.signal, AbortSignal.timeout(60000)])
     });
+    if (respuesta.status === 403) throw new Error("Abre el panel desde el servidor local");
     if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`);
     const salida = await respuesta.json();
+    if (solicitudDemoIntegral !== solicitud) return;
     for (const caso of salida.casos) {
       const regla = caso.seguimiento.indicadores_academicos;
       const lineas = [
@@ -992,10 +1031,14 @@ elemento("ejecutar-demo-integral").addEventListener("click", async () => {
     ]);
     estado.textContent = "Demostración sintética completada. Las muestras públicas carecen de atribución a los perfiles ficticios.";
   } catch (error) {
+    if (solicitudDemoIntegral !== solicitud) return;
     panel.replaceChildren();
     estado.textContent = `No se pudo ejecutar la demostración local (${error.message}).`;
   } finally {
-    boton.disabled = false;
+    if (solicitudDemoIntegral === solicitud) {
+      solicitudDemoIntegral = null;
+      boton.disabled = false;
+    }
   }
 });
 

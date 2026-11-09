@@ -4,17 +4,18 @@ import ipaddress
 import json
 import logging
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-from pydantic import Field, StrictBool
+from pydantic import AwareDatetime, Field, StrictBool, ValidationError, model_validator
 from starlette.concurrency import run_in_threadpool
 
 from . import analisis_experimental, fusion_fase10
 from .seguimiento import analizar_estudiantes
 from .seguimiento_api import RutaDemoLocal
 from .seguimiento_contrato import Contrato, EntradaSeguimiento, Texto
+from .validacion_contratos import errores_pydantic, validar_analisis
 
 VERSION = Annotated[int, Field(strict=True, ge=1, le=1)]
 FUENTES = ("imagen", "video", "audio")
@@ -23,16 +24,30 @@ EJEMPLOS = Path(__file__).resolve().parents[3] / "ejemplos"
 logger = logging.getLogger(__name__)
 
 
+class VentanaCaptura(Contrato):
+    inicio: AwareDatetime
+    fin: AwareDatetime
+
+    @model_validator(mode="after")
+    def orden_valido(self):
+        if self.inicio > self.fin:
+            raise ValueError("La ventana de captura está invertida")
+        return self
+
+
 class EntradaIntegral(Contrato):
     schema_version: VERSION
     sesion_id: Texto | None = None
-    analisis: analisis_experimental.EntradaExperimental | None = None
-    seguimiento: EntradaSeguimiento | None = None
+    ventana_captura: VentanaCaptura | None = None
+    # La validación por bloque permite preservar las demás fuentes ante un fallo local.
+    analisis: Any = None
+    seguimiento: Any = None
     solicitar_fusion: StrictBool = False
 
 
 class OpcionesDemo(Contrato):
     solicitar_fusion: StrictBool = False
+    caso: Literal["todos", "A", "B", "C", "D"] = "todos"
 
 
 class RutaIntegralLocal(RutaDemoLocal):
@@ -59,13 +74,20 @@ class RutaIntegralLocal(RutaDemoLocal):
         return protegido
 
 
-def evaluar_modalidades(entrada, sesion):
+def evaluar_modalidades(entrada, sesion, ventana=None):
     excluidas = {}
     for nombre in FUENTES:
         fuente = getattr(entrada, nombre)
-        if fuente is None or sesion is None or fuente.sesion_id == sesion:
+        if fuente is None:
             continue
-        motivo = "sesion_faltante" if fuente.sesion_id is None else "sesion_distinta"
+        if sesion is not None and fuente.sesion_id != sesion:
+            motivo = "sesion_faltante" if fuente.sesion_id is None else "sesion_distinta"
+        elif ventana is not None and fuente.fecha_hora is None:
+            motivo = "fecha_faltante"
+        elif ventana is not None and not ventana.inicio <= fuente.fecha_hora <= ventana.fin:
+            motivo = "captura_fuera_de_ventana"
+        else:
+            continue
         referencia = fuente.model_dump(mode="json", include=set(analisis_experimental.Referencia.model_fields))
         excluidas[nombre] = {"estado": "fuente_excluida", "motivo": motivo, "referencia": referencia,
                             "identidad_verificada": False}
@@ -85,10 +107,34 @@ def evaluar_modalidades(entrada, sesion):
 
 
 def orquestar(entrada):
-    analisis = entrada.analisis or analisis_experimental.EntradaExperimental(schema_version=1)
-    seguimiento = analizar_estudiantes(entrada.seguimiento) if entrada.seguimiento is not None else None
+    datos = entrada.analisis if entrada.analisis is not None else {"schema_version": 1}
+    analisis, errores = validar_analisis(datos)
+    resultado = evaluar_modalidades(analisis, entrada.sesion_id, entrada.ventana_captura)
+    for nombre in FUENTES:
+        if nombre in errores:
+            resultado["fuentes"][nombre] = {"estado": "entrada_invalida", "identidad_verificada": False,
+                                             "errores": errores[nombre]}
+    if "academico" in errores:
+        resultado["academico"] = {"estado": "entrada_invalida", "errores": errores["academico"]}
+    for nombre, salida in {**resultado["fuentes"], "academico": resultado["academico"]}.items():
+        if salida["estado"] in {"audio_invalido", "imagen_invalida", "error_inferencia"}:
+            errores[nombre] = [{"campo": f"analisis.{nombre}", "codigo": salida["estado"]}]
+    seguimiento, errores_fuente = None, []
+    if entrada.seguimiento is not None:
+        try:
+            seguimiento = analizar_estudiantes(EntradaSeguimiento.model_validate(entrada.seguimiento),
+                                              errores_fuente=errores_fuente)
+        except ValidationError as error:
+            errores["seguimiento"] = errores_pydantic(error, "seguimiento")
+        except ValueError:
+            errores["seguimiento"] = [{"campo": "seguimiento", "codigo": "referencias_incompatibles"}]
+        except Exception as error:
+            logger.warning("Seguimiento integral fallido: %s", type(error).__name__)
+            errores["seguimiento"] = [{"campo": "seguimiento", "codigo": "error_ejecucion"}]
     return {"schema_version": 1, "sesion_id": entrada.sesion_id,
-            "analisis": evaluar_modalidades(analisis, entrada.sesion_id), "seguimiento": seguimiento,
+            "estado": "parcial" if errores or errores_fuente or resultado["fuentes_excluidas"] else "procesado",
+            "errores": errores, "fuentes_seguimiento_excluidas": errores_fuente,
+            "analisis": resultado, "seguimiento": seguimiento,
             "fusion": fusion_fase10.evaluar_fusion(entrada.solicitar_fusion)}
 
 
@@ -119,15 +165,16 @@ def medio_demo(cargar):
 def demostracion(opciones):
     seguimiento = seguimiento_demo()
     reglas = {r["estudiante_id"]: r for r in seguimiento["resultados"]}
-    foto = medio_demo(fusion_fase10.imagen_demo)
-    wav = medio_demo(fusion_fase10.audio_demo)
+    mostrar_medios = opciones.caso in {"todos", "C"}
+    foto = medio_demo(fusion_fase10.imagen_demo) if mostrar_medios else None
+    wav = medio_demo(fusion_fase10.audio_demo) if mostrar_medios or opciones.solicitar_fusion else None
     medios = {}
     if foto is not None:
         medios["imagen"] = {"imagen_b64": base64.b64encode(foto).decode("ascii"), "modelo_facial": "real",
                             "origen": "NASA / scikit-image", "naturaleza": "real", "evento_id": "foto-publica",
                             "sesion_id": "muestra-visual-publica", "fecha_hora": FECHA}
         medios["video"] = medios["imagen"]  # Prueba de duplicación, no un video de estudiante.
-    if wav is not None:
+    if mostrar_medios and wav is not None:
         medios["audio"] = {"wav_b64": base64.b64encode(wav).decode("ascii"), "origen": "RAVDESS",
                             "naturaleza": "real", "evento_id": fusion_fase10.MUESTRA}
     if not medios:
@@ -142,6 +189,8 @@ def demostracion(opciones):
     )
     casos = []
     for letra, identificador, datos, sesion in entradas:
+        if opciones.caso not in {"todos", letra}:
+            continue
         entrada = analisis_experimental.EntradaExperimental.model_validate(dict(datos, schema_version=1))
         analisis = evaluar_modalidades(entrada, sesion)
         if letra == "C":
@@ -153,7 +202,7 @@ def demostracion(opciones):
     return {"schema_version": 1, "simulado": True, "casos": casos,
             "registros_academicos_excluidos": seguimiento["registros_academicos_excluidos"],
             "fuentes_seguimiento": seguimiento["fuentes_recibidas"],
-            "muestras_publicas_sin_atribuir": {"imagen": foto is not None, "audio": wav is not None},
+            "muestras_publicas_sin_atribuir": {"imagen": foto is not None, "audio": mostrar_medios and wav is not None},
             "fusion": fusion_fase10.evaluar_fusion(opciones.solicitar_fusion, demo=True, wav=wav)}
 
 
@@ -162,10 +211,7 @@ router = APIRouter(tags=["Integración local de Predicción"], route_class=RutaI
 
 @router.post("/prediccion/orquestar")
 async def orquestar_api(entrada: EntradaIntegral):
-    try:
-        return await run_in_threadpool(orquestar, entrada)
-    except ValueError:
-        raise HTTPException(422, "El seguimiento contiene referencias o datos incompatibles.") from None
+    return await run_in_threadpool(orquestar, entrada)
 
 
 @router.post("/prediccion/demostracion-integral")

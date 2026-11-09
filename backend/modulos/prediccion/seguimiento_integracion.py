@@ -59,7 +59,7 @@ def _adaptar(fuente, sesion):
     ]
 
 
-def reunir_observaciones(entrada: EntradaSeguimiento):
+def reunir_observaciones(entrada: EntradaSeguimiento, errores_fuente=None):
     sesiones = {s.sesion_id: s for s in entrada.sesiones}
     observaciones = [*entrada.observaciones, *entrada.historial]
     if any(o.modulo == "audio" for o in observaciones):
@@ -67,17 +67,23 @@ def reunir_observaciones(entrada: EntradaSeguimiento):
     if any(item.naturaleza == "real" for item in (*observaciones, *entrada.contextos)):
         raise ValueError("La demo local solo admite datos sintéticos; se declaró evidencia real")
     for indice, fuente in enumerate(entrada.fuentes):
-        if fuente.modulo == "audio":
-            raise ErrorFuente(indice, "audio", "contrato_pendiente", "AUDIO pendiente: no existe contrato productor ni adaptador")
-        if fuente.naturaleza == "real" or fuente.datos.get("simulado") is False or fuente.datos.get("naturaleza") == "real":
-            raise ErrorFuente(indice, fuente.modulo, "datos_reales", "La demo local solo admite datos sintéticos; se declaró una fuente real")
-        if fuente.sesion_id not in sesiones:
-            raise ErrorFuente(indice, fuente.modulo, "sesion_desconocida", "Fuente de resultados referencia una sesión desconocida")
         try:
+            if fuente.modulo == "audio":
+                raise ErrorFuente(indice, "audio", "contrato_pendiente", "AUDIO pendiente: no existe contrato productor ni adaptador")
+            if fuente.naturaleza == "real" or fuente.datos.get("simulado") is False or fuente.datos.get("naturaleza") == "real":
+                raise ErrorFuente(indice, fuente.modulo, "datos_reales", "La demo local solo admite datos sintéticos; se declaró una fuente real")
+            if fuente.sesion_id not in sesiones:
+                raise ErrorFuente(indice, fuente.modulo, "sesion_desconocida", "Fuente de resultados referencia una sesión desconocida")
             observaciones.extend(_adaptar(fuente, sesiones[fuente.sesion_id]))
-        except (ValueError, OverflowError) as error:
-            mensaje = str(error) if type(error) is ValueError else "Campos o límites inválidos en la fuente"
-            raise ErrorFuente(indice, fuente.modulo, "fuente_invalida", mensaje) from None
+        except (ValueError, OverflowError, TypeError) as error:
+            if isinstance(error, ErrorFuente):
+                fallo = error
+            else:
+                mensaje = str(error) if type(error) is ValueError else "Campos o límites inválidos en la fuente"
+                fallo = ErrorFuente(indice, fuente.modulo, "fuente_invalida", mensaje)
+            if errores_fuente is None:
+                raise fallo from None
+            errores_fuente.append(fallo.detalle)
     return observaciones
 
 

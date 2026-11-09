@@ -432,9 +432,20 @@
         <details id="demostracion-integral" class="card seguimiento-panel">
           <summary>Demostración integral con cuatro estudiantes ficticios</summary>
           <div class="tech-content">
+            <label for="demo-integral-caso">Caso ficticio</label>
+            <select id="demo-integral-caso">
+              <option value="todos">Los cuatro casos</option>
+              <option value="A">A · Notas y asistencia</option>
+              <option value="B">B · Notas incompletas</option>
+              <option value="C">C · Muestras públicas</option>
+              <option value="D">D · Conflicto de sesión</option>
+            </select>
             <label><input type="checkbox" id="demo-integral-fusion"> Ejecutar fusión experimental con la pareja pública RAVDESS</label>
+            <button type="button" id="verificar-demo-integral">Verificar sistema</button>
             <button type="button" id="ejecutar-demo-integral" class="btn-primary-action">Ejecutar demostración local</button>
+            <button type="button" id="reiniciar-demo-integral">Reiniciar</button>
             <p id="estado-demo-integral" role="status"></p>
+            <div id="inventario-demo-integral" aria-live="polite"></div>
             <div id="resultados-demo-integral"></div>
           </div>
         </details>

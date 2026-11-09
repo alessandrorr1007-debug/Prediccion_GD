@@ -34,6 +34,7 @@ _MODELO_FACIAL = None
 _MODELO_SUCESOS = None
 _CARGA_PICKLE = {}
 _LOCK_MODELOS = Lock()
+_LOCK_HAAR = Lock()
 _FACE_CASCADE = None
 
 
@@ -99,6 +100,11 @@ def _obtener_face_cascade():
         ruta_cascade = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
         _FACE_CASCADE = cv2.CascadeClassifier(ruta_cascade)
     return _FACE_CASCADE
+
+def detectar_rostros(gris, tamano_minimo):
+    with _LOCK_HAAR:
+        return _obtener_face_cascade().detectMultiScale(
+            gris, scaleFactor=1.15, minNeighbors=4, minSize=tamano_minimo)
 
 def _tensor_a_numpy(t: Any) -> np.ndarray:
     if hasattr(t, "cpu"):
@@ -629,9 +635,8 @@ def procesar_captura_imagen(imagen_b64: str, contexto_externo: Optional[Dict[str
     # 4. RESPALDO SECUNDARIO CON HAAR CASCADE (Si YOLO no detectó personas completas)
     uso_haar = not candidatos_personas
     if uso_haar:
-        cascade = _obtener_face_cascade()
         gris = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        caras = cascade.detectMultiScale(gris, scaleFactor=1.15, minNeighbors=4, minSize=(35, 35))
+        caras = detectar_rostros(gris, (35, 35))
         for fx, fy, fw, fh in caras:
             candidatos_personas.append({
                 "x1": int(max(0, fx)),

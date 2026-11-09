@@ -65,7 +65,7 @@ def _registros(registros, fecha, nombre, contradicciones):
     return salida
 
 
-def analizar_estudiantes(datos):
+def analizar_estudiantes(datos, *, errores_fuente=None):
     entrada = datos if isinstance(datos, EntradaSeguimiento) else EntradaSeguimiento.model_validate(datos)
     reglas = entrada.reglas
     estudiantes = {e.estudiante_id: e for e in entrada.estudiantes}
@@ -88,7 +88,9 @@ def analizar_estudiantes(datos):
     asistencias_conflictivas = {(r["sesion_id"], r["id"]) for r in registros_excluidos
                                if r["tipo"] == "asistencia" and r["motivo"] == "versiones contradictorias"}
 
-    originales = reunir_observaciones(entrada)
+    originales = reunir_observaciones(entrada, errores_fuente)
+    indices_excluidos = {error["indice"] for error in (errores_fuente or ())}
+    grupos_excluidos = {(entrada.fuentes[i].sesion_id, entrada.fuentes[i].modulo) for i in indices_excluidos}
     unicas, conflictivas = {}, set()
     duplicados = 0
     for o in originales:
@@ -111,6 +113,8 @@ def analizar_estudiantes(datos):
 
     vinculos = defaultdict(list)
     for asociacion in entrada.asociaciones:
+        if (asociacion.sesion_id, asociacion.modulo) in grupos_excluidos:
+            continue
         if (asociacion.estudiante_id, asociacion.sesion_id) not in inscritos:
             raise ValueError("Asociación sin inscripción explícita del estudiante en la sesión")
         clave = asociacion.sesion_id, asociacion.modulo, asociacion.observacion_id
@@ -368,7 +372,8 @@ def analizar_estudiantes(datos):
 
     return SalidaSeguimiento(version_motor="seguimiento-1.0.0", metodo="reglas_configurables_no_calibradas", reglas_aplicadas=reglas,
         resultados=resultados, observaciones_sin_atribuir=sin_atribuir, observaciones_descartadas=descartadas,
-        duplicados_omitidos=duplicados, fuentes_recibidas=resumir_fuentes(entrada.fuentes, originales),
+        duplicados_omitidos=duplicados, fuentes_recibidas=resumir_fuentes(
+            [f for i, f in enumerate(entrada.fuentes) if i not in indices_excluidos], originales),
         registros_academicos_excluidos=registros_excluidos,
         limitaciones=["Demostración sintética sin autenticación: no admite datos reales ni almacena historiales.",
             "Identidad declarada mediante referencia revisada; PREDICCIÓN no reconoce rostros ni verifica documentos externos.",
