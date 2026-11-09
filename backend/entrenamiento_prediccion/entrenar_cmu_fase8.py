@@ -89,22 +89,29 @@ def intervalos(modelo, x, y, grupos):
     return {"exactitud": exactitud, "f1_macro": f1, "remuestreos_por_persona": 1000}
 
 
-def entrenar(ruta):
-    cv2.setNumThreads(1)
-    x, y, personas, poses, descartes = importar(ruta)
-    orden = np.random.default_rng(SEMILLA).permutation(np.unique(personas))
-    n_tr = len(orden) // 2
-    n_aux = round(.15 * len(orden))
-    grupos = np.split(orden, [n_tr, n_tr + n_aux, n_tr + 2 * n_aux])
-    indices = tuple(np.flatnonzero(np.isin(personas, grupo)) for grupo in grupos)
-    candidatos = {
+def candidatos():
+    return {
         "mayoria": DummyClassifier(strategy="most_frequent"),
         "hog_logistica": make_pipeline(FunctionTransformer(hog_lote), StandardScaler(),
                                        LogisticRegression(C=.2, max_iter=400, random_state=SEMILLA)),
         "hog_svm": make_pipeline(FunctionTransformer(hog_lote), StandardScaler(), SVC(C=3)),
         "cnn_regularizada": CNNFER(epochs=18, regularizada=True),
     }
-    modelo, reporte = ajustar(x, y, indices, candidatos)
+
+
+def particiones(personas):
+    orden = np.random.default_rng(SEMILLA).permutation(np.unique(personas))
+    n_tr = len(orden) // 2
+    n_aux = round(.15 * len(orden))
+    grupos = np.split(orden, [n_tr, n_tr + n_aux, n_tr + 2 * n_aux])
+    return grupos, tuple(np.flatnonzero(np.isin(personas, grupo)) for grupo in grupos)
+
+
+def entrenar(ruta):
+    cv2.setNumThreads(1)
+    x, y, personas, poses, descartes = importar(ruta)
+    grupos, indices = particiones(personas)
+    modelo, reporte = ajustar(x, y, indices, candidatos())
     prueba = indices[-1]
     return modelo, dict(reporte, tipo="facial", version=VERSION_FASE8, dataset=CMU, dataset_sha256=huella(ruta),
                         sklearn=sklearn.__version__, semilla=SEMILLA, umbral=UMBRAL, margen=MARGEN,

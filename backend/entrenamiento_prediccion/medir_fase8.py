@@ -45,6 +45,7 @@ def main():
             salida.raise_for_status()
             return 1000 * (perf_counter() - inicio), salida.json()
 
+        cpu_previa = psutil.cpu_percent(interval=.5)
         antes = proceso.memory_info().rss
         fria, salida = medir()
         despues = proceso.memory_info().rss
@@ -54,7 +55,8 @@ def main():
         print(json.dumps(dict(tipo=args.tipo, fria_ms=fria, p50_ms=median(muestras),
                               p95_ms=quantiles(muestras, n=100)[94], rss_base_MiB=antes / 2**20,
                               rss_primera_MiB=despues / 2**20, rss_final_MiB=proceso.memory_info().rss / 2**20,
-                              estado=bloque.get("estado"), modelo=bloque.get("modelo", {}).get("version"))))
+                              estado=bloque.get("estado"), modelo=bloque.get("modelo", {}).get("version"),
+                              cpu_sistema_previa_pct=cpu_previa, cpu_sistema_durante_pct=psutil.cpu_percent())))
 
 
 if __name__ == "__main__":

@@ -45,6 +45,10 @@ def evaluar(modelo, x, y):
     clases = modelo.classes_
     p = modelo.predict_proba(x) if hasattr(modelo, "predict_proba") else None
     pred = modelo.predict(x) if p is None else clases[p.argmax(axis=1)]
+    return resumir_predicciones(clases, pred, y, p)
+
+
+def resumir_predicciones(clases, pred, y, p):
     reporte = {
         "n": len(y), "clases": clases.tolist(),
         "reporte": classification_report(y, pred, labels=clases, output_dict=True, zero_division=0),
@@ -119,7 +123,7 @@ def entrenar_academico(ruta):
                         descartados=len(tabla) - len(datos), particiones=list(map(len, indices)))
 
 
-def clips_ravdess(ruta, descartes):
+def clips_ravdess(ruta, descartes, *, con_id=False):
     if huella(ruta, "md5") != RAVDESS_MD5:
         raise ValueError("El ZIP no coincide con el archivo de habla RAVDESS publicado en Zenodo.")
     vistos = set()
@@ -136,7 +140,8 @@ def clips_ravdess(ruta, descartes):
                 continue
             vistos.add(h)
             clase, actor = map(int, partes.groups())
-            yield contenido, VOCALES[clase - 1], actor
+            clip = (contenido, VOCALES[clase - 1], actor)
+            yield (*clip, nombre[3:-4]) if con_id else clip
 
 
 def entrenar_audio(ruta):

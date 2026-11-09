@@ -80,6 +80,20 @@ def hog_lote(X):
     return np.stack([rasgos_fer(fila.reshape(48, 48)) for fila in X])
 
 
+def hog_lbp(imagenes):
+    """Concatena HOG con histogramas LBP uniformes en dieciséis celdas."""
+    hog = hog_lote(imagenes)
+    imagen = imagenes.reshape(-1, 48, 48)
+    centro = imagen[:, 1:-1, 1:-1]
+    vecinos = [(0, 0), (0, 1), (0, 2), (1, 2), (2, 2), (2, 1), (2, 0), (1, 0)]
+    bits = np.stack([imagen[:, i:i + 46, j:j + 46] >= centro for i, j in vecinos])
+    cambios = (bits != np.roll(bits, 1, axis=0)).sum(axis=0)
+    codigos = np.where(cambios <= 2, bits.sum(axis=0), 9)
+    celdas = [bloque for fila in np.array_split(codigos, 4, axis=1) for bloque in np.array_split(fila, 4, axis=2)]
+    histogramas = [(bloque[..., None] == np.arange(10)).mean(axis=(1, 2)) for bloque in celdas]
+    return np.concatenate([hog, *histogramas], axis=1)
+
+
 def entrenar(ruta, ruta_plus, cnn):
     from .entrenar_fase7 import SEMILLA, ajustar, huella
 
