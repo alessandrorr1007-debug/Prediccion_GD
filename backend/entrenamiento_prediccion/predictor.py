@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 CARPETA_ACTUAL = Path(__file__).resolve().parent
 RUTA_MODELO_FACIAL = CARPETA_ACTUAL / "modelo_emociones_facial.pkl"
 RUTA_MODELO_SUCESOS = CARPETA_ACTUAL / "modelo_sucesos_academicos.pkl"
+RASGOS_FACIALES = ("eye_openness", "eyebrow_slope", "mouth_smile", "mouth_open",
+                  "head_tilt", "head_pitch", "gaze_stability", "blink_rate", "facial_tension")
 
 _MODELO_FACIAL = None
 _MODELO_SUCESOS = None
@@ -55,11 +57,18 @@ def _cargar_pickle(ruta, metodo):
     return modelo
 
 
-def _cargar_modelos():
-    global _MODELO_FACIAL, _MODELO_SUCESOS
+def obtener_modelo_facial():
+    global _MODELO_FACIAL
     with _LOCK_MODELOS:
         if RUTA_MODELO_FACIAL.name not in _CARGA_PICKLE:
             _MODELO_FACIAL = _cargar_pickle(RUTA_MODELO_FACIAL, "predict_proba")
+        return _MODELO_FACIAL
+
+
+def _cargar_modelos():
+    global _MODELO_SUCESOS
+    obtener_modelo_facial()
+    with _LOCK_MODELOS:
         if RUTA_MODELO_SUCESOS.name not in _CARGA_PICKLE:
             _MODELO_SUCESOS = _cargar_pickle(RUTA_MODELO_SUCESOS, "predict")
 
@@ -250,11 +259,8 @@ def predecir_estudiante_multimodal(
 
     # 1. EVALUAR MODELO 1: 7 EMOCIONES FACIALES (9 features)
     head_pitch_val = float(rasgos.get("head_pitch", 8.0))
-    X_facial = np.array([[
-        rasgos["eye_openness"], rasgos["eyebrow_slope"], rasgos["mouth_smile"],
-        rasgos["mouth_open"], rasgos["head_tilt"], head_pitch_val,
-        rasgos["gaze_stability"], rasgos["blink_rate"], rasgos["facial_tension"]
-    ]])
+    rasgos_faciales = dict(rasgos, head_pitch=head_pitch_val)
+    X_facial = np.array([[rasgos_faciales[nombre] for nombre in RASGOS_FACIALES]])
 
     if _MODELO_FACIAL is not None:
         probs_7 = _MODELO_FACIAL.predict_proba(X_facial)[0]

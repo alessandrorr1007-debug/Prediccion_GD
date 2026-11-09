@@ -30,7 +30,7 @@ class SeguimientoApiTests(unittest.TestCase):
 
     def test_todos_los_ejemplos_reproducibles(self):
         casos = {"juan", "sin_alerta", "identidad_desconocida", "insuficientes", "contradictorio", "duplicados",
-                 "aislado", "cambio_patron", "coincidencia", "sin_adversos", "multimodal"}
+                 "aislado", "cambio_patron", "coincidencia", "sin_adversos", "multimodal", "participacion"}
         for caso in casos:
             with self.subTest(caso=caso):
                 r = self.client.get(f"{RUTA}/ejemplos/{caso}")

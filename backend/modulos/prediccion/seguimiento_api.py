@@ -72,7 +72,7 @@ async def ejemplo_seguimiento(caso: str):
     from pathlib import Path
     permitidos = {"juan", "sin_alerta", "identidad_desconocida", "insuficientes",
                   "contradictorio", "duplicados", "aislado", "cambio_patron", "coincidencia", "sin_adversos",
-                  "multimodal"}
+                  "multimodal", "participacion"}
     if caso not in permitidos:
         raise HTTPException(404, "Ejemplo no disponible")
     ruta = Path(__file__).resolve().parents[3] / "ejemplos" / f"seguimiento_{caso}_sintetico.json"

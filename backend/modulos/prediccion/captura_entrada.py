@@ -71,7 +71,7 @@ class EntradaVision(BaseModel):
         return valor
 
 
-async def leer_captura(request: Request, contrato: type[EntradaCaptura] | type[EntradaVision]):
+async def leer_captura(request: Request, contrato: type[BaseModel]):
     contenido = bytearray()
     async for bloque in request.stream():
         if len(contenido) + len(bloque) > MAX_JSON_CAPTURA:

@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "simulado": true,
+  "descripcion": "SINTÉTICO: cuatro estudiantes ficticios, asistencia y participaciones declaradas.",
+  "estudiantes": [
+    {
+      "estudiante_id": "demo-01",
+      "sesiones": [
+        "clase-demo"
+      ]
+    },
+    {
+      "estudiante_id": "demo-02",
+      "sesiones": [
+        "clase-demo"
+      ]
+    },
+    {
+      "estudiante_id": "demo-03",
+      "sesiones": [
+        "clase-demo"
+      ]
+    },
+    {
+      "estudiante_id": "demo-04",
+      "sesiones": [
+        "clase-demo"
+      ]
+    }
+  ],
+  "sesiones": [
+    {
+      "sesion_id": "clase-demo",
+      "actividad": "clase",
+      "inicio": "2026-11-09T10:00:00-05:00",
+      "segundo_actual": 60
+    }
+  ],
+  "registros_academicos": [
+    {
+      "sesion_id": "clase-demo",
+      "origen": "registro_sintetico",
+      "naturaleza": "sintetica",
+      "verificada": true,
+      "id": "a1",
+      "estudiante_id": "demo-01",
+      "tipo": "asistencia",
+      "fecha": "2026-11-05",
+      "estado": "ausente"
+    },
+    {
+      "sesion_id": "clase-demo",
+      "origen": "registro_sintetico",
+      "naturaleza": "sintetica",
+      "verificada": true,
+      "id": "a2",
+      "estudiante_id": "demo-01",
+      "tipo": "asistencia",
+      "fecha": "2026-11-06",
+      "estado": "ausente"
+    },
+    {
+      "sesion_id": "clase-demo",
+      "origen": "registro_sintetico",
+      "naturaleza": "sintetica",
+      "verificada": true,
+      "id": "a3",
+      "estudiante_id": "demo-01",
+      "tipo": "asistencia",
+      "fecha": "2026-11-07",
+      "estado": "presente"
+    },
+    {
+      "sesion_id": "clase-demo",
+      "origen": "registro_sintetico",
+      "naturaleza": "sintetica",
+      "verificada": true,
+      "id": "a4",
+      "estudiante_id": "demo-01",
+      "tipo": "asistencia",
+      "fecha": "2026-11-08",
+      "estado": "presente"
+    },
+    {
+      "sesion_id": "clase-demo",
+      "origen": "registro_sintetico",
+      "naturaleza": "sintetica",
+      "verificada": true,
+      "id": "a5",
+      "estudiante_id": "demo-01",
+      "tipo": "asistencia",
+      "fecha": "2026-11-09",
+      "estado": "presente"
+    },
+    {
+      "sesion_id": "clase-demo",
+      "origen": "registro_sintetico",
+      "naturaleza": "sintetica",
+      "verificada": true,
+      "id": "p1",
+      "estudiante_id": "demo-01",
+      "tipo": "participacion",
+      "fecha": "2026-11-09",
+      "cantidad": 2
+    },
+    {
+      "sesion_id": "clase-demo",
+      "origen": "registro_sintetico",
+      "naturaleza": "sintetica",
+      "verificada": true,
+      "id": "p1",
+      "estudiante_id": "demo-01",
+      "tipo": "participacion",
+      "fecha": "2026-11-09",
+      "cantidad": 2
+    },
+    {
+      "sesion_id": "clase-demo",
+      "origen": "registro_sintetico",
+      "naturaleza": "sintetica",
+      "verificada": true,
+      "id": "p2",
+      "estudiante_id": "demo-02",
+      "tipo": "participacion",
+      "fecha": "2026-11-09",
+      "cantidad": 0
+    },
+    {
+      "sesion_id": "clase-demo",
+      "origen": "registro_sintetico",
+      "naturaleza": "sintetica",
+      "verificada": false,
+      "id": "p3",
+      "estudiante_id": null,
+      "tipo": "participacion",
+      "fecha": "2026-11-09",
+      "cantidad": 1
+    }
+  ]
+}

@@ -50,6 +50,7 @@ class Observacion(Contrato):
     sesion_id: Texto
     modulo: ModuloObservacion
     segundo: Segundo
+    duracion_segundos: Segundo | None = None
     fecha_hora: datetime
     origen: Texto
     tipo: Literal["objeto", "emocion", "senal_voz", "conteo_personas"]
@@ -98,6 +99,28 @@ class Asistencia(Contrato):
     id: Texto
     fecha: date
     estado: Literal["presente", "ausente", "justificada"]
+
+
+class RegistroAcademico(Contrato):
+    id: Texto
+    sesion_id: Texto
+    estudiante_id: Texto | None = None
+    fecha: date
+    origen: Texto
+    naturaleza: Naturaleza = "desconocida"
+    verificada: StrictBool = False
+    confianza: Unidad | None = None
+    tipo: Literal["asistencia", "participacion"]
+    estado: Literal["presente", "ausente", "justificada"] | None = None
+    cantidad: Annotated[int, Field(strict=True, ge=0, le=1000)] | None = None
+
+    @model_validator(mode="after")
+    def validar_tipo(self):
+        if self.tipo == "asistencia" and (self.estado is None or self.cantidad is not None):
+            raise ValueError("Asistencia requiere estado")
+        if self.tipo == "participacion" and (self.cantidad is None or self.estado is not None):
+            raise ValueError("Participación requiere cantidad")
+        return self
 
 
 class Tarea(Contrato):
@@ -191,6 +214,7 @@ class EntradaSeguimiento(Contrato):
     historial: list[Observacion] = Field(default_factory=list, max_length=5000)
     asociaciones: list[Asociacion] = Field(default_factory=list, max_length=10000)
     contextos: list[ContextoAcademico] = Field(default_factory=list, max_length=1000)
+    registros_academicos: list[RegistroAcademico] = Field(default_factory=list, max_length=5000)
     fuentes: list[FuenteResultados] = Field(default_factory=list, max_length=100)
     reglas: ReglasSeguimiento = Field(default_factory=ReglasSeguimiento)
 
@@ -227,6 +251,7 @@ class ResultadoEstudiante(Contrato):
     nivel_revision: Literal["datos_insuficientes", "bajo", "moderado", "alto"]
     reglas_activadas: list[ReglaActivada]
     evidencia_por_modulo: dict[str, list[dict]]
+    indicadores_academicos: dict = Field(default_factory=dict)
     coincidencia_contextual: CoincidenciaContextual | None = None
     datos_faltantes: list[str]
     contradicciones: list[str]
@@ -256,3 +281,4 @@ class SalidaSeguimiento(Contrato):
     limitaciones: list[str]
     estado_modulos: dict[str, str]
     fuentes_recibidas: list[FuenteRecibida] = Field(default_factory=list)
+    registros_academicos_excluidos: list[dict] = Field(default_factory=list)

@@ -4,6 +4,7 @@ from datetime import timedelta
 from statistics import mean
 
 from backend.modulos.video.adapter import ALIAS
+from .registros_academicos import reunir_registros
 from .seguimiento_contrato import EntradaSeguimiento, SalidaSeguimiento
 from .seguimiento_integracion import reunir_observaciones, resumir_fuentes
 
@@ -82,6 +83,10 @@ def analizar_estudiantes(datos):
         if par not in inscritos or par in contextos:
             raise ValueError("Contexto duplicado o sin inscripción explícita de estudiante y sesión")
         contextos[par] = contexto
+    registros_por_par, conflictos_academicos, registros_excluidos = reunir_registros(
+        entrada.registros_academicos, sesiones, inscritos, reglas.identidad_minima)
+    asistencias_conflictivas = {(r["sesion_id"], r["id"]) for r in registros_excluidos
+                               if r["tipo"] == "asistencia" and r["motivo"] == "versiones contradictorias"}
 
     originales = reunir_observaciones(entrada)
     unicas, conflictivas = {}, set()
@@ -167,7 +172,8 @@ def analizar_estudiantes(datos):
         estudiante, sesion = estudiantes[estudiante_id], sesiones[sesion_id]
         observaciones = agrupadas[estudiante_id, sesion_id]
         contexto = contextos.get((estudiante_id, sesion_id))
-        contradicciones = list(conflictos_por_par[estudiante_id, sesion_id])
+        par = estudiante_id, sesion_id
+        contradicciones = conflictos_por_par[par] + conflictos_academicos[par]
         faltantes = []
         activadas = []
         evidencia = defaultdict(list)
@@ -185,18 +191,24 @@ def analizar_estudiantes(datos):
             faltantes.append("observaciones recientes con identidad verificada y confianza/calidad suficientes")
         if not any(o.tipo == "objeto" for o in observaciones):
             faltantes.append("observaciones de objetos para reglas de recurrencia")
-        tareas, reuniones, asistencia = [], [], []
+        tareas, reuniones = [], []
+        fecha = (sesion.inicio + timedelta(seconds=sesion.segundo_actual)).date()
+        recibidos = registros_por_par[par]
+        participaciones = [r for r in recibidos if r.tipo == "participacion"]
+        asistencia_externa = {r.id: r for r in recibidos if r.tipo == "asistencia"}
+        asistencia_previa = contexto.asistencia if contexto else None
+        asistencia = _registros(
+            [r for r in (asistencia_previa or []) if (sesion_id, r.id) not in asistencias_conflictivas]
+            + list(asistencia_externa.values()), fecha, "asistencia", contradicciones)
         if contexto is None:
             faltantes.append("contexto académico explícito")
         else:
-            fecha = (sesion.inicio + timedelta(seconds=sesion.segundo_actual)).date()
             for campo in ("tareas", "reuniones", "asistencia", "evaluacion_proxima"):
-                if getattr(contexto, campo) is None:
+                if getattr(contexto, campo) is None and (campo != "asistencia" or not asistencia):
                     faltantes.append(campo)
             tareas = _registros(contexto.tareas, fecha, "tarea", contradicciones)
             reuniones = _registros(contexto.reuniones, fecha, "reunion", contradicciones)
-            asistencia = _registros(contexto.asistencia, fecha, "asistencia", contradicciones)
-            for tipo, registros in (("tarea", tareas), ("reunion", reuniones), ("asistencia", asistencia)):
+            for tipo, registros in (("tarea", tareas), ("reunion", reuniones)):
                 for registro in registros:
                     evidencia["contexto"].append(dict(id=registro.id, tipo=tipo, fecha=registro.fecha.isoformat(),
                         estado=registro.estado, origen=contexto.origen, naturaleza=contexto.naturaleza,
@@ -208,8 +220,23 @@ def analizar_estudiantes(datos):
                 evidencia["contexto"].append(dict(tipo="evento_familiar", origen=contexto.origen,
                     naturaleza="sintetica", sesion_id=sesion_id, estudiante_id=estudiante_id,
                     evento_familiar=contexto.evento_familiar.model_dump(mode="json")))
-            if contexto.asistencia is not None and len(asistencia) < 5:
-                faltantes.append("asistencia: al menos cinco registros válidos para evaluar el patrón")
+        origenes_asistencia = {}
+        for r in asistencia:
+            externo = asistencia_externa.get(r.id)
+            origen = externo.origen if externo else contexto.origen
+            origenes_asistencia[r.id] = origen
+            detalle = dict(id=r.id, tipo="asistencia", fecha=r.fecha.isoformat(),
+                estado=r.estado, origen=origen, naturaleza=externo.naturaleza if externo else contexto.naturaleza,
+                sesion_id=sesion_id, estudiante_id=estudiante_id)
+            if externo:
+                detalle.update(identidad_verificada=True, confianza_identidad=externo.confianza)
+            evidencia["contexto"].append(detalle)
+        if (asistencia_previa is not None or asistencia_externa) and len(asistencia) < 5:
+            faltantes.append("asistencia: al menos cinco registros válidos para evaluar el patrón")
+        for r in participaciones:
+            evidencia["contexto"].append(dict(id=r.id, tipo="participacion", fecha=r.fecha.isoformat(),
+                valor=r.cantidad, origen=r.origen, naturaleza=r.naturaleza, sesion_id=sesion_id,
+                estudiante_id=estudiante_id, identidad_verificada=True, confianza_identidad=r.confianza))
         pendientes = [t for t in tareas if t.estado == "pendiente"]
         incumplidas = [r for r in reuniones if r.estado == "incumplida"]
         if len(pendientes) >= 2:
@@ -224,7 +251,7 @@ def analizar_estudiantes(datos):
         if len(asistencia) >= 5 and len(ausentes) >= 2:
             activar("inasistencias_registradas", reglas.puntos_asistencia,
                     f"{len(ausentes)} ausencias entre {len(asistencia)} registros aportados; no se infiere deserción.",
-                    [f"contexto:{contexto.origen}:asistencia:{a.id}" for a in ausentes])
+                    [f"contexto:{origenes_asistencia[a.id]}:asistencia:{a.id}" for a in ausentes])
 
         telefonos = [o for o in observaciones if o.tipo == "objeto" and _senal(o) == "telefono"]
         grupos = _muestras(telefonos)
@@ -304,6 +331,19 @@ def analizar_estudiantes(datos):
 
         suficientes = bool(any(o.tipo == "objeto" for o in observaciones) or tareas or reuniones or asistencia)
         puntos = min(100, sum(a["puntos"] for a in activadas)) if suficientes else None
+        reglas_academicas = [a for a in activadas if a["regla"] in {
+            "tareas_pendientes", "reunion_incumplida", "inasistencias_registradas"
+        } or (a["regla"] == "evaluacion_proxima" and len(pendientes) >= 2)]
+        prioridad_academica = min(100, sum(a["puntos"] for a in reglas_academicas)) if (
+            tareas or reuniones or len(asistencia) >= 5) else None
+        indicadores = dict(
+            metodo="reglas_academicas", prioridad_academica=prioridad_academica,
+            estado="datos_insuficientes" if prioridad_academica is None else "evaluado",
+            asistencia_registros=len(asistencia) if asistencia_previa is not None or asistencia else None,
+            ausencias=len(ausentes) if asistencia else None,
+            participaciones=sum(r.cantidad for r in participaciones) if participaciones else None,
+            reglas=reglas_academicas,
+        )
         nivel = "datos_insuficientes" if puntos is None else (
             "alto" if puntos >= reglas.umbral_alto else "moderado" if puntos >= reglas.umbral_moderado else "bajo")
         recomendaciones = (["Verificar con el docente las evidencias y el estado de las entregas; ofrecer una conversación de apoyo sin prejuzgar."]
@@ -316,6 +356,7 @@ def analizar_estudiantes(datos):
             tiene_observaciones_verificadas=(estudiante_id, sesion_id) in pares_verificados,
             actividad=sesion.actividad, indice_prioridad=puntos, nivel_revision=nivel,
             reglas_activadas=activadas, evidencia_por_modulo=dict(evidencia), datos_faltantes=faltantes,
+            indicadores_academicos=indicadores,
             coincidencia_contextual=coincidencia,
             contradicciones=contradicciones,
             limitaciones=["Caso sintético: prioridad heurística sin calibración, no es probabilidad de desaprobación ni diagnóstico.",
@@ -328,6 +369,7 @@ def analizar_estudiantes(datos):
     return SalidaSeguimiento(version_motor="seguimiento-1.0.0", metodo="reglas_configurables_no_calibradas", reglas_aplicadas=reglas,
         resultados=resultados, observaciones_sin_atribuir=sin_atribuir, observaciones_descartadas=descartadas,
         duplicados_omitidos=duplicados, fuentes_recibidas=resumir_fuentes(entrada.fuentes, originales),
+        registros_academicos_excluidos=registros_excluidos,
         limitaciones=["Demostración sintética sin autenticación: no admite datos reales ni almacena historiales.",
             "Identidad declarada mediante referencia revisada; PREDICCIÓN no reconoce rostros ni verifica documentos externos.",
             "No predice notas, desaprobación, fraude, estados psicológicos ni deserción; siempre revisión humana.",
