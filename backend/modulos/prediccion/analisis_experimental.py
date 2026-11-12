@@ -161,7 +161,10 @@ def analizar_expresion(entrada):
     puntajes = {ETIQUETAS[int(clase)]: float(p) for clase, p in zip(modelo.classes_, valores, strict=True)}
     expresion, criterio = modelos_fase7.decidir(puntajes, UMBRAL, MARGEN)
     return {**deteccion, "estado": "estimacion_experimental" if expresion else "abstencion",
-            "expresion": expresion, "puntajes_no_calibrados": puntajes, "modelo": MODELO_FACIAL,
+            "expresion": expresion,
+            "hipotesis": {"categoria": criterio["hipotesis"], "probabilidad": criterio["maximo"],
+                          "concluyente": not criterio["motivos"]},
+            "puntajes_no_calibrados": puntajes, "modelo": MODELO_FACIAL,
             "calidad_entrada": calidad, "origen_entrenamiento": "sintetico", "criterio_abstencion": criterio}
 
 

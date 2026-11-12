@@ -85,7 +85,80 @@ let modoCapturaCongelada = false;
 let estadoCuadricula = "espera";
 let panelEstudiantesExpandido = false;
 let ultimoResultadoFacial = null;
+let ultimoResultadoAudio = null;
 let ultimoResultadoAcademico = null;
+
+function escaparHtml(valor) {
+  return String(valor ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+const ETIQUETAS_LEGIBLES = {
+  alegria: "Alegría",
+  enojo: "Enojo",
+  neutral: "Neutral",
+  tristeza: "Tristeza",
+  calma: "Calma",
+  asco: "Asco",
+  miedo: "Miedo",
+  sorpresa: "Sorpresa",
+  aprueba: "Aprueba",
+  no_aprueba: "No aprueba"
+};
+
+function formatearCategoria(categoria, preservarSinTilde = false) {
+  if (!categoria) return "Sin clasificar";
+  if (preservarSinTilde) {
+    return categoria.charAt(0).toUpperCase() + categoria.slice(1).replaceAll("_", " ");
+  }
+  return ETIQUETAS_LEGIBLES[categoria] || (categoria.charAt(0).toUpperCase() + categoria.slice(1).replaceAll("_", " "));
+}
+
+function traducirMotivosAbstencion(criterio) {
+  const motivos = criterio?.motivos;
+  if (!motivos || !motivos.length) return "confianza o margen insuficientes";
+  const umbralTxt = criterio?.umbral != null ? `${(criterio.umbral * 100).toFixed(0)}%` : "55%";
+  const margenTxt = criterio?.margen_minimo != null ? `${(criterio.margen_minimo * 100).toFixed(0)}%` : "10%";
+  return motivos.map(m =>
+    m === "probabilidad_insuficiente" ? `probabilidad insuficiente (< ${umbralTxt})`
+      : m === "margen_insuficiente" ? `margen insuficiente (< ${margenTxt})`
+        : m.replaceAll("_", " ")
+  ).join(" y ");
+}
+
+function extraerHipotesis(resultado) {
+  if (!resultado) return null;
+  const puntajes = resultado.puntajes_calibrados || resultado.puntajes_no_calibrados;
+  let categoria = resultado.hipotesis?.categoria ?? null;
+  let probabilidad = resultado.hipotesis?.probabilidad ?? null;
+  if ((!categoria || typeof probabilidad !== "number") && puntajes) {
+    const ordenado = Object.entries(puntajes).sort((a, b) => b[1] - a[1]);
+    if (ordenado.length) {
+      categoria = ordenado[0][0];
+      probabilidad = ordenado[0][1];
+    }
+  }
+  if (!categoria && (resultado.expresion || resultado.expresion_vocal || resultado.desenlace_estimado)) {
+    categoria = resultado.expresion || resultado.expresion_vocal || resultado.desenlace_estimado;
+  }
+  if (!categoria) return null;
+  const pct = typeof probabilidad === "number" ? `${(probabilidad * 100).toFixed(1)}%` : "—";
+  const pctNum = typeof probabilidad === "number" ? Math.max(0, Math.min(100, probabilidad * 100)) : 0;
+  return {
+    categoria,
+    label: formatearCategoria(categoria),
+    probabilidad,
+    pctTexto: pct,
+    pctNum,
+    concluyente: resultado.estado === "estimacion_experimental",
+    motivosTexto: traducirMotivosAbstencion(resultado.criterio_abstencion),
+    puntajesOrdenados: puntajes ? Object.entries(puntajes).sort((a, b) => b[1] - a[1]) : []
+  };
+}
 
 // Datos calibrados de demostración (utilizados en pruebas y simulación)
 const DEMO_INICIAL_ESTUDIANTES = [
@@ -201,16 +274,21 @@ function renderizarPanelesInferiores(estudiante) {
     if (domEmoText) domEmoText.textContent = "Sin evaluar — Esperando captura";
     if (actionBadge) actionBadge.textContent = esFacial ? "Análisis facial individual de identidad desconocida" : "Esperando detección en captura";
 
+    const b1Icon = elemento("events-block1-icon"); if (b1Icon) b1Icon.textContent = "⏳";
+    const b1Title = elemento("events-block1-title"); if (b1Title) b1Title.textContent = "Acontecimientos Previos (Causas Probables)";
+    const b2Icon = elemento("events-block2-icon"); if (b2Icon) b2Icon.textContent = "🎯";
+    const b2Title = elemento("events-block2-title"); if (b2Title) b2Title.textContent = "Acontecimientos Futuros (Consecuencias Estimadas)";
+
     const causesList = elemento("causes-list");
     if (causesList) {
       causesList.innerHTML = esFacial
-        ? `<div class="prediction-empty-notice"><span>ℹ️</span><span>No aplicable a captura facial individual.<br>La proyección de causas previas requiere eventos temporales o contexto de aula.</span></div>`
+        ? `<div class="prediction-empty-notice"><span>ℹ️</span><span>En espera de entrada independiente (imagen, audio WAV o notas académicas).<br>No se proyectan causas previas sin secuencia temporal ni supervisión grupal.</span></div>`
         : `<div class="prediction-empty-notice"><span>⏳</span><span>Esperando captura de aula para proyectar acontecimientos previos...</span></div>`;
     }
     const consequencesList = elemento("consequences-list");
     if (consequencesList) {
       consequencesList.innerHTML = esFacial
-        ? `<div class="prediction-empty-notice"><span>ℹ️</span><span>No aplicable a captura facial individual.<br>La proyección de consecuencias futuras requiere supervisión grupal de clase.</span></div>`
+        ? `<div class="prediction-empty-notice"><span>ℹ️</span><span>Cada modalidad se ejecuta por separado sin inventar consecuencias futuras.</span></div>`
         : `<div class="prediction-empty-notice"><span>⏳</span><span>Esperando captura de aula para proyectar consecuencias futuras...</span></div>`;
     }
     const riskBanner = elemento("risk-score-banner");
@@ -233,11 +311,16 @@ function renderizarPanelesInferiores(estudiante) {
     }
     if (narrativeText) {
       narrativeText.innerHTML = esFacial
-        ? "Esperando captura facial para estimar la expresión observable de identidad desconocida sin asociar datos escolares."
+        ? "Esperando captura facial, audio WAV o calificaciones académicas para evaluar cada modalidad de forma independiente sin asociar identidad."
         : "Esperando captura para evaluar las emociones y el desempeño de los estudiantes en el aula.";
     }
     return;
   }
+
+  const b1Icon = elemento("events-block1-icon"); if (b1Icon) b1Icon.textContent = "⏳";
+  const b1Title = elemento("events-block1-title"); if (b1Title) b1Title.textContent = "Acontecimientos Previos (Causas Probables)";
+  const b2Icon = elemento("events-block2-icon"); if (b2Icon) b2Icon.textContent = "🎯";
+  const b2Title = elemento("events-block2-title"); if (b2Title) b2Title.textContent = "Acontecimientos Futuros (Consecuencias Estimadas)";
 
   if (facialTitle) facialTitle.textContent = `🔮 Reconocimiento Facial: 7 Emociones (Histórico) (${estudiante.nombre})`;
   if (facialSub) facialSub.textContent = "Modelo sintético experimental (v2.5) · Supervisión de aula";
@@ -332,47 +415,74 @@ function renderizarPanelesInferiores(estudiante) {
   }
 }
 
-function renderizarResultadoFacial(resultadoFacial, resultadoAcademico) {
-  ultimoResultadoFacial = resultadoFacial;
-  if (resultadoAcademico !== undefined) ultimoResultadoAcademico = resultadoAcademico;
+function renderizarAnalisisIndependiente(resultadoFacial = null, resultadoAcademico = null, resultadoAudio = null) {
+  ultimoResultadoFacial = resultadoFacial && resultadoFacial.estado !== "sin_entrada" ? resultadoFacial : null;
+  ultimoResultadoAcademico = resultadoAcademico && resultadoAcademico.estado !== "sin_entrada" ? resultadoAcademico : null;
+  ultimoResultadoAudio = resultadoAudio && resultadoAudio.estado !== "sin_entrada" ? resultadoAudio : null;
+
+  const img = ultimoResultadoFacial;
+  const acad = ultimoResultadoAcademico;
+  const aud = ultimoResultadoAudio;
+
+  const hipImg = extraerHipotesis(img);
+  const hipAud = extraerHipotesis(aud);
+  const hipAcad = extraerHipotesis(acad);
+
   const labels = typeof document !== "undefined" && document.querySelectorAll ? document.querySelectorAll(".selected-student-label") : [];
-  const rostros = resultadoFacial?.rostros_detectados ?? (resultadoFacial?.deteccion_facial === "sin_rostro" ? 0 : (resultadoFacial ? 1 : 0));
-  const labelText = resultadoFacial
+  const rostros = img
+    ? (img.rostros_detectados ?? (img.deteccion_facial === "sin_rostro" ? 0 : 1))
+    : 0;
+  const labelText = img
     ? (rostros === 1 ? "(Rostro 1 · Identidad desconocida)" : rostros > 1 ? `(${rostros} rostros detectados)` : "(Sin rostro detectado)")
-    : "(Facial experimental)";
+    : aud && !acad
+      ? "(Solo audio · Sin imagen)"
+      : acad && !aud
+        ? "(Solo académico · Sin imagen)"
+        : (aud || acad)
+          ? "(Sin fotografía)"
+          : "(Facial experimental)";
 
   labels.forEach(el => { el.textContent = labelText; });
   const fLabel = elemento("facial-student-label"); if (fLabel) fLabel.textContent = labelText;
-  const evLabel = elemento("events-student-label"); if (evLabel) evLabel.textContent = "(Inactivo en captura individual)";
-  const acLabel = elemento("academic-student-label"); if (acLabel) acLabel.textContent = ultimoResultadoAcademico?.estado === "estimacion_experimental" ? "(Evaluación curricular)" : "(Independiente)";
 
-  // Título y subtítulo del panel facial adaptados al clasificador operativo
+  const modalidadesActivas = [img && "Imagen", aud && "Audio", acad && "Académico"].filter(Boolean);
+  const etiquetaModalidades = modalidadesActivas.length ? `(${modalidadesActivas.join(" + ")})` : "(Inactivo en captura individual)";
+  const evLabel = elemento("events-student-label"); if (evLabel) evLabel.textContent = etiquetaModalidades;
+  const acLabel = elemento("academic-student-label");
+  if (acLabel) {
+    acLabel.textContent = acad?.estado === "estimacion_experimental"
+      ? "(Evaluación curricular)"
+      : acad?.estado === "abstencion"
+        ? "(Hipótesis no concluyente)"
+        : acad?.estado === "evidencia_insuficiente"
+          ? "(Datos incompletos)"
+          : "(Independiente)";
+  }
+
+  // Título y subtítulo del panel facial
   const facialTitle = elemento("facial-card-title");
   if (facialTitle) {
-    facialTitle.textContent = `🔮 Reconocimiento Facial: 4 Expresiones Observables ${labelText}`;
-  }
-  const eventsTitle = elemento("events-card-title");
-  if (eventsTitle) {
-    eventsTitle.textContent = '📋 Predicción de Sucesos Probables (Inactivo en captura individual)';
-  }
-  const academicTitle = elemento("academic-card-title");
-  if (academicTitle) {
-    academicTitle.textContent = ultimoResultadoAcademico?.estado === "estimacion_experimental"
-      ? '📈 Análisis y Proyección Académica (Evaluación curricular)'
-      : '📈 Análisis y Proyección Académica (Independiente)';
+    facialTitle.textContent = img
+      ? `🔮 Reconocimiento Facial: 4 Expresiones Observables ${labelText}`
+      : `🔮 Reconocimiento Facial ${labelText}`;
   }
   const facialSub = elemento("facial-card-sublabel");
   if (facialSub) {
-    const descMod = resultadoFacial?.modelo ? describirModeloExperimental(resultadoFacial.modelo) : "HOG+SVM · fase8-1.0 · CMU Face Images";
-    facialSub.textContent = `Modelo ${descMod} (datos reales)`;
+    if (img) {
+      const descMod = img.modelo ? describirModeloExperimental(img.modelo) : "HOG+SVM · fase8-1.0 · CMU Face Images";
+      facialSub.textContent = `Modelo ${descMod} (${img.origen_entrenamiento === "sintetico" ? "datos sintéticos" : "datos reales"})`;
+    } else {
+      facialSub.textContent = "Sin fotografía enviada — Las demás modalidades operan de forma independiente";
+    }
   }
 
-  // Ocultar las 3 emociones no evaluadas por el modelo operativo de 4 categorías
-  const itemMiedo = elemento("emo-item-miedo"); if (itemMiedo) itemMiedo.style.display = "none";
-  const itemSorpresa = elemento("emo-item-sorpresa"); if (itemSorpresa) itemSorpresa.style.display = "none";
-  const itemDisgusto = elemento("emo-item-disgusto"); if (itemDisgusto) itemDisgusto.style.display = "none";
+  const puntajes = img?.puntajes_calibrados || img?.puntajes_no_calibrados;
+  const usa7Clases = Boolean(puntajes && ("miedo" in puntajes || "sorpresa" in puntajes || "asco" in puntajes));
 
-  // Mostrar las 4 emociones verificadas
+  const itemMiedo = elemento("emo-item-miedo"); if (itemMiedo) itemMiedo.style.display = usa7Clases ? "" : "none";
+  const itemSorpresa = elemento("emo-item-sorpresa"); if (itemSorpresa) itemSorpresa.style.display = usa7Clases ? "" : "none";
+  const itemDisgusto = elemento("emo-item-disgusto"); if (itemDisgusto) itemDisgusto.style.display = usa7Clases ? "" : "none";
+
   const itemNeutral = elemento("emo-item-neutral"); if (itemNeutral) itemNeutral.style.display = "";
   const itemFelicidad = elemento("emo-item-felicidad"); if (itemFelicidad) itemFelicidad.style.display = "";
   const itemTristeza = elemento("emo-item-tristeza"); if (itemTristeza) itemTristeza.style.display = "";
@@ -383,93 +493,268 @@ function renderizarResultadoFacial(resultadoFacial, resultadoAcademico) {
   const lblTristeza = elemento("emo-label-tristeza"); if (lblTristeza) lblTristeza.textContent = "Tristeza (😢)";
   const lblEnojo = elemento("emo-label-enojo"); if (lblEnojo) lblEnojo.textContent = "Enojo (😠)";
 
-  const emoNeutral = elemento("emo-pct-neutral");
-  const barNeutral = elemento("emo-bar-neutral");
-  const emoFelicidad = elemento("emo-pct-felicidad");
-  const barFelicidad = elemento("emo-bar-felicidad");
-  const emoTristeza = elemento("emo-pct-tristeza");
-  const barTristeza = elemento("emo-bar-tristeza");
-  const emoEnojo = elemento("emo-pct-enojo");
-  const barEnojo = elemento("emo-bar-enojo");
+  const setBarra = (pctId, barId, prob) => {
+    const pctEl = elemento(pctId);
+    const barEl = elemento(barId);
+    const texto = typeof prob === "number" ? `${(prob * 100).toFixed(1)}%` : "0%";
+    const ancho = typeof prob === "number" ? `${(prob * 100).toFixed(1)}%` : "0%";
+    if (pctEl) pctEl.textContent = texto;
+    if (barEl) barEl.style.width = ancho;
+  };
+
+  if (puntajes) {
+    setBarra("emo-pct-felicidad", "emo-bar-felicidad", puntajes.alegria ?? puntajes.felicidad ?? 0);
+    setBarra("emo-pct-neutral", "emo-bar-neutral", puntajes.neutral ?? 0);
+    setBarra("emo-pct-enojo", "emo-bar-enojo", puntajes.enojo ?? 0);
+    setBarra("emo-pct-tristeza", "emo-bar-tristeza", puntajes.tristeza ?? 0);
+    if (usa7Clases) {
+      setBarra("emo-pct-miedo", "emo-bar-miedo", puntajes.miedo ?? 0);
+      setBarra("emo-pct-sorpresa", "emo-bar-sorpresa", puntajes.sorpresa ?? 0);
+      setBarra("emo-pct-disgusto", "emo-bar-disgusto", puntajes.asco ?? puntajes.disgusto ?? 0);
+    }
+  } else {
+    setBarra("emo-pct-felicidad", "emo-bar-felicidad", null);
+    setBarra("emo-pct-neutral", "emo-bar-neutral", null);
+    setBarra("emo-pct-enojo", "emo-bar-enojo", null);
+    setBarra("emo-pct-tristeza", "emo-bar-tristeza", null);
+    setBarra("emo-pct-miedo", "emo-bar-miedo", null);
+    setBarra("emo-pct-sorpresa", "emo-bar-sorpresa", null);
+    setBarra("emo-pct-disgusto", "emo-bar-disgusto", null);
+  }
+
   const domEmoText = elemento("dominant-emotion-text");
   const actionBadge = elemento("student-action-badge");
   const facialFooter = elemento("facial-card-footer");
 
-  const puntajes = resultadoFacial?.puntajes_calibrados || resultadoFacial?.puntajes_no_calibrados;
-  if (puntajes) {
-    const pAlegria = puntajes.alegria ?? puntajes.felicidad ?? 0;
-    const pNeutral = puntajes.neutral ?? 0;
-    const pEnojo = puntajes.enojo ?? 0;
-    const pTristeza = puntajes.tristeza ?? 0;
-
-    if (emoFelicidad && barFelicidad) {
-      emoFelicidad.textContent = `${(pAlegria * 100).toFixed(1)}%`;
-      barFelicidad.style.width = `${(pAlegria * 100).toFixed(1)}%`;
-    }
-    if (emoNeutral && barNeutral) {
-      emoNeutral.textContent = `${(pNeutral * 100).toFixed(1)}%`;
-      barNeutral.style.width = `${(pNeutral * 100).toFixed(1)}%`;
-    }
-    if (emoEnojo && barEnojo) {
-      emoEnojo.textContent = `${(pEnojo * 100).toFixed(1)}%`;
-      barEnojo.style.width = `${(pEnojo * 100).toFixed(1)}%`;
-    }
-    if (emoTristeza && barTristeza) {
-      emoTristeza.textContent = `${(pTristeza * 100).toFixed(1)}%`;
-      barTristeza.style.width = `${(pTristeza * 100).toFixed(1)}%`;
-    }
-  } else {
-    if (emoFelicidad && barFelicidad) { emoFelicidad.textContent = "0%"; barFelicidad.style.width = "0%"; }
-    if (emoNeutral && barNeutral) { emoNeutral.textContent = "0%"; barNeutral.style.width = "0%"; }
-    if (emoEnojo && barEnojo) { emoEnojo.textContent = "0%"; barEnojo.style.width = "0%"; }
-    if (emoTristeza && barTristeza) { emoTristeza.textContent = "0%"; barTristeza.style.width = "0%"; }
-  }
-
   if (actionBadge) {
-    actionBadge.textContent = "Sin supervisión de aula (análisis facial individual de identidad desconocida)";
+    actionBadge.textContent = img
+      ? "Sin supervisión de aula (análisis facial individual de identidad desconocida)"
+      : "Modalidad independiente activa (sin atribución biométrica de identidad)";
   }
 
   if (domEmoText) {
-    if (resultadoFacial?.estado === "abstencion") {
-      let motivos = "confianza (< 55%) o margen (< 10%) insuficientes";
-      if (resultadoFacial.criterio_abstencion?.motivos?.length) {
-        motivos = resultadoFacial.criterio_abstencion.motivos.map(m =>
-          m === "probabilidad_insuficiente" ? "probabilidad insuficiente (< 55%)"
-          : m === "margen_insuficiente" ? "margen insuficiente (< 10%)"
-          : m.replaceAll("_", " ")
-        ).join(" y ");
-      }
-      domEmoText.textContent = `Abstención preventiva · ${motivos}`;
-    } else if (resultadoFacial?.estado === "estimacion_experimental") {
-      const exp = resultadoFacial.expresion ? resultadoFacial.expresion.charAt(0).toUpperCase() + resultadoFacial.expresion.slice(1) : "Sin clasificar";
-      domEmoText.textContent = `Expresión observable: ${exp} (estimación experimental)`;
-    } else if (resultadoFacial?.estado === "evidencia_insuficiente") {
-      domEmoText.textContent = ESTADOS_DETECCION_FACIAL[resultadoFacial.deteccion_facial] || "Evidencia facial insuficiente";
-    } else if (resultadoFacial?.estado === "modelo_no_disponible") {
+    if (!img) {
+      domEmoText.textContent = aud
+        ? "Sin fotografía — Solo se evaluó la modalidad acústica"
+        : acad
+          ? "Sin fotografía — Solo se evaluó la modalidad académica"
+          : "Sin fotografía evaluada";
+    } else if (img.estado === "abstencion") {
+      const motivos = traducirMotivosAbstencion(img.criterio_abstencion);
+      domEmoText.textContent = hipImg
+        ? `Hipótesis no concluyente: ${hipImg.label} (${hipImg.pctTexto}) · Abstención preventiva · ${motivos}`
+        : `Abstención preventiva · ${motivos}`;
+    } else if (img.estado === "estimacion_experimental") {
+      const exp = formatearCategoria(img.expresion, true);
+      const pctTxt = hipImg ? ` (${hipImg.pctTexto})` : "";
+      domEmoText.textContent = `Expresión observable: ${exp}${pctTxt} · Clasificación concluyente (estimación experimental)`;
+    } else if (img.estado === "evidencia_insuficiente") {
+      domEmoText.textContent = ESTADOS_DETECCION_FACIAL[img.deteccion_facial] || "Evidencia facial insuficiente";
+    } else if (img.estado === "modelo_no_disponible") {
       domEmoText.textContent = "Rostro detectado · Modelo facial no disponible";
-    } else if (resultadoFacial?.estado === "error_inferencia") {
+    } else if (img.estado === "error_inferencia") {
       domEmoText.textContent = "Error técnico durante el análisis facial";
     } else {
-      domEmoText.textContent = resultadoFacial?.motivo || "Sin evaluación";
+      domEmoText.textContent = img.motivo || "Sin evaluación";
     }
   }
 
   if (facialFooter) {
-    facialFooter.innerHTML = '<span>🔬 Modelo Facial HOG+SVM (fase8-1.0) · CMU Face Images (4 expresiones verificadas)</span>';
+    facialFooter.innerHTML = usa7Clases
+      ? '<span>🔬 Modelo Facial Histórico (7 Emociones · Datos sintéticos)</span>'
+      : '<span>🔬 Modelo Facial HOG+SVM (fase8-1.0) · CMU Face Images (4 expresiones verificadas)</span>';
   }
 
-  // Tarjeta 2: Sucesos Probables (no aplicable a foto individual)
+  // Tarjeta 2: Panel Dinámico de Resultados por Modalidad Independiente
+  const eventsTitle = elemento("events-card-title");
+  const b1Icon = elemento("events-block1-icon");
+  const b1Title = elemento("events-block1-title");
+  const b2Icon = elemento("events-block2-icon");
+  const b2Title = elemento("events-block2-title");
   const causesList = elemento("causes-list");
-  if (causesList) {
-    causesList.innerHTML = `<div class="prediction-empty-notice"><span>ℹ️</span><span>No aplicable a captura facial individual.<br>La proyección de causas previas requiere eventos temporales o contexto de aula.</span></div>`;
-  }
   const consequencesList = elemento("consequences-list");
-  if (consequencesList) {
-    consequencesList.innerHTML = `<div class="prediction-empty-notice"><span>ℹ️</span><span>No aplicable a captura facial individual.<br>La proyección de consecuencias futuras requiere supervisión grupal de clase.</span></div>`;
-  }
   const eventsFooter = elemento("events-card-footer");
-  if (eventsFooter) {
-    eventsFooter.innerHTML = '<span>Requiere supervisión de aula o secuencia temporal</span>';
+
+  if (modalidadesActivas.length > 0) {
+    if (eventsTitle) {
+      eventsTitle.textContent = `📋 Resultados por Modalidad Independiente ${etiquetaModalidades}`;
+    }
+    if (b1Icon) b1Icon.textContent = "🔬";
+    if (b1Title) b1Title.textContent = "Resultados e Hipótesis por Modalidad";
+    if (b2Icon) b2Icon.textContent = "🛡️";
+    if (b2Title) b2Title.textContent = "Alcance, Independencia y Límites";
+
+    const itemsDiagnostico = [];
+    const itemsLimites = [];
+
+    if (img) {
+      if (img.estado === "estimacion_experimental" && hipImg) {
+        itemsDiagnostico.push(`
+          <div class="prob-item conclusive-item">
+            <div class="prob-item-text-row">
+              <span class="prob-item-title">📸 Imagen · Clasificación facial concluyente: <strong>${escaparHtml(hipImg.label)}</strong></span>
+              <span class="prob-item-pct">${escaparHtml(hipImg.pctTexto)}</span>
+            </div>
+            <div class="prob-progress-track"><div class="prob-progress-fill" style="width: ${hipImg.pctNum.toFixed(1)}%;"></div></div>
+            <div class="prob-item-subnote">Rostros detectados: ${rostros} · Identidad desconocida (no atribuida) · ${img.calidad_entrada?.recorte_px ? `Recorte ${img.calidad_entrada.recorte_px[0]}×${img.calidad_entrada.recorte_px[1]} px` : "Umbral ≥ 55%, margen ≥ 10%"}.</div>
+          </div>
+        `);
+      } else if (img.estado === "abstencion") {
+        const motivos = traducirMotivosAbstencion(img.criterio_abstencion);
+        itemsDiagnostico.push(`
+          <div class="prob-item hypothesis-item">
+            <div class="prob-item-text-row">
+              <span class="prob-item-title">📸 Imagen · Hipótesis no concluyente: <strong>${escaparHtml(hipImg ? hipImg.label : "Sin hipótesis")}</strong> (Estado: abstención)</span>
+              <span class="prob-item-pct">${escaparHtml(hipImg ? hipImg.pctTexto : "—")}</span>
+            </div>
+            <div class="prob-progress-track"><div class="prob-progress-fill" style="width: ${hipImg ? hipImg.pctNum.toFixed(1) : 0}%;"></div></div>
+            <div class="prob-item-subnote">Motivo: ${escaparHtml(motivos)}. No se confirma categoría · Rostros: ${rostros} · Identidad desconocida.</div>
+          </div>
+        `);
+      } else {
+        const detalleDet = ESTADOS_DETECCION_FACIAL[img.deteccion_facial] || ESTADOS_FACIALES[img.estado] || img.motivo || "No evaluable";
+        itemsDiagnostico.push(`
+          <div class="prob-item error-item">
+            <div class="prob-item-text-row">
+              <span class="prob-item-title">📸 Imagen · ${escaparHtml(img.estado.replaceAll("_", " "))} (rostros: ${rostros})</span>
+              <span class="prob-item-pct">Sin clasificar</span>
+            </div>
+            <div class="prob-item-subnote">${escaparHtml(detalleDet)}${img.motivo && !detalleDet.includes(img.motivo) ? ` · ${escaparHtml(img.motivo)}` : ""}</div>
+          </div>
+        `);
+      }
+    }
+
+    if (aud) {
+      if (aud.estado === "estimacion_experimental" && hipAud) {
+        const top3 = hipAud.puntajesOrdenados.slice(0, 3).map(([k, v]) => `${formatearCategoria(k)} ${(v * 100).toFixed(1)}%`).join(" · ");
+        const dur = aud.calidad_entrada?.duracion_segundos != null ? `${aud.calidad_entrada.duracion_segundos.toFixed(2)}s` : "WAV PCM16";
+        itemsDiagnostico.push(`
+          <div class="prob-item conclusive-item">
+            <div class="prob-item-text-row">
+              <span class="prob-item-title">🎙️ Audio · Clasificación vocal concluyente: <strong>${escaparHtml(hipAud.label)}</strong></span>
+              <span class="prob-item-pct">${escaparHtml(hipAud.pctTexto)}</span>
+            </div>
+            <div class="prob-progress-track"><div class="prob-progress-fill" style="width: ${hipAud.pctNum.toFixed(1)}%;"></div></div>
+            <div class="prob-item-subnote">Modelo acústico RAVDESS (no facial) · Duración: ${escaparHtml(dur)} · Top 3: ${escaparHtml(top3)} · Identidad no verificada.</div>
+          </div>
+        `);
+      } else if (aud.estado === "abstencion") {
+        const motivos = traducirMotivosAbstencion(aud.criterio_abstencion);
+        const top3 = (hipAud?.puntajesOrdenados || []).slice(0, 3).map(([k, v]) => `${formatearCategoria(k)} ${(v * 100).toFixed(1)}%`).join(" · ");
+        itemsDiagnostico.push(`
+          <div class="prob-item hypothesis-item">
+            <div class="prob-item-text-row">
+              <span class="prob-item-title">🎙️ Audio · Hipótesis vocal no concluyente: <strong>${escaparHtml(hipAud ? hipAud.label : "Sin hipótesis")}</strong> (Estado: abstención)</span>
+              <span class="prob-item-pct">${escaparHtml(hipAud ? hipAud.pctTexto : "—")}</span>
+            </div>
+            <div class="prob-progress-track"><div class="prob-progress-fill" style="width: ${hipAud ? hipAud.pctNum.toFixed(1) : 0}%;"></div></div>
+            <div class="prob-item-subnote">Motivo: ${escaparHtml(motivos)}. Top 3 RAVDESS (8 clases, no facial): ${escaparHtml(top3 || "sin puntajes")}.</div>
+          </div>
+        `);
+      } else if (aud.estado === "caracteristicas_declaradas") {
+        const desc = Object.entries(aud.caracteristicas || {}).map(([k, v]) => `${k}: ${v}`).join(" · ");
+        itemsDiagnostico.push(`
+          <div class="prob-item warning-item">
+            <div class="prob-item-text-row">
+              <span class="prob-item-title">🎙️ Audio · Descriptores acústicos declarados (${aud.duracion_segundos ?? "—"}s)</span>
+              <span class="prob-item-pct">Sin WAV</span>
+            </div>
+            <div class="prob-item-subnote">${escaparHtml(desc || "Sin descriptores adicionales")}. Proporciona un fragmento WAV PCM16 para ejecutar el clasificador acústico.</div>
+          </div>
+        `);
+      } else {
+        itemsDiagnostico.push(`
+          <div class="prob-item error-item">
+            <div class="prob-item-text-row">
+              <span class="prob-item-title">🎙️ Audio · ${escaparHtml(aud.estado.replaceAll("_", " "))}</span>
+              <span class="prob-item-pct">No evaluable</span>
+            </div>
+            <div class="prob-item-subnote">${escaparHtml(aud.motivo || "Entrada de audio incompatible o sin energía suficiente (se requiere WAV PCM16 8–48 kHz, 0.5–8s).")}</div>
+          </div>
+        `);
+      }
+    }
+
+    if (acad) {
+      if (acad.estado === "estimacion_experimental") {
+        const pctRiesgo = Math.round((acad.probabilidad_no_aprueba ?? 0) * 100);
+        const desenlaceTxt = acad.desenlace_estimado === "no_aprueba" ? "Riesgo de desaprobación (no aprueba)" : "Aprobación proyectada (aprueba)";
+        itemsDiagnostico.push(`
+          <div class="prob-item conclusive-item">
+            <div class="prob-item-text-row">
+              <span class="prob-item-title">📚 Académico · ${escaparHtml(desenlaceTxt)} (${escaparHtml(acad.desenlace || "G3 < 10/20")})</span>
+              <span class="prob-item-pct">${pctRiesgo}% riesgo</span>
+            </div>
+            <div class="prob-progress-track"><div class="prob-progress-fill" style="width: ${pctRiesgo}%;"></div></div>
+            <div class="prob-item-subnote">Evaluado de forma independiente con notas G1 y G2 (escala 0-20, corte ${escaparHtml(acad.corte || "despues_g2")}). ${escaparHtml(acad.limitacion || "")}</div>
+          </div>
+        `);
+      } else if (acad.estado === "abstencion") {
+        const motivos = traducirMotivosAbstencion(acad.criterio_abstencion);
+        const pctRiesgo = acad.probabilidad_no_aprueba != null ? Math.round(acad.probabilidad_no_aprueba * 100) : 0;
+        itemsDiagnostico.push(`
+          <div class="prob-item hypothesis-item">
+            <div class="prob-item-text-row">
+              <span class="prob-item-title">📚 Académico · Hipótesis no concluyente: <strong>${escaparHtml(hipAcad ? hipAcad.label : "Limítrofe")}</strong> (abstención)</span>
+              <span class="prob-item-pct">${acad.probabilidad_no_aprueba != null ? `${pctRiesgo}% riesgo` : "—"}</span>
+            </div>
+            <div class="prob-progress-track"><div class="prob-progress-fill" style="width: ${pctRiesgo}%;"></div></div>
+            <div class="prob-item-subnote">Motivo: ${escaparHtml(motivos)}. No supera umbral ni margen para afirmación concluyente.</div>
+          </div>
+        `);
+      } else if (acad.estado === "evidencia_insuficiente") {
+        const faltantes = (acad.campos_faltantes || []).join(", ") || "G1, G2, corte, escala";
+        itemsDiagnostico.push(`
+          <div class="prob-item warning-item">
+            <div class="prob-item-text-row">
+              <span class="prob-item-title">📚 Académico · Evidencia insuficiente</span>
+              <span class="prob-item-pct">Incompleto</span>
+            </div>
+            <div class="prob-item-subnote">Campos faltantes obligatorios: <strong>${escaparHtml(faltantes)}</strong>. El sistema nunca inventa calificaciones ausentes.</div>
+          </div>
+        `);
+      } else {
+        itemsDiagnostico.push(`
+          <div class="prob-item error-item">
+            <div class="prob-item-text-row">
+              <span class="prob-item-title">📚 Académico · ${escaparHtml(acad.estado.replaceAll("_", " "))}</span>
+              <span class="prob-item-pct">No disponible</span>
+            </div>
+            <div class="prob-item-subnote">${escaparHtml(acad.motivo || "Modelo académico no disponible en el servidor.")}</div>
+          </div>
+        `);
+      }
+    }
+
+    const huboErrorParcial = [img, aud, acad].some(r => r && !["estimacion_experimental", "abstencion", "caracteristicas_declaradas"].includes(r.estado));
+    const huboValido = [img, aud, acad].some(r => r && ["estimacion_experimental", "abstencion"].includes(r.estado));
+    if (huboErrorParcial && huboValido) {
+      itemsLimites.push(`<div class="prediction-empty-notice"><span>✅</span><span><strong>Aislamiento de fallos:</strong> Las entradas inválidas o sin rostro de una modalidad no invalidan los resultados válidos de las demás.</span></div>`);
+    }
+    itemsLimites.push(`<div class="prediction-empty-notice"><span>🛡️</span><span><strong>Sin sucesos artificiales:</strong> No se fabrican causas previas ni consecuencias futuras a partir de una fotografía individual ni de un fragmento de audio.</span></div>`);
+    if (img || aud) {
+      itemsLimites.push(`<div class="prediction-empty-notice"><span>ℹ️</span><span>Las expresiones faciales o vocales observables son independientes del desempeño escolar: no predicen aprobación académica, intenciones ni distracción.</span></div>`);
+    }
+
+    if (causesList) causesList.innerHTML = itemsDiagnostico.join("");
+    if (consequencesList) consequencesList.innerHTML = itemsLimites.join("");
+    if (eventsFooter) eventsFooter.innerHTML = '<span>Inferencia independiente por modalidad · Sin fusión automática entre fuentes</span>';
+  } else {
+    if (eventsTitle) eventsTitle.textContent = '📋 Predicción de Sucesos Probables (Inactivo en captura individual)';
+    if (b1Icon) b1Icon.textContent = "⏳";
+    if (b1Title) b1Title.textContent = "Acontecimientos Previos (Causas Probables)";
+    if (b2Icon) b2Icon.textContent = "🎯";
+    if (b2Title) b2Title.textContent = "Acontecimientos Futuros (Consecuencias Estimadas)";
+    if (causesList) {
+      causesList.innerHTML = `<div class="prediction-empty-notice"><span>ℹ️</span><span>En espera de entrada independiente (imagen, audio WAV o notas académicas).</span></div>`;
+    }
+    if (consequencesList) {
+      consequencesList.innerHTML = `<div class="prediction-empty-notice"><span>ℹ️</span><span>La proyección de causas y consecuencias futuras solo aplica al Modo Captura de Aula.</span></div>`;
+    }
+    if (eventsFooter) {
+      eventsFooter.innerHTML = '<span>Requiere supervisión de aula o evaluación independiente</span>';
+    }
   }
 
   // Tarjeta 3: Análisis Académico
@@ -478,31 +763,72 @@ function renderizarResultadoFacial(resultadoFacial, resultadoAcademico) {
   const riesgoNivelText = elemento("riesgo-nivel-text");
   const examRiskDesc = elemento("exam-risk-desc");
   const narrativeText = elemento("assistant-narrative-text");
+  const academicTitle = elemento("academic-card-title");
   const academicFooter = elemento("academic-card-footer");
 
-  if (resultadoAcademico && resultadoAcademico.estado === "estimacion_experimental") {
-    const pctNoAprueba = Math.round((resultadoAcademico.probabilidad_no_aprueba ?? 0) * 100);
+  if (academicTitle) {
+    academicTitle.textContent = acad?.estado === "estimacion_experimental"
+      ? '📈 Análisis y Proyección Académica (Evaluación curricular)'
+      : acad?.estado === "abstencion"
+        ? '📈 Análisis y Proyección Académica (Hipótesis no concluyente)'
+        : acad?.estado === "evidencia_insuficiente"
+          ? '📈 Análisis y Proyección Académica (Datos incompletos)'
+          : '📈 Análisis y Proyección Académica (Independiente)';
+  }
+
+  if (acad && acad.estado === "estimacion_experimental") {
+    const pctNoAprueba = Math.round((acad.probabilidad_no_aprueba ?? 0) * 100);
     if (riesgoScoreNum) riesgoScoreNum.textContent = String(pctNoAprueba);
     if (riesgoNivelText) {
-      riesgoNivelText.textContent = resultadoAcademico.desenlace_estimado === "no_aprueba"
+      riesgoNivelText.textContent = acad.desenlace_estimado === "no_aprueba"
         ? "Riesgo de desaprobación (G3 < 10/20)"
         : "Aprobación proyectada (G3 >= 10/20)";
     }
     if (riskBanner) {
-      riskBanner.className = `risk-score-banner ${resultadoAcademico.desenlace_estimado === "no_aprueba" ? "bg-risk-high" : "bg-risk-optimal"}`;
+      riskBanner.className = `risk-score-banner ${acad.desenlace_estimado === "no_aprueba" ? "bg-risk-high" : "bg-risk-optimal"}`;
     }
     if (examRiskDesc) {
-      examRiskDesc.textContent = `Proyección con modelo de investigación: ${(resultadoAcademico.probabilidad_no_aprueba * 100).toFixed(1)}% prob. de no aprobar. Variables: G1 y G2 (escala 0-20). Procedencia: UCI Student Performance.`;
+      examRiskDesc.textContent = `Proyección con modelo de investigación: ${(acad.probabilidad_no_aprueba * 100).toFixed(1)}% prob. de no aprobar. Variables: G1 y G2 (escala 0-20). Procedencia: UCI Student Performance.`;
     }
     if (academicFooter) {
       academicFooter.innerHTML = '<span>Modelo: Regresión Logística (fase7-1.0 · UCI Student Performance)</span>';
     }
+  } else if (acad && acad.estado === "abstencion") {
+    const pctNoAprueba = acad.probabilidad_no_aprueba != null ? Math.round(acad.probabilidad_no_aprueba * 100) : "—";
+    if (riesgoScoreNum) riesgoScoreNum.textContent = String(pctNoAprueba);
+    if (riesgoNivelText) {
+      riesgoNivelText.textContent = `Hipótesis académica no concluyente (${hipAcad ? hipAcad.label : "abstención"})`;
+    }
+    if (riskBanner) riskBanner.className = "risk-score-banner bg-risk-unavailable";
+    if (examRiskDesc) {
+      examRiskDesc.textContent = `Resultado limítrofe (${traducirMotivosAbstencion(acad.criterio_abstencion)}). Probabilidad estimada de no aprobar: ${acad.probabilidad_no_aprueba != null ? `${(acad.probabilidad_no_aprueba * 100).toFixed(1)}%` : "—"}. Requiere revisión docente.`;
+    }
+    if (academicFooter) {
+      academicFooter.innerHTML = '<span>Modelo: Regresión Logística (fase7-1.0 · Abstención preventiva)</span>';
+    }
+  } else if (acad && acad.estado === "evidencia_insuficiente") {
+    const faltantes = (acad.campos_faltantes || []).join(", ") || "G1, G2, corte, escala";
+    if (riskBanner) riskBanner.className = "risk-score-banner bg-risk-unavailable";
+    if (riesgoScoreNum) riesgoScoreNum.textContent = "—";
+    if (riesgoNivelText) riesgoNivelText.textContent = `Datos insuficientes · Faltan campos requeridos: ${faltantes}`;
+    if (examRiskDesc) {
+      examRiskDesc.textContent = `Faltan campos obligatorios (${faltantes}). Ingresa G1 y G2 en escala 0-20; el modelo no inventa calificaciones faltantes.`;
+    }
+    if (academicFooter) {
+      academicFooter.innerHTML = '<span>Validación estricta de notas curriculares (sin imputación)</span>';
+    }
+  } else if (acad && (acad.estado === "modelo_no_disponible" || acad.estado === "error_inferencia")) {
+    if (riskBanner) riskBanner.className = "risk-score-banner bg-risk-unavailable";
+    if (riesgoScoreNum) riesgoScoreNum.textContent = "—";
+    if (riesgoNivelText) riesgoNivelText.textContent = "Modelo académico no disponible en el servidor.";
+    if (examRiskDesc) examRiskDesc.textContent = acad.motivo || "No fue posible cargar el clasificador académico.";
+    if (academicFooter) academicFooter.innerHTML = '<span>Modelo académico ausente o inactivo</span>';
   } else {
     if (riskBanner) riskBanner.className = "risk-score-banner bg-risk-unavailable";
     if (riesgoScoreNum) riesgoScoreNum.textContent = "—";
     if (riesgoNivelText) riesgoNivelText.textContent = "Predicción académica no disponible: faltan datos académicos suficientes.";
     if (examRiskDesc) {
-      examRiskDesc.textContent = "Para calcular la proyección académica se requieren calificaciones curriculares (G1 y G2 en escala 0-20) y registros de asistencia o evaluación. Las expresiones faciales nunca sustituyen el desempeño académico.";
+      examRiskDesc.textContent = "Para calcular la proyección académica se requieren calificaciones curriculares (G1 y G2 en escala 0-20). Las expresiones faciales o vocales nunca sustituyen el desempeño académico.";
     }
     if (academicFooter) {
       academicFooter.innerHTML = '<span>La evaluación académica requiere datos curriculares verificados</span>';
@@ -511,30 +837,56 @@ function renderizarResultadoFacial(resultadoFacial, resultadoAcademico) {
 
   // Resumen del Asistente Predictivo
   if (narrativeText) {
-    const dMsg = rostros === 1
-      ? "1 rostro detectado por OpenCV Haar Cascade"
-      : rostros > 1 ? `${rostros} rostros detectados` : "Ningún rostro detectado";
-    let fMsg = "Sin clasificar";
-    if (resultadoFacial?.estado === "abstencion") {
-      fMsg = "Abstención del modelo HOG+SVM (confianza o margen insuficiente para clasificación categórica)";
-    } else if (resultadoFacial?.estado === "estimacion_experimental") {
-      fMsg = `Expresión observable: <strong>${resultadoFacial.expresion}</strong> (estimación experimental)`;
-    } else if (resultadoFacial?.estado === "evidencia_insuficiente") {
-      fMsg = ESTADOS_DETECCION_FACIAL[resultadoFacial.deteccion_facial] || "Evidencia insuficiente";
-    } else if (resultadoFacial) {
-      fMsg = ESTADOS_FACIALES[resultadoFacial.estado] || resultadoFacial.estado;
+    const bloquesNarrativa = ["<strong>Resumen de la ejecución independiente:</strong>"];
+    if (img) {
+      const dMsg = rostros === 1
+        ? "1 rostro detectado por OpenCV Haar Cascade"
+        : rostros > 1 ? `${rostros} rostros detectados` : "Ningún rostro detectado";
+      let fMsg = "Sin clasificar";
+      if (img.estado === "abstencion") {
+        fMsg = hipImg
+          ? `Abstención del modelo HOG+SVM · Hipótesis no concluyente: <strong>${escaparHtml(hipImg.label)}</strong> (${hipImg.pctTexto}) por ${escaparHtml(traducirMotivosAbstencion(img.criterio_abstencion))}`
+          : "Abstención del modelo HOG+SVM (confianza o margen insuficiente para clasificación categórica)";
+      } else if (img.estado === "estimacion_experimental") {
+        fMsg = `Expresión observable: <strong>${escaparHtml(img.expresion)}</strong> (${hipImg ? hipImg.pctTexto : "—"}) · clasificación concluyente`;
+      } else if (img.estado === "evidencia_insuficiente") {
+        fMsg = ESTADOS_DETECCION_FACIAL[img.deteccion_facial] || "Evidencia insuficiente";
+      } else {
+        fMsg = ESTADOS_FACIALES[img.estado] || img.estado;
+      }
+      bloquesNarrativa.push(`• <strong>Detección facial:</strong> ${dMsg} (identidad no atribuida).`);
+      bloquesNarrativa.push(`• <strong>Modelo facial:</strong> ${fMsg}.`);
     }
-    const acMsg = resultadoAcademico && resultadoAcademico.estado === "estimacion_experimental"
-      ? `Proyección académica calculada: desenlace estimado '${resultadoAcademico.desenlace_estimado}' con notas G1/G2.`
-      : "No disponible (faltan notas curriculares G1 y G2 en escala 0-20).";
-
-    narrativeText.innerHTML = `<strong>Resumen de la ejecución:</strong><br>` +
-      `• <strong>Detección facial:</strong> ${dMsg} (identidad no atribuida).<br>` +
-      `• <strong>Modelo facial:</strong> ${fMsg}.<br>` +
-      `• <strong>Proyección académica:</strong> ${acMsg}<br>` +
-      `• <strong>Supervisión de aula:</strong> Inactiva en captura individual. Para análisis de distractores, activa <em>Captura de aula histórica</em> o presiona <em>Probar con Captura Grupal</em>.<br>` +
-      `• <strong>Limitación:</strong> Las expresiones observables no constituyen diagnóstico psicológico ni determinan rendimiento escolar.`;
+    if (aud) {
+      let aMsg = "";
+      if (aud.estado === "estimacion_experimental" && hipAud) {
+        aMsg = `Expresión vocal concluyente: <strong>${escaparHtml(hipAud.label)}</strong> (${hipAud.pctTexto}, RAVDESS).`;
+      } else if (aud.estado === "abstencion") {
+        aMsg = hipAud
+          ? `Abstención acústica · Hipótesis vocal no concluyente: <strong>${escaparHtml(hipAud.label)}</strong> (${hipAud.pctTexto}) por ${escaparHtml(traducirMotivosAbstencion(aud.criterio_abstencion))}.`
+          : "Abstención del modelo acústico RAVDESS.";
+      } else if (aud.estado === "caracteristicas_declaradas") {
+        aMsg = "Descriptores acústicos recibidos (requiere WAV PCM16 para inferencia RAVDESS).";
+      } else {
+        aMsg = `${aud.estado.replaceAll("_", " ")} (${aud.motivo || "sin señal válida"}).`;
+      }
+      bloquesNarrativa.push(`• <strong>Modalidad de audio:</strong> ${aMsg}`);
+    }
+    const acMsg = acad && acad.estado === "estimacion_experimental"
+      ? `Proyección académica calculada: desenlace estimado '${escaparHtml(acad.desenlace_estimado)}' (${(acad.probabilidad_no_aprueba * 100).toFixed(1)}% prob. no aprobar) con notas G1/G2.`
+      : acad && acad.estado === "abstencion"
+        ? `Abstención académica (${escaparHtml(traducirMotivosAbstencion(acad.criterio_abstencion))}).`
+        : acad && acad.estado === "evidencia_insuficiente"
+          ? `Insuficiente (faltan campos: ${escaparHtml((acad.campos_faltantes || []).join(", "))}).`
+          : "No disponible (faltan notas curriculares G1 y G2 en escala 0-20).";
+    bloquesNarrativa.push(`• <strong>Proyección académica:</strong> ${acMsg}`);
+    bloquesNarrativa.push("• <strong>Limitación:</strong> Cada modalidad es independiente; las expresiones faciales o vocales no determinan rendimiento escolar ni diagnósticos.");
+    narrativeText.innerHTML = bloquesNarrativa.join("<br>");
   }
+}
+
+function renderizarResultadoFacial(resultadoFacial, resultadoAcademico, resultadoAudio) {
+  return renderizarAnalisisIndependiente(resultadoFacial, resultadoAcademico, resultadoAudio);
 }
 
 function renderizarCuadriculaEstudiantes() {
@@ -1316,6 +1668,8 @@ function volverANuevaCaptura() {
   estudiantesEnCaptura = [];
   estudianteSeleccionadoId = null;
   ultimoResultadoFacial = null;
+  ultimoResultadoAudio = null;
+  ultimoResultadoAcademico = null;
   panelEstudiantesExpandido = false;
 
   if (statusText) statusText.textContent = sesionCamara?.lista ? "Cámara lista" : "Cámara detenida";
@@ -1327,6 +1681,8 @@ function volverANuevaCaptura() {
 // Acción: "🖼️ Probar con Captura Grupal"
 function cargarEscenarioAulaEjemplo() {
   ultimoResultadoFacial = null;
+  ultimoResultadoAudio = null;
+  ultimoResultadoAcademico = null;
   panelEstudiantesExpandido = true;
   return procesarCaptura(() => null, "ejemplo");
 }
@@ -1387,6 +1743,8 @@ function configurarEventosCaptura() {
     selectModo.addEventListener("change", (e) => {
       const modo = e.target.value;
       ultimoResultadoFacial = null;
+      ultimoResultadoAudio = null;
+      ultimoResultadoAcademico = null;
       estudiantesEnCaptura = [];
       estudianteSeleccionadoId = null;
       if (modo === "facial") {
@@ -1650,7 +2008,8 @@ elemento("analisis-experimental").addEventListener("submit", async (evento) => {
   vistas.replaceChildren();
   estado.textContent = "Analizando fuentes…";
   try {
-    const entrada = JSON.parse(elemento("experimental-json").value);
+    const rawJson = String(elemento("experimental-json")?.value ?? "").trim();
+    const entrada = rawJson ? JSON.parse(rawJson) : { schema_version: 1 };
     if (!entrada || typeof entrada !== "object" || Array.isArray(entrada)) throw new Error("Se requiere un objeto JSON.");
     const archivo = elemento("experimental-foto").files?.[0];
     if (archivo) {
@@ -1671,6 +2030,33 @@ elemento("analisis-experimental").addEventListener("submit", async (evento) => {
       if (entrada.audio?.wav_b64) throw new Error("Selecciona un WAV o proporciona wav_b64 en el JSON.");
       const url = await leerArchivoExperimental(wav);
       entrada.audio = { ...entrada.audio, wav_b64: url.split(",", 2)[1] };
+    }
+    const g1El = elemento("experimental-acad-g1");
+    const g2El = elemento("experimental-acad-g2");
+    const g1Txt = String(g1El?.value ?? "").trim();
+    const g2Txt = String(g2El?.value ?? "").trim();
+    if (g1Txt !== "" || g2Txt !== "") {
+      if (entrada.academico) throw new Error("Usa los campos G1/G2 o el bloque academico en JSON, no ambos.");
+      const acad = { corte: "despues_g2", escala: "0-20" };
+      if (g1Txt !== "") {
+        const g1Val = Number(g1Txt);
+        if (!Number.isInteger(g1Val) || g1Val < 0 || g1Val > 20) {
+          g1El?.setAttribute?.("aria-invalid", "true");
+          throw new Error("Nota G1 debe ser un número entero entre 0 y 20.");
+        }
+        g1El?.setAttribute?.("aria-invalid", "false");
+        acad.G1 = g1Val;
+      }
+      if (g2Txt !== "") {
+        const g2Val = Number(g2Txt);
+        if (!Number.isInteger(g2Val) || g2Val < 0 || g2Val > 20) {
+          g2El?.setAttribute?.("aria-invalid", "true");
+          throw new Error("Nota G2 debe ser un número entero entre 0 y 20.");
+        }
+        g2El?.setAttribute?.("aria-invalid", "false");
+        acad.G2 = g2Val;
+      }
+      entrada.academico = acad;
     }
     const cuerpo = JSON.stringify(entrada);
     if (new Blob([cuerpo]).size > 8 * 1024 * 1024) throw new Error("Las entradas combinadas superan 8 MiB.");
@@ -1733,10 +2119,13 @@ elemento("analisis-experimental").addEventListener("submit", async (evento) => {
       ...(salida.sincronizacion.conflictos_referencia ?? []).map(conflicto => conflicto.replaceAll("_", " ")),
       "Fusión estadística pendiente."
     ]);
-    if (salida.fuentes?.imagen && salida.fuentes.imagen.estado !== "sin_entrada") {
-      renderizarResultadoFacial(salida.fuentes.imagen, salida.academico);
-    } else if (salida.academico && salida.academico.estado !== "sin_entrada") {
-      renderizarResultadoFacial(null, salida.academico);
+    const resImagen = salida.fuentes?.imagen && salida.fuentes.imagen.estado !== "sin_entrada"
+      ? salida.fuentes.imagen
+      : (salida.fuentes?.video && salida.fuentes.video.estado !== "sin_entrada" ? salida.fuentes.video : null);
+    const resAudio = salida.fuentes?.audio && salida.fuentes.audio.estado !== "sin_entrada" ? salida.fuentes.audio : null;
+    const resAcademico = salida.academico && salida.academico.estado !== "sin_entrada" ? salida.academico : null;
+    if (resImagen || resAudio || resAcademico) {
+      renderizarAnalisisIndependiente(resImagen, resAcademico, resAudio);
     }
     estado.textContent = "Evaluación experimental completada.";
   } catch (error) {
@@ -1746,6 +2135,43 @@ elemento("analisis-experimental").addEventListener("submit", async (evento) => {
     boton.disabled = false;
   }
 });
+
+const btnLimpiarExp = elemento("experimental-limpiar");
+if (btnLimpiarExp) {
+  btnLimpiarExp.addEventListener("click", () => {
+    const fEl = elemento("experimental-foto"); if (fEl) fEl.value = "";
+    const aEl = elemento("experimental-audio"); if (aEl) aEl.value = "";
+    const mEl = elemento("experimental-modelo-facial"); if (mEl) mEl.value = "automatico";
+    const g1El = elemento("experimental-acad-g1");
+    if (g1El) { g1El.value = ""; g1El.setAttribute?.("aria-invalid", "false"); g1El.classList?.remove?.("user-invalid-fallback"); }
+    const g2El = elemento("experimental-acad-g2");
+    if (g2El) { g2El.value = ""; g2El.setAttribute?.("aria-invalid", "false"); g2El.classList?.remove?.("user-invalid-fallback"); }
+    const jEl = elemento("experimental-json"); if (jEl) jEl.value = '{"schema_version":1}';
+    elemento("experimental-resultados")?.replaceChildren?.();
+    elemento("experimental-previsualizaciones")?.replaceChildren?.();
+    const estEl = elemento("experimental-estado"); if (estEl) estEl.textContent = "Entradas experimentales reiniciadas.";
+    ultimoResultadoFacial = null;
+    ultimoResultadoAudio = null;
+    ultimoResultadoAcademico = null;
+    estudiantesEnCaptura = [];
+    estudianteSeleccionadoId = null;
+    renderizarCuadriculaEstudiantes();
+    renderizarPanelesInferiores(null);
+  });
+}
+
+if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+  const sincronizarValidezAcademica = (el) => {
+    if (!el || !["experimental-acad-g1", "experimental-acad-g2"].includes(el.id)) return;
+    const invalido = typeof el.matches === "function" && (el.matches(":user-invalid") || (el.validity && !el.validity.valid));
+    el.setAttribute("aria-invalid", invalido ? "true" : "false");
+    el.classList?.toggle("user-invalid-fallback", Boolean(invalido));
+  };
+  document.addEventListener("blur", (ev) => sincronizarValidezAcademica(ev.target), true);
+  document.addEventListener("input", (ev) => {
+    if (ev.target?.getAttribute?.("aria-invalid") === "true") sincronizarValidezAcademica(ev.target);
+  });
+}
 
 function describirEvidencia(e) {
   if (e.tipo === "evento_familiar" && e.evento_familiar) {

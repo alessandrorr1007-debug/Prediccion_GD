@@ -1362,6 +1362,37 @@ body {
   gap: 5px;
 }
 
+.prob-item.conclusive-item {
+  border-left: 3px solid #16A34A;
+  background: #F0FDF4;
+}
+
+.prob-item.hypothesis-item {
+  border-left: 3px solid #D97706;
+  background: #FFFBEB;
+}
+
+.prob-item.warning-item {
+  border-left: 3px solid #2563EB;
+  background: #EFF6FF;
+}
+
+.prob-item.error-item {
+  border-left: 3px solid #DC2626;
+  background: #FEF2F2;
+}
+
+.prob-item-subnote {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+:is(#experimental-acad-g1, #experimental-acad-g2):is(:user-invalid, .user-invalid-fallback) {
+  border-color: #DC2626;
+  background-color: #FEF2F2;
+}
+
 .prob-item-text-row {
   display: flex;
   justify-content: space-between;

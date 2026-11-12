@@ -339,22 +339,22 @@
             </div>
 
             <div class="events-scroll-content">
-              <!-- Bloque 1: Acontecimientos Previos (Causas Probables) -->
+              <!-- Bloque 1: Acontecimientos Previos / Resultados por Modalidad -->
               <div class="event-block">
                 <div class="block-heading">
-                  <span class="block-icon">⏳</span>
-                  <span class="block-title">Acontecimientos Previos (Causas Probables)</span>
+                  <span id="events-block1-icon" class="block-icon">⏳</span>
+                  <span id="events-block1-title" class="block-title">Acontecimientos Previos (Causas Probables)</span>
                 </div>
                 <div id="causes-list" class="probabilities-list">
                   <div class="prediction-empty-notice"><span>⏳</span><span>Esperando captura de aula para proyectar acontecimientos previos...</span></div>
                 </div>
               </div>
 
-              <!-- Bloque 2: Acontecimientos Futuros (Consecuencias Estimadas) -->
+              <!-- Bloque 2: Acontecimientos Futuros / Alcance y Límites -->
               <div class="event-block">
                 <div class="block-heading">
-                  <span class="block-icon">🎯</span>
-                  <span class="block-title">Acontecimientos Futuros (Consecuencias Estimadas)</span>
+                  <span id="events-block2-icon" class="block-icon">🎯</span>
+                  <span id="events-block2-title" class="block-title">Acontecimientos Futuros (Consecuencias Estimadas)</span>
                 </div>
                 <div id="consequences-list" class="probabilities-list">
                   <div class="prediction-empty-notice"><span>⏳</span><span>Esperando captura de aula para proyectar consecuencias futuras...</span></div>
@@ -432,10 +432,20 @@
                   <label for="experimental-audio">Fragmento WAV PCM16 (opcional)</label>
                   <input id="experimental-audio" type="file" accept=".wav,audio/wav,audio/x-wav">
                 </div>
+                <div class="compact-field">
+                  <label for="experimental-acad-g1">Nota G1 (0–20, opcional)</label>
+                  <input id="experimental-acad-g1" type="number" min="0" max="20" step="1" aria-describedby="experimental-acad-hint" aria-invalid="false">
+                </div>
+                <div class="compact-field">
+                  <label for="experimental-acad-g2">Nota G2 (0–20, opcional)</label>
+                  <input id="experimental-acad-g2" type="number" min="0" max="20" step="1" aria-describedby="experimental-acad-hint" aria-invalid="false">
+                </div>
               </div>
+              <p id="experimental-acad-hint" class="capture-note">Cada modalidad se evalúa de forma independiente; enviar solo imagen, solo audio WAV o solo notas G1/G2 funciona sin exigir las demás.</p>
               <div class="compact-actions-row">
                 <button id="experimental-ejecutar" type="submit" class="btn-primary-action">Analizar entradas</button>
                 <button id="experimental-consultar-modelos" type="button" class="btn-secondary-capture">Consultar modelos</button>
+                <button id="experimental-limpiar" type="button" class="btn-secondary-capture">Limpiar</button>
               </div>
               <details id="experimental-json-details" class="nested-json-details">
                 <summary>Formulario JSON técnico (opcional)</summary>

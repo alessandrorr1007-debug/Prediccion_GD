@@ -684,8 +684,10 @@ test("captura facial con abstención actualiza el panel facial con 4 probabilida
   assert.equal(e["riesgo-score-num"].textContent, "—");
   assert.match(e["riesgo-nivel-text"].textContent, /Predicción académica no disponible/);
 
-  // 3. Sucesos indican no aplicable a captura facial individual
-  assert.match(e["causes-list"].innerHTML, /No aplicable a captura facial individual/);
+  // 3. Panel dinámico actualiza resultados independientes sin fabricar causas/consecuencias
+  assert.doesNotMatch(e["events-card-title"].textContent, /Inactivo en captura individual/);
+  assert.match(e["causes-list"].innerHTML, /Hipótesis no concluyente.*Neutral/i);
+  assert.match(e["consequences-list"].innerHTML, /No se fabrican causas previas ni consecuencias futuras/i);
 
   // 4. Asistente predictivo resume la ejecución
   assert.match(e["assistant-narrative-text"].innerHTML, /1 rostro detectado/);
@@ -1047,4 +1049,168 @@ test("Entrega 2 simplifica pantalla principal, oculta formularios JSON y agrupa 
   await e["abrir-seguimiento"].listeners.click();
   assert.equal(e["advanced-tools-drawer"].open, true);
   assert.equal(e["technical-drawer"].open, true);
+});
+
+test("Entrega 3 audio WAV independiente actualiza resultados sin exigir foto y no se confunde con expresión facial", async () => {
+  const e = montar({
+    FileReader: class {
+      readAsDataURL() { this.result = "data:audio/wav;base64,UklGRg=="; this.onload(); }
+    },
+    fetch: async () => Response.json({
+      schema_version: 1,
+      fuentes: {
+        imagen: { estado: "sin_entrada" },
+        audio: {
+          estado: "abstencion",
+          expresion_vocal: null,
+          hipotesis: { categoria: "calma", probabilidad: 0.43, concluyente: false },
+          puntajes_calibrados: { calma: 0.43, enojo: 0.29, sorpresa: 0.16, neutral: 0.12 },
+          criterio_abstencion: { motivos: ["probabilidad_insuficiente"], maximo: 0.43, umbral: 0.55, margen_observado: 0.14, margen_minimo: 0.10 },
+          calidad_entrada: { duracion_segundos: 1.5 },
+          modelo: { algoritmo: "logistic_regression", version: "fase8-1.0", dataset: { nombre: "RAVDESS" } }
+        }
+      },
+      academico: { estado: "sin_entrada" },
+      sincronizacion: { estado: "fuentes_insuficientes" }
+    })
+  });
+  e["experimental-audio"].files = [{ size: 16 }];
+  e["experimental-json"].value = "";
+  await e["analisis-experimental"].listeners.submit({ preventDefault() {} });
+
+  assert.doesNotMatch(e["events-card-title"].textContent, /Inactivo en captura individual/);
+  assert.match(e["events-card-title"].textContent, /\(Audio\)/);
+  assert.match(e["causes-list"].innerHTML, /Hipótesis vocal no concluyente.*Calma/i);
+  assert.match(e["causes-list"].innerHTML, /RAVDESS.*no facial/i);
+  assert.match(e["dominant-emotion-text"].textContent, /Sin fotografía.*acústica/);
+  assert.match(e["facial-card-sublabel"].textContent, /Sin fotografía enviada/);
+  assert.match(e["assistant-narrative-text"].innerHTML, /Modalidad de audio.*Calma/);
+  assert.equal(e["riesgo-score-num"].textContent, "—");
+});
+
+test("Entrega 3 notas G1 y G2 desde formulario compacto evalúan modalidad académica independiente y detectan datos incompletos", async () => {
+  const peticiones = [];
+  const e = montar({
+    fetch: async (_url, opciones) => {
+      const cuerpo = JSON.parse(opciones.body);
+      peticiones.push(cuerpo);
+      if (cuerpo.academico && cuerpo.academico.G2 == null) {
+        return Response.json({
+          schema_version: 1,
+          fuentes: { imagen: { estado: "sin_entrada" } },
+          academico: { estado: "evidencia_insuficiente", campos_faltantes: ["G2"] },
+          sincronizacion: { estado: "fuentes_insuficientes" }
+        });
+      }
+      return Response.json({
+        schema_version: 1,
+        fuentes: { imagen: { estado: "sin_entrada" } },
+        academico: {
+          estado: "estimacion_experimental",
+          desenlace_estimado: "aprueba",
+          desenlace: "G3 < 10/20",
+          probabilidad_no_aprueba: 0.04,
+          puntajes_calibrados: { aprueba: 0.96, no_aprueba: 0.04 },
+          corte: "despues_g2",
+          limitacion: "UCI Student Performance."
+        },
+        sincronizacion: { estado: "fuentes_insuficientes" }
+      });
+    }
+  });
+
+  // 1) Caso completo (G1=15, G2=16) sin foto ni audio
+  e["experimental-acad-g1"].value = "15";
+  e["experimental-acad-g2"].value = "16";
+  await e["analisis-experimental"].listeners.submit({ preventDefault() {} });
+  assert.deepEqual(peticiones[0].academico, { G1: 15, G2: 16, corte: "despues_g2", escala: "0-20" });
+  assert.equal(e["riesgo-score-num"].textContent, "4");
+  assert.match(e["riesgo-nivel-text"].textContent, /Aprobación proyectada/);
+  assert.doesNotMatch(e["events-card-title"].textContent, /Inactivo en captura individual/);
+  assert.match(e["causes-list"].innerHTML, /Aprobación proyectada/);
+
+  // 2) Caso incompleto (solo G1=14) no inventa G2
+  e["experimental-acad-g1"].value = "14";
+  e["experimental-acad-g2"].value = "";
+  await e["analisis-experimental"].listeners.submit({ preventDefault() {} });
+  assert.deepEqual(peticiones[1].academico, { G1: 14, corte: "despues_g2", escala: "0-20" });
+  assert.equal(e["riesgo-score-num"].textContent, "—");
+  assert.match(e["riesgo-nivel-text"].textContent, /Datos insuficientes.*G2/);
+  assert.match(e["causes-list"].innerHTML, /nunca inventa calificaciones ausentes/i);
+
+  // 3) Validación accesible fuera de rango + limpiar entradas
+  e["experimental-acad-g1"].value = "25";
+  await e["analisis-experimental"].listeners.submit({ preventDefault() {} });
+  assert.equal(e["experimental-acad-g1"].getAttribute("aria-invalid"), "true");
+  assert.match(e["experimental-estado"].textContent, /entre 0 y 20/);
+
+  e["experimental-limpiar"].listeners.click();
+  assert.equal(e["experimental-acad-g1"].value, "");
+  assert.equal(e["experimental-acad-g1"].getAttribute("aria-invalid"), "false");
+});
+
+test("Entrega 3 diferencia hipótesis no concluyente vs clasificación concluyente y maneja 0/N rostros", async () => {
+  let respuestaActual;
+  const e = montar({
+    FileReader: class {
+      readAsDataURL() { this.result = "data:image/jpeg;base64,FOTO"; this.onload(); this.onloadend(); }
+    },
+    fetch: async () => Response.json(respuestaActual)
+  });
+  e["modo-analisis-captura"].value = "facial";
+  const entrada = e["input-upload-image"];
+
+  // Abstención con hipótesis explícita
+  respuestaActual = {
+    fuentes: {
+      imagen: {
+        estado: "abstencion",
+        rostros_detectados: 1,
+        hipotesis: { categoria: "neutral", probabilidad: 0.284, concluyente: false },
+        puntajes_calibrados: { neutral: 0.284, alegria: 0.26, enojo: 0.24, tristeza: 0.216 },
+        criterio_abstencion: { motivos: ["probabilidad_insuficiente", "margen_insuficiente"] }
+      }
+    }
+  };
+  entrada.files = [{ name: "duda.jpg" }];
+  await entrada.listeners.change({ target: entrada });
+  assert.match(e["dominant-emotion-text"].textContent, /Hipótesis no concluyente: Neutral \(28\.4%\)/);
+  assert.match(e["dominant-emotion-text"].textContent, /Abstención preventiva/);
+
+  // Clasificación concluyente
+  respuestaActual = {
+    fuentes: {
+      imagen: {
+        estado: "estimacion_experimental",
+        rostros_detectados: 1,
+        expresion: "alegria",
+        hipotesis: { categoria: "alegria", probabilidad: 0.72, concluyente: true },
+        puntajes_calibrados: { alegria: 0.72, neutral: 0.14, enojo: 0.08, tristeza: 0.06 }
+      }
+    }
+  };
+  entrada.files = [{ name: "alegria.jpg" }];
+  await entrada.listeners.change({ target: entrada });
+  assert.match(e["dominant-emotion-text"].textContent, /Clasificación concluyente/);
+  assert.match(e["causes-list"].innerHTML, /Clasificación facial concluyente.*Alegría/);
+
+  // Múltiples rostros
+  respuestaActual = {
+    fuentes: {
+      imagen: {
+        estado: "evidencia_insuficiente",
+        deteccion_facial: "multiples_rostros",
+        rostros_detectados: 2
+      }
+    }
+  };
+  entrada.files = [{ name: "dos.jpg" }];
+  await entrada.listeners.change({ target: entrada });
+  assert.equal(e["students-count-badge"].textContent, "2 rostros detectados");
+  assert.match(e["dominant-emotion-text"].textContent, /varios rostros/i);
+  assert.match(e["causes-list"].innerHTML, /evidencia insuficiente \(rostros: 2\)/i);
+
+  // Reinicio restaura estado inactivo inicial
+  e["btn-new-capture"].listeners.click();
+  assert.match(e["events-card-title"].textContent, /Inactivo en captura individual/);
 });

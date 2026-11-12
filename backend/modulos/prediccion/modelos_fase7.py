@@ -88,7 +88,7 @@ def decidir(puntajes, umbral, margen):
         motivos.append("margen_insuficiente")
     return (None if motivos else primera), {
         "umbral": umbral, "margen_minimo": margen, "maximo": maximo, "margen_observado": diferencia,
-        "motivos": motivos,
+        "motivos": motivos, "hipotesis": primera,
     }
 
 
@@ -97,5 +97,15 @@ def clasificar(artefacto, vector, campo):
     valores = modelo.predict_proba(vector)[0]
     puntajes = {str(clase): float(valor) for clase, valor in zip(modelo.classes_, valores, strict=True)}
     etiqueta, criterio = decidir(puntajes, UMBRAL, MARGEN)
-    return {"estado": "estimacion_experimental" if etiqueta else "abstencion", campo: etiqueta,
-            "puntajes_calibrados": puntajes, "modelo": metadatos(artefacto), "criterio_abstencion": criterio}
+    return {
+        "estado": "estimacion_experimental" if etiqueta else "abstencion",
+        campo: etiqueta,
+        "hipotesis": {
+            "categoria": criterio["hipotesis"],
+            "probabilidad": criterio["maximo"],
+            "concluyente": not criterio["motivos"],
+        },
+        "puntajes_calibrados": puntajes,
+        "modelo": metadatos(artefacto),
+        "criterio_abstencion": criterio,
+    }

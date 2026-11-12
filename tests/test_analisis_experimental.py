@@ -203,6 +203,79 @@ class ExperimentalTests(unittest.TestCase):
             self.assertEqual(salida["academico"]["estado"], "estimacion_experimental")
             self.assertEqual(salida["academico"]["desenlace_estimado"], "aprueba")
 
+    def test_entrega3_hipotesis_e_inferencia_audio_wav_y_academico_independientes(self):
+        import io
+        import wave
+
+        buf = io.BytesIO()
+        with wave.open(buf, "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(16000)
+            t = np.linspace(0, 1.0, 16000, endpoint=False)
+            muestras = (np.sin(2 * np.pi * 220 * t) * 12000).astype(np.int16)
+            wf.writeframes(muestras.tobytes())
+        wav_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+
+        silencio_buf = io.BytesIO()
+        with wave.open(silencio_buf, "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(16000)
+            wf.writeframes(np.zeros(16000, dtype=np.int16).tobytes())
+        silencio_b64 = base64.b64encode(silencio_buf.getvalue()).decode("ascii")
+
+        modelo_audio = Mock()
+        modelo_audio.classes_ = ["calma", "enojo", "neutral", "tristeza"]
+        modelo_audio.predict_proba.return_value = [[0.43, 0.29, 0.16, 0.12]]
+        art_audio = {
+            "modelo": modelo_audio, "tipo": "audio", "version": "fase8-1.0",
+            "preprocesado": "wav-ampliado", "algoritmo": "logistic_regression", "dataset": "RAVDESS"
+        }
+        with patch.object(experimental.modelos_fase7, "obtener_modelo", side_effect=lambda tipo: art_audio if tipo == "audio" else None):
+            resp_wav = self.enviar(audio={"wav_b64": wav_b64}).json()
+            aud = resp_wav["fuentes"]["audio"]
+            self.assertEqual(resp_wav["fuentes"]["imagen"]["estado"], "sin_entrada")
+            self.assertEqual(aud["estado"], "abstencion")
+            self.assertIsNone(aud["expresion_vocal"])
+            self.assertEqual(aud["hipotesis"]["categoria"], "calma")
+            self.assertAlmostEqual(aud["hipotesis"]["probabilidad"], 0.43, places=3)
+            self.assertFalse(aud["hipotesis"]["concluyente"])
+            self.assertAlmostEqual(aud["calidad_entrada"]["duracion_segundos"], 1.0, places=2)
+
+            resp_sil = self.enviar(audio={"wav_b64": silencio_b64}).json()
+            self.assertEqual(resp_sil["fuentes"]["audio"]["estado"], "evidencia_insuficiente")
+
+        # Modelo facial con hipotesis tanto en abstencion como concluyente
+        cara = Mock()
+        cara.detectMultiScale.return_value = [(10, 10, 90, 90)]
+        modelo_img = Mock()
+        modelo_img.classes_ = ["alegria", "enojo", "neutral", "tristeza"]
+        modelo_img.predict_proba.return_value = [[0.72, 0.08, 0.14, 0.06]]
+        art_img = {
+            "modelo": modelo_img, "tipo": "facial", "version": "fase8-1.0",
+            "preprocesado": "hog-96", "algoritmo": "svm_lineal", "dataset": "CMU Face Images"
+        }
+        with (patch.object(experimental.predictor, "_obtener_face_cascade", return_value=cara),
+              patch.object(experimental.modelos_fase7, "obtener_modelo", side_effect=lambda tipo: art_img if tipo == "facial" else None)):
+            img = self.enviar(imagen={"imagen_b64": imagen_b64(), "modelo_facial": "real"}).json()["fuentes"]["imagen"]
+            self.assertEqual(img["estado"], "estimacion_experimental")
+            self.assertEqual(img["expresion"], "alegria")
+            self.assertTrue(img["hipotesis"]["concluyente"])
+            self.assertEqual(img["hipotesis"]["categoria"], "alegria")
+
+        # Academico limítrofe retorna abstención + hipótesis sin exigir imagen ni audio
+        modelo_acad = Mock()
+        modelo_acad.classes_ = ["aprueba", "no_aprueba"]
+        modelo_acad.predict_proba.return_value = [[0.51, 0.49]]
+        art_acad = {"modelo": modelo_acad, "tipo": "academico", "version": "fase7-1.0", "algoritmo": "logistic_regression", "dataset": "UCI Student Performance"}
+        with patch.object(experimental.modelos_fase7, "obtener_modelo", side_effect=lambda tipo: art_acad if tipo == "academico" else None):
+            acad = self.enviar(academico={"G1": 10, "G2": 10, "corte": "despues_g2", "escala": "0-20"}).json()["academico"]
+            self.assertEqual(acad["estado"], "abstencion")
+            self.assertIsNone(acad["desenlace_estimado"])
+            self.assertEqual(acad["hipotesis"]["categoria"], "aprueba")
+            self.assertFalse(acad["hipotesis"]["concluyente"])
+
 
 def datos_academicos():
     return {
