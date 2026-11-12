@@ -186,7 +186,6 @@
             </div>
             <p id="auto-capture-status" class="capture-note" role="status">La captura automática requiere una cámara activa.</p>
             <div id="resultado-facial-captura" class="sr-only" aria-live="polite"></div>
-            <p class="capture-note">La captura automática solo envía fotogramas si la activas. El análisis facial experimental muestra expresiones de identidad desconocida.</p>
           </section>
 
           <!-- Columna Derecha (52%): Detección / Alumnos + Reconocimiento Facial -->
@@ -412,114 +411,150 @@
             </div>
           </section>
         </div>
-        <section class="card seguimiento-panel" aria-labelledby="titulo-integracion">
-          <h3 id="titulo-integracion">Integración de fuentes</h3>
-          <ul id="integracion-modulos" aria-live="polite">
-            <li>Imagen y video · consultando adaptadores</li>
-            <li>Audio · contrato pendiente</li>
-          </ul>
-          <button id="actualizar-integracion" class="btn-secondary-capture" type="button">Actualizar estado</button>
+        <section class="secondary-tools-stack" aria-label="Herramientas secundarias y avanzadas">
+          <details id="experimental-panel" class="card seguimiento-panel compact-tools-panel">
+            <summary>🧪 Análisis experimental (facial, acústico y académico)</summary>
+            <form id="analisis-experimental" class="tech-content compact-tech-content">
+              <div class="experimental-compact-grid">
+                <div class="compact-field">
+                  <label for="experimental-foto">Imagen de prueba (opcional)</label>
+                  <input id="experimental-foto" type="file" accept="image/*">
+                </div>
+                <div class="compact-field">
+                  <label for="experimental-modelo-facial">Modelo facial</label>
+                  <select id="experimental-modelo-facial">
+                    <option value="automatico">Automático (prioriza datos reales)</option>
+                    <option value="real">Entrenado con fotografías reales</option>
+                    <option value="historico">Histórico entrenado con datos sintéticos</option>
+                  </select>
+                </div>
+                <div class="compact-field">
+                  <label for="experimental-audio">Fragmento WAV PCM16 (opcional)</label>
+                  <input id="experimental-audio" type="file" accept=".wav,audio/wav,audio/x-wav">
+                </div>
+              </div>
+              <div class="compact-actions-row">
+                <button id="experimental-ejecutar" type="submit" class="btn-primary-action">Analizar entradas</button>
+                <button id="experimental-consultar-modelos" type="button" class="btn-secondary-capture">Consultar modelos</button>
+              </div>
+              <details id="experimental-json-details" class="nested-json-details">
+                <summary>Formulario JSON técnico (opcional)</summary>
+                <div class="nested-json-body">
+                  <label for="experimental-json">Entradas JSON por fuente</label>
+                  <textarea id="experimental-json" rows="4">{"schema_version":1}</textarea>
+                  <p class="capture-note">Para el modelo académico, proporciona <code>academico</code> con <code>G1</code>, <code>G2</code>, <code>escala: "0-20"</code> y <code>corte: "despues_g2"</code>.</p>
+                </div>
+              </details>
+              <div id="experimental-modelos" role="status"></div>
+              <p id="experimental-estado" role="status"></p>
+              <div id="experimental-previsualizaciones"></div>
+              <div id="experimental-resultados"></div>
+            </form>
+          </details>
+
+          <details id="demostracion-integral" class="card seguimiento-panel compact-tools-panel">
+            <summary>🎓 Modo demostración · Cuatro estudiantes ficticios</summary>
+            <div class="tech-content compact-tech-content">
+              <div class="compact-actions-row">
+                <label for="demo-integral-caso">Caso ficticio</label>
+                <select id="demo-integral-caso">
+                  <option value="todos">Los cuatro casos</option>
+                  <option value="A">A · Notas y asistencia</option>
+                  <option value="B">B · Notas incompletas</option>
+                  <option value="C">C · Muestras públicas</option>
+                  <option value="D">D · Conflicto de sesión</option>
+                </select>
+                <label><input type="checkbox" id="demo-integral-fusion"> Fusión RAVDESS</label>
+                <button type="button" id="verificar-demo-integral" class="btn-secondary-capture">Verificar sistema</button>
+                <button type="button" id="ejecutar-demo-integral" class="btn-primary-action">Ejecutar demostración local</button>
+                <button type="button" id="reiniciar-demo-integral" class="btn-secondary-capture">Reiniciar</button>
+              </div>
+              <p id="estado-demo-integral" role="status"></p>
+              <div id="inventario-demo-integral" aria-live="polite"></div>
+              <div id="resultados-demo-integral"></div>
+            </div>
+          </details>
+
+          <details id="advanced-tools-drawer" class="card seguimiento-panel compact-tools-panel">
+            <summary>🛠️ Herramientas avanzadas (Seguimiento académico, integración JSON y adaptadores)</summary>
+            <div class="tech-content compact-tech-content">
+              <details id="technical-drawer" class="nested-advanced-drawer">
+                <summary>Seguimiento académico e integración JSON</summary>
+                <div class="tech-content compact-tech-content">
+                  <p class="capture-note">Demostración sintética local con asociación explícita e independiente de la cámara.</p>
+                  <div class="experimental-compact-grid">
+                    <div class="compact-field">
+                      <label for="servidor">Servidor de predicción</label>
+                      <input id="servidor" type="url" value="http://localhost:8001">
+                    </div>
+                    <div class="compact-field">
+                      <label for="motor">Motor</label>
+                      <select id="motor">
+                        <option value="examen" selected>Supervisión de exámenes</option>
+                        <option value="seguimiento">Seguimiento por estudiante · demo sintética local</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div id="controles-examen">
+                    <label for="formato">Formato de entrada</label>
+                    <select id="formato">
+                      <option value="integracion" selected>Entrada conjunta (imagen / video)</option>
+                      <option value="imagen">Exportación de IMAGEN</option>
+                      <option value="video">Alerta o fotogramas de VIDEO</option>
+                      <option value="interno">Eventos normalizados del motor</option>
+                    </select>
+                  </div>
+                  <div id="controles-seguimiento" hidden>
+                    <label for="ejemplo-seguimiento">Escenario sintético</label>
+                    <select id="ejemplo-seguimiento">
+                      <option value="juan">Juan Pérez · concurrencia de factores</option>
+                      <option value="coincidencia">Observación con registro adverso</option>
+                      <option value="multimodal">Imagen, video, captura e historial</option>
+                      <option value="participacion">Asistencia y participación declaradas</option>
+                      <option value="sin_adversos">Misma observación sin registros adversos</option>
+                      <option value="sin_alerta">Sin alerta</option>
+                      <option value="identidad_desconocida">Identidad desconocida</option>
+                      <option value="insuficientes">Datos insuficientes</option>
+                    </select>
+                    <button id="cargar-ejemplo" type="button" class="btn-secondary-capture">Cargar ejemplo</button>
+                  </div>
+                  <details id="technical-json-details" class="nested-json-details">
+                    <summary>Formulario JSON técnico e importación</summary>
+                    <div class="nested-json-body">
+                      <label for="archivo">Importar JSON</label>
+                      <input id="archivo" type="file" accept=".json,application/json">
+                      <label for="entrada">Entrada JSON</label>
+                      <textarea id="entrada" rows="4"></textarea>
+                    </div>
+                  </details>
+                  <div class="compact-actions-row">
+                    <button id="ejecutar" type="button" class="btn-primary-action">Evaluar señales</button>
+                  </div>
+                  <p id="estado" role="status"></p>
+                  <p id="ayuda"></p>
+                  <span id="indice">—</span>
+                  <span id="nivel">Pendiente de evaluación</span>
+                  <p id="descripcion-indice"></p>
+                  <p id="recomendacion"></p>
+                  <div id="resultados-estudiantes"></div>
+                  <details class="respuesta-tecnica">
+                    <summary>Respuesta JSON</summary>
+                    <pre id="salida"></pre>
+                  </details>
+                </div>
+              </details>
+
+              <section id="integracion-fuentes-avanzado" class="nested-advanced-box" aria-labelledby="titulo-integracion">
+                <p id="titulo-integracion" class="nested-box-title">Integración interna de fuentes (IMAGEN, VIDEO y AUDIO)</p>
+                <ul id="integracion-modulos" aria-live="polite">
+                  <li>Imagen y video · consultando adaptadores</li>
+                  <li>Audio · contrato pendiente</li>
+                </ul>
+                <button id="actualizar-integracion" class="btn-secondary-capture" type="button">Actualizar estado</button>
+              </section>
+            </div>
+          </details>
         </section>
-
-        <details class="card seguimiento-panel">
-          <summary>Análisis experimental facial, acústico y académico</summary>
-          <form id="analisis-experimental" class="tech-content">
-            <p class="capture-note">Evalúa imágenes, fragmentos WAV o notas parciales. Cada resultado es independiente y el seguimiento académico conserva sus reglas.</p>
-            <label for="experimental-foto">Imagen de prueba (opcional)</label>
-            <input id="experimental-foto" type="file" accept="image/*">
-            <label for="experimental-modelo-facial">Modelo facial</label>
-            <select id="experimental-modelo-facial">
-              <option value="automatico">Automático (prioriza datos reales)</option>
-              <option value="real">Entrenado con fotografías reales</option>
-              <option value="historico">Histórico entrenado con datos sintéticos</option>
-            </select>
-            <label for="experimental-audio">Fragmento procesado WAV PCM16 (opcional)</label>
-            <input id="experimental-audio" type="file" accept=".wav,audio/wav,audio/x-wav">
-            <label for="experimental-json">Entradas JSON por fuente</label>
-            <textarea id="experimental-json" rows="4">{"schema_version":1}</textarea>
-            <p>Para el modelo académico, proporciona <code>academico</code> con <code>G1</code>, <code>G2</code>, <code>escala: "0-20"</code> y <code>corte: "despues_g2"</code>.</p>
-            <button id="experimental-ejecutar" type="submit" class="btn-primary-action">Analizar entradas</button>
-            <button id="experimental-consultar-modelos" type="button" class="btn-primary-action">Consultar modelos</button>
-            <div id="experimental-modelos" role="status"></div>
-            <p id="experimental-estado" role="status"></p>
-            <div id="experimental-previsualizaciones"></div>
-            <div id="experimental-resultados"></div>
-          </form>
-        </details>
-
-        <details id="demostracion-integral" class="card seguimiento-panel">
-          <summary>Demostración integral con cuatro estudiantes ficticios</summary>
-          <div class="tech-content">
-            <label for="demo-integral-caso">Caso ficticio</label>
-            <select id="demo-integral-caso">
-              <option value="todos">Los cuatro casos</option>
-              <option value="A">A · Notas y asistencia</option>
-              <option value="B">B · Notas incompletas</option>
-              <option value="C">C · Muestras públicas</option>
-              <option value="D">D · Conflicto de sesión</option>
-            </select>
-            <label><input type="checkbox" id="demo-integral-fusion"> Ejecutar fusión experimental con la pareja pública RAVDESS</label>
-            <button type="button" id="verificar-demo-integral">Verificar sistema</button>
-            <button type="button" id="ejecutar-demo-integral" class="btn-primary-action">Ejecutar demostración local</button>
-            <button type="button" id="reiniciar-demo-integral">Reiniciar</button>
-            <p id="estado-demo-integral" role="status"></p>
-            <div id="inventario-demo-integral" aria-live="polite"></div>
-            <div id="resultados-demo-integral"></div>
-          </div>
-        </details>
-
-        <details id="technical-drawer" class="card seguimiento-panel">
-          <summary>Seguimiento académico e integración JSON</summary>
-          <div class="tech-content">
-            <p class="capture-note">Demostración sintética local. La identidad se atribuye mediante una asociación explícita. Las referencias de la cámara son independientes de este panel.</p>
-            <label for="servidor">Servidor de predicción</label>
-            <input id="servidor" type="url" value="http://localhost:8001">
-            <label for="motor">Motor</label>
-            <select id="motor">
-              <option value="examen" selected>Supervisión de exámenes</option>
-              <option value="seguimiento">Seguimiento por estudiante · demo sintética local</option>
-            </select>
-            <div id="controles-examen">
-              <label for="formato">Formato de entrada</label>
-              <select id="formato">
-                <option value="integracion" selected>Entrada conjunta (imagen / video)</option>
-                <option value="imagen">Exportación de IMAGEN</option>
-                <option value="video">Alerta o fotogramas de VIDEO</option>
-                <option value="interno">Eventos normalizados del motor</option>
-              </select>
-            </div>
-            <div id="controles-seguimiento" hidden>
-              <label for="ejemplo-seguimiento">Escenario sintético</label>
-              <select id="ejemplo-seguimiento">
-                <option value="juan">Juan Pérez · concurrencia de factores</option>
-                <option value="coincidencia">Observación con registro adverso</option>
-                    <option value="multimodal">Imagen, video, captura e historial</option>
-                    <option value="participacion">Asistencia y participación declaradas</option>
-                <option value="sin_adversos">Misma observación sin registros adversos</option>
-                <option value="sin_alerta">Sin alerta</option>
-                <option value="identidad_desconocida">Identidad desconocida</option>
-                <option value="insuficientes">Datos insuficientes</option>
-              </select>
-              <button id="cargar-ejemplo" type="button">Cargar ejemplo</button>
-            </div>
-            <label for="archivo">Importar JSON</label>
-            <input id="archivo" type="file" accept=".json,application/json">
-            <label for="entrada">Entrada JSON</label>
-            <textarea id="entrada" rows="4"></textarea>
-            <button id="ejecutar" type="button" class="btn-primary-action">Evaluar señales</button>
-            <p id="estado" role="status"></p>
-            <p id="ayuda"></p>
-            <span id="indice">—</span>
-            <span id="nivel">Pendiente de evaluación</span>
-            <p id="descripcion-indice"></p>
-            <p id="recomendacion"></p>
-            <div id="resultados-estudiantes"></div>
-            <details class="respuesta-tecnica">
-              <summary>Respuesta JSON</summary>
-              <pre id="salida"></pre>
-            </details>
-          </div>
-        </details>
       </main>
     </div>
   </div>

@@ -1888,6 +1888,8 @@ async function cambiarMotor() {
 elemento("motor").addEventListener("change", cambiarMotor);
 
 elemento("abrir-seguimiento").addEventListener("click", async () => {
+  const avanzadas = elemento("advanced-tools-drawer");
+  if (avanzadas) avanzadas.open = true;
   elemento("technical-drawer").open = true;
   const selector = elemento("motor");
   if (selector.disabled || selector.value === "seguimiento") return;

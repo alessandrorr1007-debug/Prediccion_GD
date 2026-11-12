@@ -1030,3 +1030,21 @@ test("Entrega 1 ubica Reconocimiento Facial en columna derecha debajo de Detecci
   assert.ok(inicioBottom > inicioEmotions);
   assert.match(html, /<div id="resultado-facial-captura" class="sr-only"/);
 });
+
+test("Entrega 2 simplifica pantalla principal, oculta formularios JSON y agrupa avanzadas por defecto", async () => {
+  const html = readFileSync(join(raiz, "frontend/index.html"), "utf8");
+  for (const id of ["experimental-panel", "demostracion-integral", "advanced-tools-drawer",
+                    "technical-drawer", "experimental-json-details", "technical-json-details"]) {
+    assert.match(html, new RegExp(`<details[^>]*id="${id}"(?![^>]*\\bopen\\b)[^>]*>`));
+  }
+  const inicioAdv = html.indexOf('id="advanced-tools-drawer"');
+  const inicioTech = html.indexOf('id="technical-drawer"');
+  const inicioInt = html.indexOf('id="integracion-fuentes-avanzado"');
+  const finAdv = html.indexOf("</section>\n      </main>");
+  assert.ok(inicioAdv !== -1 && inicioTech > inicioAdv && inicioInt > inicioAdv && inicioInt < finAdv);
+  assert.doesNotMatch(html, /solo envía fotogramas si la activas/);
+  const e = montar();
+  await e["abrir-seguimiento"].listeners.click();
+  assert.equal(e["advanced-tools-drawer"].open, true);
+  assert.equal(e["technical-drawer"].open, true);
+});
