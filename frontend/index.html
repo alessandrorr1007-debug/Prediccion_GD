@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sistema de Supervisión Inteligente · Módulo de Predicción (AulaPredict)</title>
   <link rel="stylesheet" href="/style.css">
   <script src="/app.js" defer></script>
@@ -11,7 +11,7 @@
   <div class="app-layout">
     <!-- ====================================================================
          SIDEBAR IZQUIERDO FIJO (#0F294A - Azul Marino Institucional)
-         Enfocado EXCLUSIVAMENTE en el Módulo de Predicción
+         Enfocado EXCLUSIVAMENTE en el Módulo de Predicción Automática
          ==================================================================== -->
     <aside class="app-sidebar">
       <div>
@@ -27,41 +27,38 @@
           </div>
         </div>
 
-        <!-- Menú Lateral: ÚNICO Módulo Activo -> Predicciones -->
         <nav class="sidebar-menu" aria-label="Módulo de Predicción">
           <div class="menu-section-label">MÓDULO ESPECIALIZADO</div>
-
-          <button type="button" class="menu-item active" title="Módulo de Predicción e Inferencia basada en Capturas">
-            <span class="menu-icon">🔮</span>
+          <button type="button" class="menu-item active" aria-current="page">
+            <span class="menu-icon" aria-hidden="true">🔮</span>
             <span class="menu-text">Predicciones</span>
             <span class="menu-badge-active">ACTIVO</span>
           </button>
-          <a href="#technical-drawer" id="abrir-seguimiento" class="menu-item">
-            <span class="menu-text">Seguimiento académico</span>
-          </a>
         </nav>
 
-        <!-- Resumen del Modelo de Predicción -->
         <div class="sidebar-model-info">
-          <div class="model-info-heading">MOTOR DE PREDICCIÓN</div>
+          <div class="model-info-heading">OPERACIÓN DEL MÓDULO</div>
           <div class="model-stat-row">
-            <span>Entrenamiento:</span>
-            <strong>Datos sintéticos</strong>
+            <span>Recepción:</span>
+            <strong>Automática por módulos</strong>
           </div>
           <div class="model-stat-row">
-            <span>Captura:</span>
-            <strong>Identidad desconocida</strong>
+            <span>Identidad:</span>
+            <strong>No atribuida</strong>
+          </div>
+          <div class="model-stat-row">
+            <span>Abstención:</span>
+            <strong>Umbral ≥ 55% · Margen ≥ 10%</strong>
           </div>
         </div>
       </div>
 
-      <!-- Pie del Sidebar -->
       <div class="sidebar-footer">
         <div class="system-status-chip">
-          <span class="dot-online"></span>
-          <span>Red Local Conectada</span>
+          <span class="dot-online" aria-hidden="true"></span>
+          <span id="sidebar-connectivity-label">Red Local Conectada</span>
         </div>
-        <div class="system-version">AulaPredict Core v2.4 (Predicción)</div>
+        <div class="system-version">AulaPredict Core · Predicción Automática</div>
       </div>
     </aside>
 
@@ -69,166 +66,132 @@
          CONTENIDO PRINCIPAL
          ==================================================================== -->
     <div class="app-main-wrap">
-      <!-- HEADER SUPERIOR BLANCO -->
       <header class="app-header">
         <div class="header-titles">
           <div class="view-tag">Cerebro Integrador de Predicción</div>
-          <h2 class="view-title">📸 Panel de Inferencia de Predicciones</h2>
-          <p class="view-subtitle">Análisis de causas previas, rasgos faciales y proyección académica basada en capturas de aula</p>
+          <h2 class="view-title">📊 Panel de Resultados Predictivos</h2>
+          <p class="view-subtitle">Recepción automática desde IMAGEN, VIDEO y AUDIO · Evaluación independiente, probabilidades e incertidumbre</p>
         </div>
 
-        <div class="header-user-profile">
+        <div class="header-user-profile" aria-label="Rol activo">
           <div class="user-avatar" aria-hidden="true">AD</div>
           <div class="user-meta">
             <span class="user-name">Administrador</span>
             <span class="user-role">Supervisión Docente</span>
           </div>
-          <span class="profile-chevron">⌄</span>
         </div>
       </header>
 
-      <!-- CUERPO DEL DASHBOARD -->
       <main class="dashboard-content">
         <!-- ================================================================
-             FILA SUPERIOR (2 COLUMNAS: CAPTURA 48% + ALUMNOS EN CAPTURA 52%)
+             FILA SUPERIOR (2 COLUMNAS): ESTADO Y RECEPCIÓN + DETECCIÓN Y EXPRESIÓN
              ================================================================ -->
         <div class="top-row-grid">
-          <!-- Tarjeta Izquierda (48%): Captura de Imagen para Predicción -->
-          <section class="card camera-card">
+          <!-- Columna Izquierda: Estado General del Análisis y Recepción de Módulos -->
+          <section class="card status-reception-card" id="analysis-status-card" aria-labelledby="general-status-card-title">
             <div class="card-header-bar">
               <div class="card-title-group">
-                <h3 class="card-title">📸 Captura de Imagen para Predicción</h3>
-                <span id="capture-status-indicator" class="live-indicator-chip">
-                  <span class="dot-live"></span>
-                  <span id="capture-status-text" role="status">Cámara detenida</span>
-                </span>
+                <h3 class="card-title" id="general-status-card-title">📡 Estado General y Recepción</h3>
               </div>
+              <span id="capture-status-indicator" class="live-indicator-chip waiting">
+                <span class="dot-live" aria-hidden="true"></span>
+                <span id="capture-status-text" role="status">En espera</span>
+              </span>
+            </div>
 
-              <!-- Acciones Secundarias de Captura -->
-              <div class="capture-secondary-actions">
-                <div class="sim-context-select-box">
-                  <label for="select-contexto-simulado" class="sim-label">📡 Contexto Imagen/Video:</label>
-                  <select id="select-contexto-simulado" class="sim-select" title="Simula el reporte de acción recibido desde los módulos de Imagen o Video">
-                    <option value="auto" selected>Auto-detectar en foto</option>
-                    <option value="celular">+ Reporte: Alumno con Celular</option>
-                    <option value="audifonos">+ Reporte: Alumno con Audífonos/Distraído</option>
-                    <option value="cansancio">+ Reporte: Alumno con Postura Cansancio</option>
-                  </select>
-                </div>
-                <button id="btn-group-classroom" type="button" class="btn-action-ghost" title="Carga una captura grupal de aula con 5 estudiantes analizados por el modelo">
-                  🖼️ Probar con Captura Grupal
-                </button>
-                <label for="input-upload-image" class="btn-action-ghost cursor-pointer" title="Analiza una fotografía con el modo seleccionado">
-                  📁 Subir Foto
-                </label>
-                <input id="input-upload-image" type="file" accept="image/jpeg,image/png,image/webp" style="display: none;">
+            <div id="general-analysis-banner" class="general-status-banner waiting">
+              <div class="general-status-icon" aria-hidden="true">⏳</div>
+              <div class="general-status-copy">
+                <strong id="general-analysis-headline">Esperando datos de los módulos IMAGEN, VIDEO y AUDIO</strong>
+                <p id="general-analysis-subtext">
+                  Cuando los módulos externos envíen fotogramas, alertas o segmentos compatibles, los resultados predictivos aparecerán automáticamente aquí.
+                </p>
               </div>
             </div>
 
-            <!-- Viewport de Captura (Video en vivo / Imagen congelada con Canvas) -->
-            <div class="camera-viewport-container">
-              <video id="webcam-feed" playsinline autoplay muted></video>
-              <img id="captured-image-display" alt="Captura congelada para predicción" style="display: none;">
-              <canvas id="overlay-canvas"></canvas>
-
-              <!-- Placeholder / Pantalla de Espera -->
-              <div id="camera-placeholder" class="camera-fallback-screen">
-                <div class="cam-icon-circle">
-                  <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2v8a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <h4>Encuadra la Cámara Web</h4>
-                <p>Haz clic para iniciar el visor y capturar la imagen de los estudiantes frente a la pantalla.</p>
-                <button id="btn-start-camera" type="button" class="btn-primary-action">
-                  ▶ Encender cámara
-                </button>
-              </div>
-
-              <!-- Telemetría HUD Superior -->
-              <div class="hud-telemetry-badge">
-                <span class="dot-rec"></span>
-                <span id="hud-fps-label">PIPELINE DE PREDICCIÓN ACTIVO</span>
-              </div>
-
-              <!-- Barra Inferior Translúcida: Fecha/Hora y Aula 301 -->
-              <div class="camera-overlay-bottom-bar">
-                <div class="cam-timestamp">
-                  <span id="live-datetime">15/10/2026 18:00:00</span>
-                </div>
-                <div class="cam-location-tag">
-                  <span id="cam-location-label">Aula 301 · Captura HD</span>
-                </div>
-              </div>
+            <div class="module-reception-block">
+              <h4 class="block-heading-sm">Resultados recibidos de los módulos</h4>
+              <ul class="module-reception-list" id="module-reception-list">
+                <li class="module-reception-row" id="mod-row-imagen">
+                  <div class="module-row-meta">
+                    <span class="module-name">IMAGEN</span>
+                    <span class="module-detail" id="mod-detail-imagen">Detección facial y expresión observable</span>
+                  </div>
+                  <span class="module-badge waiting" id="mod-status-imagen">Sin datos recibidos</span>
+                </li>
+                <li class="module-reception-row" id="mod-row-video">
+                  <div class="module-row-meta">
+                    <span class="module-name">VIDEO</span>
+                    <span class="module-detail" id="mod-detail-video">Fotogramas o secuencia visual</span>
+                  </div>
+                  <span class="module-badge waiting" id="mod-status-video">Sin datos recibidos</span>
+                </li>
+                <li class="module-reception-row" id="mod-row-audio">
+                  <div class="module-row-meta">
+                    <span class="module-name">AUDIO</span>
+                    <span class="module-detail" id="mod-detail-audio">Clasificación acústica independiente</span>
+                  </div>
+                  <span class="module-badge waiting" id="mod-status-audio">Sin datos recibidos</span>
+                </li>
+                <li class="module-reception-row" id="mod-row-academico">
+                  <div class="module-row-meta">
+                    <span class="module-name">ACADÉMICO</span>
+                    <span class="module-detail" id="mod-detail-academico">Datos curriculares compatibles</span>
+                  </div>
+                  <span class="module-badge waiting" id="mod-status-academico">Sin datos recibidos</span>
+                </li>
+              </ul>
             </div>
 
-            <!-- Botonera de Control: BOTÓN PRINCIPAL DE CAPTURA Y PREDICCIÓN -->
-            <div class="capture-controls-toolbar">
-              <button id="btn-capture-predict" type="button" class="btn-main-capture" title="Captura un fotograma y lo envía al análisis seleccionado" disabled>
-                <span class="capture-icon">📸</span>
-                <span class="capture-text">Capturar fotograma</span>
-              </button>
+            <div class="service-health-strip">
+              <span id="backend-health-text">Comprobando servicio de inferencia…</span>
+              <span id="live-datetime" class="mono-timestamp">—</span>
+            </div>
 
-              <button id="btn-new-capture" type="button" class="btn-secondary-capture" title="Vuelve al visor en vivo para tomar una nueva foto">
-                🔄 Nueva Captura
-              </button>
-              <button id="btn-stop-camera" type="button" class="btn-secondary-capture" hidden>Detener cámara</button>
+            <div class="card-footer-badge">
+              <span>Recepción automática · Sin captura manual redundante ni atribución de identidad</span>
             </div>
-            <div class="auto-capture-controls">
-              <label for="modo-analisis-captura">Modo de análisis</label>
-              <select id="modo-analisis-captura">
-                <option value="facial">Facial experimental</option>
-                <option value="aula">Captura de aula histórica</option>
-              </select>
-              <label><input id="auto-capture-enabled" type="checkbox"> Captura automática</label>
-              <label for="auto-capture-interval">Intervalo por cámara (s)</label>
-              <input id="auto-capture-interval" type="number" min="5" value="5" step="1">
-            </div>
-            <p id="auto-capture-status" class="capture-note" role="status">La captura automática requiere una cámara activa.</p>
-            <div id="resultado-facial-captura" class="sr-only" aria-live="polite"></div>
           </section>
 
-          <!-- Columna Derecha (52%): Detección / Alumnos + Reconocimiento Facial -->
+          <!-- Columna Derecha: Señales Visuales + Probabilidades e Incertidumbre -->
           <div class="right-analysis-column">
-            <section class="card students-selection-card" id="students-selection-card">
+            <section class="card students-selection-card compact-mode" id="students-selection-card">
               <div class="card-header-bar" id="students-header-bar">
                 <div class="students-header-title-wrap">
-                  <h3 class="card-title" id="students-panel-title">🎯 Detección y Análisis Facial</h3>
-                  <p class="card-subtitle-note" id="students-panel-subtitle">Captura o sube una fotografía para detectar el rostro y estimar su expresión</p>
+                  <h3 class="card-title" id="students-panel-title">🎯 Detección y Señales Visuales</h3>
+                  <p class="card-subtitle-note" id="students-panel-subtitle">Resumen de detección recibida desde IMAGEN o VIDEO</p>
                 </div>
                 <div class="students-header-actions">
                   <div class="students-counter-chip" id="students-counter-chip">
-                    <span id="students-count-badge">Esperando captura</span>
+                    <span id="students-count-badge">Sin datos</span>
                   </div>
-                  <button type="button" id="btn-toggle-students-panel" class="btn-panel-toggle" aria-expanded="false" title="Expandir o contraer panel">
-                    <span id="students-toggle-icon">▼</span>
+                  <button type="button" id="btn-toggle-students-panel" class="btn-panel-toggle" aria-expanded="false" hidden>
+                    <span id="students-toggle-icon" aria-hidden="true">▼</span>
                     <span id="students-toggle-label">Detalles</span>
                   </button>
                 </div>
               </div>
 
-              <!-- Cuadrícula de Tarjetas de Alumnos (Grid 2 Columnas) / Contenedor Dinámico -->
-              <div id="students-grid" class="students-grid-container" role="region" aria-label="Alumnos o estado facial en la captura">
-                <div class="students-empty-state waiting-state">
-                  <div class="empty-state-icon">📸</div>
-                  <div class="empty-state-title">Esperando captura de imagen</div>
-                  <div class="empty-state-desc">Presiona 'Capturar fotograma' o 'Subir Foto' para iniciar el análisis.</div>
+              <div id="students-grid" class="students-grid-container" role="region" aria-label="Estado de detección visual recibida">
+                <div class="facial-waiting-compact">
+                  <span class="facial-waiting-icon" aria-hidden="true">📡</span>
+                  <div class="facial-waiting-text">
+                    <strong>Esperando datos de los módulos IMAGEN, VIDEO y AUDIO</strong>
+                    <p>No se ha recibido ninguna detección visual compatible. Al llegar un evento válido se mostrará aquí sin atribuir identidad.</p>
+                  </div>
                 </div>
               </div>
             </section>
 
-            <!-- Panel Inmediatamente Debajo: Reconocimiento Facial: Resultados de Expresión -->
             <section class="card prediction-card emotions-card" id="emotions-results-card">
               <div class="card-header-clean">
                 <h3 class="card-title-sm" id="facial-card-title">
-                  🔮 Reconocimiento Facial <span class="selected-student-label" id="facial-student-label">(Facial experimental)</span>
+                  🔮 Probabilidades e Incertidumbre <span class="selected-student-label" id="facial-student-label">(En espera)</span>
                 </h3>
-                <span class="sub-label" id="facial-card-sublabel">Estimación experimental de la expresión facial</span>
+                <span class="sub-label" id="facial-card-sublabel">Esperando datos del módulo IMAGEN o VIDEO</span>
               </div>
 
-              <!-- Barras Horizontales de Expresiones Faciales -->
               <div class="emotions-bars-list" id="emotions-bars-list">
-                <!-- 1. Neutral (😐) -->
                 <div class="emotion-item" id="emo-item-neutral">
                   <div class="emotion-title-row">
                     <span class="emo-label" id="emo-label-neutral">Neutral (😐)</span>
@@ -239,7 +202,6 @@
                   </div>
                 </div>
 
-                <!-- 2. Alegría (😊) -->
                 <div class="emotion-item" id="emo-item-felicidad">
                   <div class="emotion-title-row">
                     <span class="emo-label" id="emo-label-felicidad">Alegría (😊)</span>
@@ -250,7 +212,6 @@
                   </div>
                 </div>
 
-                <!-- 3. Tristeza (😢) -->
                 <div class="emotion-item" id="emo-item-tristeza">
                   <div class="emotion-title-row">
                     <span class="emo-label" id="emo-label-tristeza">Tristeza (😢)</span>
@@ -261,18 +222,6 @@
                   </div>
                 </div>
 
-                <!-- 4. Miedo (😨) -->
-                <div class="emotion-item" id="emo-item-miedo">
-                  <div class="emotion-title-row">
-                    <span class="emo-label" id="emo-label-miedo">Miedo (😨)</span>
-                    <span id="emo-pct-miedo" class="emo-val text-miedo">0%</span>
-                  </div>
-                  <div class="progress-track">
-                    <div id="emo-bar-miedo" class="progress-fill fill-miedo" style="width: 0%;"></div>
-                  </div>
-                </div>
-
-                <!-- 5. Enojo (😠) -->
                 <div class="emotion-item" id="emo-item-enojo">
                   <div class="emotion-title-row">
                     <span class="emo-label" id="emo-label-enojo">Enojo (😠)</span>
@@ -283,8 +232,17 @@
                   </div>
                 </div>
 
-                <!-- 6. Sorpresa (😲) -->
-                <div class="emotion-item" id="emo-item-sorpresa">
+                <div class="emotion-item" id="emo-item-miedo" style="display: none;">
+                  <div class="emotion-title-row">
+                    <span class="emo-label" id="emo-label-miedo">Miedo (😨)</span>
+                    <span id="emo-pct-miedo" class="emo-val text-miedo">0%</span>
+                  </div>
+                  <div class="progress-track">
+                    <div id="emo-bar-miedo" class="progress-fill fill-miedo" style="width: 0%;"></div>
+                  </div>
+                </div>
+
+                <div class="emotion-item" id="emo-item-sorpresa" style="display: none;">
                   <div class="emotion-title-row">
                     <span class="emo-label" id="emo-label-sorpresa">Sorpresa (😲)</span>
                     <span id="emo-pct-sorpresa" class="emo-val text-sorpresa">0%</span>
@@ -294,8 +252,7 @@
                   </div>
                 </div>
 
-                <!-- 7. Disgusto (🤢) -->
-                <div class="emotion-item" id="emo-item-disgusto">
+                <div class="emotion-item" id="emo-item-disgusto" style="display: none;">
                   <div class="emotion-title-row">
                     <span class="emo-label" id="emo-label-disgusto">Disgusto (🤢)</span>
                     <span id="emo-pct-disgusto" class="emo-val text-disgusto">0%</span>
@@ -306,265 +263,102 @@
                 </div>
               </div>
 
-              <!-- Resumen de Estado Emocional Dominante y Acción Detectada -->
               <div class="dominant-emotion-pill-wrap">
                 <div id="dominant-pill-box" class="dominant-pill">
-                  <span class="dot-accent-orange"></span>
-                  <span id="dominant-emotion-container">Estado Observable: <strong id="dominant-emotion-text">Sin evaluar — Esperando captura</strong></span>
+                  <span class="dot-accent-orange" aria-hidden="true"></span>
+                  <span id="dominant-emotion-container">Estado e incertidumbre: <strong id="dominant-emotion-text">Sin datos — Esperando entrada automática</strong></span>
                 </div>
                 <div id="action-pill-box" class="action-pill">
-                  <span class="dot-action-blue"></span>
-                  <span>Contexto / Acción: <strong id="student-action-badge">Esperando detección en captura</strong></span>
+                  <span class="dot-action-blue" aria-hidden="true"></span>
+                  <span>Alcance: <strong id="student-action-badge">Recepción automática · Identidad desconocida</strong></span>
                 </div>
               </div>
 
               <div class="card-footer-badge" id="facial-card-footer">
-                <span>Modelo facial experimental · Categorías observables</span>
+                <span>Umbral concluyente ≥ 55% y margen ≥ 10% · Abstención automática ante incertidumbre</span>
               </div>
             </section>
           </div>
         </div>
 
         <!-- ================================================================
-             FILA INFERIOR (2 TARJETAS: SUCESOS PROBABLES + PROYECCIÓN ACADÉMICA)
+             FILA INFERIOR (2 TARJETAS): PREDICCIONES / ADVERTENCIAS + PROYECCIÓN ACADÉMICA
              ================================================================ -->
         <div class="bottom-row-grid">
-
-          <!-- Tarjeta 2 (Centro 34%): Predicción de Sucesos Probables -->
-          <section class="card prediction-card events-card">
+          <section class="card prediction-card events-card" id="events-results-card">
             <div class="card-header-clean">
               <h3 class="card-title-sm" id="events-card-title">
-                📋 Predicción de Sucesos Probables <span class="selected-student-label" id="events-student-label">(Sin selección)</span>
+                📋 Predicciones Generadas y Advertencias <span class="selected-student-label" id="events-student-label">(En espera)</span>
               </h3>
             </div>
 
             <div class="events-scroll-content">
-              <!-- Bloque 1: Acontecimientos Previos / Resultados por Modalidad -->
               <div class="event-block">
                 <div class="block-heading">
-                  <span id="events-block1-icon" class="block-icon">⏳</span>
-                  <span id="events-block1-title" class="block-title">Acontecimientos Previos (Causas Probables)</span>
+                  <span id="events-block1-icon" class="block-icon" aria-hidden="true">🔬</span>
+                  <span id="events-block1-title" class="block-title">Resultados e Hipótesis por Modalidad</span>
                 </div>
                 <div id="causes-list" class="probabilities-list">
-                  <div class="prediction-empty-notice"><span>⏳</span><span>Esperando captura de aula para proyectar acontecimientos previos...</span></div>
+                  <div class="prediction-empty-notice"><span>⏳</span><span>Esperando datos de los módulos IMAGEN, VIDEO y AUDIO para mostrar resultados o hipótesis por modalidad.</span></div>
                 </div>
               </div>
 
-              <!-- Bloque 2: Acontecimientos Futuros / Alcance y Límites -->
               <div class="event-block">
                 <div class="block-heading">
-                  <span id="events-block2-icon" class="block-icon">🎯</span>
-                  <span id="events-block2-title" class="block-title">Acontecimientos Futuros (Consecuencias Estimadas)</span>
+                  <span id="events-block2-icon" class="block-icon" aria-hidden="true">🛡️</span>
+                  <span id="events-block2-title" class="block-title">Advertencias de Evidencia Insuficiente y Límites</span>
                 </div>
                 <div id="consequences-list" class="probabilities-list">
-                  <div class="prediction-empty-notice"><span>⏳</span><span>Esperando captura de aula para proyectar consecuencias futuras...</span></div>
+                  <div class="prediction-empty-notice"><span>ℹ️</span><span>Ante ausencia de rostro, audio silencioso o datos académicos incompletos, se emitirán advertencias aquí sin inventar resultados.</span></div>
                 </div>
               </div>
             </div>
             <div class="card-footer-badge" id="events-card-footer">
-              <span>Proyección de sucesos basada en contexto y tiempo en aula</span>
+              <span>Inferencia independiente por modalidad · Sin fusión automática ni sucesos artificiales</span>
             </div>
           </section>
 
-          <!-- Tarjeta 3 (Derecha 33%): Análisis y Proyección Académica -->
-          <section class="card prediction-card academic-card">
+          <section class="card prediction-card academic-card" id="academic-results-card">
             <div class="card-header-clean">
               <h3 class="card-title-sm" id="academic-card-title">
-                📈 Análisis y Proyección Académica <span class="selected-student-label" id="academic-student-label">(Sin selección)</span>
+                📈 Proyección Académica <span class="selected-student-label" id="academic-student-label">(En espera)</span>
               </h3>
             </div>
 
-            <!-- Banner Superior de Score Heurístico -->
-            <div id="risk-score-banner" class="risk-score-banner bg-risk-optimal">
+            <div id="risk-score-banner" class="risk-score-banner bg-risk-unavailable">
               <div class="score-number-col">
                 <span id="riesgo-score-num" class="score-huge">—</span>
                 <span class="score-den">/ 100</span>
               </div>
               <div class="score-meta-col">
                 <span class="score-label">PROYECCIÓN ACADÉMICA</span>
-                <strong id="riesgo-nivel-text" class="score-level-text">Sin evaluar — Esperando captura</strong>
+                <strong id="riesgo-nivel-text" class="score-level-text">Sin datos curriculares suficientes</strong>
               </div>
             </div>
 
-            <!-- Alerta de Rendimiento Académico -->
             <div class="exam-risk-alert-box">
-              <div class="alert-icon-wrap">⚠️</div>
+              <div class="alert-icon-wrap" aria-hidden="true">⚠️</div>
               <div class="alert-text-wrap">
-                <strong>Condición académica:</strong>
-                <p id="exam-risk-desc">Captura o sube una imagen para consultar la salida del modelo.</p>
+                <strong>Condición de evaluación:</strong>
+                <p id="exam-risk-desc">La proyección académica se calculará automáticamente únicamente cuando existan datos curriculares suficientes. Las señales faciales o acústicas no sustituyen calificaciones.</p>
               </div>
             </div>
 
-            <!-- Caja Azul Claro: Asistente Predictivo -->
             <div class="assistant-narrative-box">
               <div class="assistant-header-row">
-                <span class="assistant-sparkle">✨</span>
-                <span class="assistant-title" id="assistant-box-title">Asistente Predictivo · Resumen de Ejecución</span>
+                <span class="assistant-sparkle" aria-hidden="true">✨</span>
+                <span class="assistant-title" id="assistant-box-title">Resumen del Estado del Sistema</span>
               </div>
               <p id="assistant-narrative-text" class="assistant-body-text">
-                Esperando captura para evaluar las emociones y el desempeño de los estudiantes en el aula.
+                Esperando datos de los módulos IMAGEN, VIDEO y AUDIO. No se muestran perfiles ficticios ni historial inventado.
               </p>
             </div>
 
             <div class="card-footer-badge" id="academic-card-footer">
-              <span>La evaluación académica requiere datos curriculares verificados</span>
+              <span>Basado exclusivamente en evidencia verificada · Sin historial inventado</span>
             </div>
           </section>
         </div>
-        <section class="secondary-tools-stack" aria-label="Herramientas secundarias y avanzadas">
-          <details id="experimental-panel" class="card seguimiento-panel compact-tools-panel">
-            <summary>🧪 Análisis experimental (facial, acústico y académico)</summary>
-            <form id="analisis-experimental" class="tech-content compact-tech-content">
-              <div class="experimental-compact-grid">
-                <div class="compact-field">
-                  <label for="experimental-foto">Imagen de prueba (opcional)</label>
-                  <input id="experimental-foto" type="file" accept="image/*">
-                </div>
-                <div class="compact-field">
-                  <label for="experimental-modelo-facial">Modelo facial</label>
-                  <select id="experimental-modelo-facial">
-                    <option value="automatico">Automático (prioriza datos reales)</option>
-                    <option value="real">Entrenado con fotografías reales</option>
-                    <option value="historico">Histórico entrenado con datos sintéticos</option>
-                  </select>
-                </div>
-                <div class="compact-field">
-                  <label for="experimental-audio">Fragmento WAV PCM16 (opcional)</label>
-                  <input id="experimental-audio" type="file" accept=".wav,audio/wav,audio/x-wav">
-                </div>
-                <div class="compact-field">
-                  <label for="experimental-acad-g1">Nota G1 (0–20, opcional)</label>
-                  <input id="experimental-acad-g1" type="number" min="0" max="20" step="1" aria-describedby="experimental-acad-hint" aria-invalid="false">
-                </div>
-                <div class="compact-field">
-                  <label for="experimental-acad-g2">Nota G2 (0–20, opcional)</label>
-                  <input id="experimental-acad-g2" type="number" min="0" max="20" step="1" aria-describedby="experimental-acad-hint" aria-invalid="false">
-                </div>
-              </div>
-              <p id="experimental-acad-hint" class="capture-note">Cada modalidad se evalúa de forma independiente; enviar solo imagen, solo audio WAV o solo notas G1/G2 funciona sin exigir las demás.</p>
-              <div class="compact-actions-row">
-                <button id="experimental-ejecutar" type="submit" class="btn-primary-action">Analizar entradas</button>
-                <button id="experimental-consultar-modelos" type="button" class="btn-secondary-capture">Consultar modelos</button>
-                <button id="experimental-limpiar" type="button" class="btn-secondary-capture">Limpiar</button>
-              </div>
-              <details id="experimental-json-details" class="nested-json-details">
-                <summary>Formulario JSON técnico (opcional)</summary>
-                <div class="nested-json-body">
-                  <label for="experimental-json">Entradas JSON por fuente</label>
-                  <textarea id="experimental-json" rows="4">{"schema_version":1}</textarea>
-                  <p class="capture-note">Para el modelo académico, proporciona <code>academico</code> con <code>G1</code>, <code>G2</code>, <code>escala: "0-20"</code> y <code>corte: "despues_g2"</code>.</p>
-                </div>
-              </details>
-              <div id="experimental-modelos" role="status"></div>
-              <p id="experimental-estado" role="status"></p>
-              <div id="experimental-previsualizaciones"></div>
-              <div id="experimental-resultados"></div>
-            </form>
-          </details>
-
-          <details id="demostracion-integral" class="card seguimiento-panel compact-tools-panel">
-            <summary>🎓 Modo demostración · Cuatro estudiantes ficticios</summary>
-            <div class="tech-content compact-tech-content">
-              <div class="compact-actions-row">
-                <label for="demo-integral-caso">Caso ficticio</label>
-                <select id="demo-integral-caso">
-                  <option value="todos">Los cuatro casos</option>
-                  <option value="A">A · Notas y asistencia</option>
-                  <option value="B">B · Notas incompletas</option>
-                  <option value="C">C · Muestras públicas</option>
-                  <option value="D">D · Conflicto de sesión</option>
-                </select>
-                <label><input type="checkbox" id="demo-integral-fusion"> Fusión RAVDESS</label>
-                <button type="button" id="verificar-demo-integral" class="btn-secondary-capture">Verificar sistema</button>
-                <button type="button" id="ejecutar-demo-integral" class="btn-primary-action">Ejecutar demostración local</button>
-                <button type="button" id="reiniciar-demo-integral" class="btn-secondary-capture">Reiniciar</button>
-              </div>
-              <p id="estado-demo-integral" role="status"></p>
-              <div id="inventario-demo-integral" aria-live="polite"></div>
-              <div id="resultados-demo-integral"></div>
-            </div>
-          </details>
-
-          <details id="advanced-tools-drawer" class="card seguimiento-panel compact-tools-panel">
-            <summary>🛠️ Herramientas avanzadas (Seguimiento académico, integración JSON y adaptadores)</summary>
-            <div class="tech-content compact-tech-content">
-              <details id="technical-drawer" class="nested-advanced-drawer">
-                <summary>Seguimiento académico e integración JSON</summary>
-                <div class="tech-content compact-tech-content">
-                  <p class="capture-note">Demostración sintética local con asociación explícita e independiente de la cámara.</p>
-                  <div class="experimental-compact-grid">
-                    <div class="compact-field">
-                      <label for="servidor">Servidor de predicción</label>
-                      <input id="servidor" type="url" value="http://localhost:8001">
-                    </div>
-                    <div class="compact-field">
-                      <label for="motor">Motor</label>
-                      <select id="motor">
-                        <option value="examen" selected>Supervisión de exámenes</option>
-                        <option value="seguimiento">Seguimiento por estudiante · demo sintética local</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div id="controles-examen">
-                    <label for="formato">Formato de entrada</label>
-                    <select id="formato">
-                      <option value="integracion" selected>Entrada conjunta (imagen / video)</option>
-                      <option value="imagen">Exportación de IMAGEN</option>
-                      <option value="video">Alerta o fotogramas de VIDEO</option>
-                      <option value="interno">Eventos normalizados del motor</option>
-                    </select>
-                  </div>
-                  <div id="controles-seguimiento" hidden>
-                    <label for="ejemplo-seguimiento">Escenario sintético</label>
-                    <select id="ejemplo-seguimiento">
-                      <option value="juan">Juan Pérez · concurrencia de factores</option>
-                      <option value="coincidencia">Observación con registro adverso</option>
-                      <option value="multimodal">Imagen, video, captura e historial</option>
-                      <option value="participacion">Asistencia y participación declaradas</option>
-                      <option value="sin_adversos">Misma observación sin registros adversos</option>
-                      <option value="sin_alerta">Sin alerta</option>
-                      <option value="identidad_desconocida">Identidad desconocida</option>
-                      <option value="insuficientes">Datos insuficientes</option>
-                    </select>
-                    <button id="cargar-ejemplo" type="button" class="btn-secondary-capture">Cargar ejemplo</button>
-                  </div>
-                  <details id="technical-json-details" class="nested-json-details">
-                    <summary>Formulario JSON técnico e importación</summary>
-                    <div class="nested-json-body">
-                      <label for="archivo">Importar JSON</label>
-                      <input id="archivo" type="file" accept=".json,application/json">
-                      <label for="entrada">Entrada JSON</label>
-                      <textarea id="entrada" rows="4"></textarea>
-                    </div>
-                  </details>
-                  <div class="compact-actions-row">
-                    <button id="ejecutar" type="button" class="btn-primary-action">Evaluar señales</button>
-                  </div>
-                  <p id="estado" role="status"></p>
-                  <p id="ayuda"></p>
-                  <span id="indice">—</span>
-                  <span id="nivel">Pendiente de evaluación</span>
-                  <p id="descripcion-indice"></p>
-                  <p id="recomendacion"></p>
-                  <div id="resultados-estudiantes"></div>
-                  <details class="respuesta-tecnica">
-                    <summary>Respuesta JSON</summary>
-                    <pre id="salida"></pre>
-                  </details>
-                </div>
-              </details>
-
-              <section id="integracion-fuentes-avanzado" class="nested-advanced-box" aria-labelledby="titulo-integracion">
-                <p id="titulo-integracion" class="nested-box-title">Integración interna de fuentes (IMAGEN, VIDEO y AUDIO)</p>
-                <ul id="integracion-modulos" aria-live="polite">
-                  <li>Imagen y video · consultando adaptadores</li>
-                  <li>Audio · contrato pendiente</li>
-                </ul>
-                <button id="actualizar-integracion" class="btn-secondary-capture" type="button">Actualizar estado</button>
-              </section>
-            </div>
-          </details>
-        </section>
       </main>
     </div>
   </div>

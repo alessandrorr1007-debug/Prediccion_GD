@@ -1,5 +1,5 @@
-// Pruebas funcionales del controlador con DOM mínimo y API real local.
-// No sustituyen una revisión visual en navegador. Sin paquetes npm adicionales.
+// Pruebas funcionales del controlador automático de PREDICCIÓN y contratos backend preservados.
+// Sin paquetes npm adicionales. No sustituyen la verificación visual en Chrome.
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 const { readFileSync } = require("node:fs");
@@ -10,6 +10,7 @@ const vm = require("node:vm");
 
 const raiz = resolve(__dirname, "..");
 let proceso, base, errorServidor = "";
+
 before(async () => {
   const socket = createServer();
   await new Promise(ok => socket.listen(0, "127.0.0.1", ok));
@@ -33,12 +34,23 @@ before(async () => {
   }
   throw new Error(`El servidor de prueba no inició: ${errorServidor}`);
 });
-after(() => { if (proceso && proceso.exitCode === null) proceso.kill(); });
+
+after(() => {
+  if (proceso && proceso.exitCode === null) proceso.kill();
+});
 
 class Elemento {
   constructor() {
-    this.value = ""; this.textContent = ""; this.innerHTML = ""; this.children = []; this.listeners = {};
-    this.hidden = false; this.disabled = false; this.style = {}; this.attributes = {};
+    this.value = "";
+    this.textContent = "";
+    this.innerHTML = "";
+    this.className = "";
+    this.children = [];
+    this.listeners = {};
+    this.hidden = false;
+    this.disabled = false;
+    this.style = {};
+    this.attributes = {};
     this._classes = new Set();
     this.classList = {
       add: (...c) => c.forEach(x => this._classes.add(x)),
@@ -54,1163 +66,386 @@ class Elemento {
   append(...hijos) { this.children.push(...hijos); }
   replaceChildren(...hijos) { this.children = hijos; }
 }
+
+function crearWindowMock() {
+  const listeners = new Map();
+  return {
+    addEventListener(tipo, fn) {
+      if (!listeners.has(tipo)) listeners.set(tipo, []);
+      listeners.get(tipo).push(fn);
+    },
+    dispatchEvent(ev) {
+      for (const fn of listeners.get(ev.type) || []) fn(ev);
+    }
+  };
+}
+
 function montar(globales = {}, configurar = () => {}) {
   const html = readFileSync(join(raiz, "frontend/index.html"), "utf8");
   const elementos = Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(m => [m[1], new Elemento()]));
-  elementos.motor.value = "examen";
-  elementos.formato.value = "integracion";
-  elementos["ejemplo-seguimiento"].value = "juan";
-  elementos["modo-analisis-captura"].value = "aula";
-  elementos["auto-capture-enabled"].checked = true;
-  elementos["auto-capture-interval"].value = "5";
+  const windowMock = globales.window || crearWindowMock();
   const contexto = vm.createContext({
     document: {
-      getElementById(id) { assert.ok(elementos[id], `Control inexistente: ${id}`); return elementos[id]; },
-      createElement(tag) {
-        return tag === "canvas"
-          ? { getContext: () => ({ drawImage() {} }), toDataURL: () => "data:image/jpeg;base64,DEMO" }
-          : new Elemento();
-      }
+      getElementById(id) { return elementos[id] || null; },
+      createElement() { return new Elemento(); }
     },
-    location: { origin: base, protocol: "http:" }, URL, fetch,
-    AbortController, AbortSignal, Blob, setTimeout, clearTimeout, ...globales,
+    window: windowMock,
+    location: { origin: base, protocol: "http:" },
+    URL,
+    fetch,
+    AbortController,
+    AbortSignal,
+    Blob,
+    setTimeout,
+    clearTimeout,
+    setInterval: () => 0,
+    clearInterval: () => {},
+    ...globales,
   });
   configurar(elementos);
   vm.runInContext(readFileSync(join(raiz, "frontend/app.js"), "utf8"), contexto);
-  if (globales.crearDetectorAlternativo) {
-    vm.runInContext("cargarMediaPipe = crearDetectorAlternativo;", contexto);
-  }
-  return elementos;
+  return { e: elementos, api: contexto.AulaPredict, win: windowMock };
 }
-function contenido(e) { return e.textContent + e.children.map(contenido).join(" "); }
 
-test("supervisión conserva el flujo de integración anterior", async () => {
-  const e = montar();
-  await e.ejecutar.listeners.click();
-  const salida = JSON.parse(e.salida.textContent);
-  assert.ok("indice_revision" in salida);
-  assert.ok(!("resultados" in salida));
-  assert.equal(e.motor.disabled, false);
-});
-test("seleccionar seguimiento carga ejemplo y muestra identidad, reglas y evidencia", async () => {
-  const e = montar();
-  e.motor.value = "seguimiento";
-  await e.motor.listeners.change();
-  assert.equal(e["controles-examen"].hidden, true);
-  assert.equal(JSON.parse(e.entrada.value).simulado, true);
-  await e.ejecutar.listeners.click();
-  assert.equal(e.indice.textContent, "90");
-  const texto = contenido(e["resultados-estudiantes"]);
-  assert.match(texto, /Juan Pérez/);
-  assert.match(texto, /presencia_recurrente_celular/);
-  assert.match(texto, /Evidencia · contexto/);
-  assert.match(texto, /Datos faltantes/);
-  assert.match(texto, /Recomendaciones/);
-});
-test("identidad desconocida muestra insuficiencia y observaciones sin atribuir", async () => {
-  const e = montar(); e.motor.value = "seguimiento";
-  await e.motor.listeners.change();
-  e["ejemplo-seguimiento"].value = "identidad_desconocida";
-  await e["cargar-ejemplo"].listeners.click();
-  await e.ejecutar.listeners.click();
-  assert.equal(e.indice.textContent, "—");
-  assert.match(contenido(e["resultados-estudiantes"]), /Observaciones sin atribuir/);
-});
-test("alternar motores conserva entradas separadas y un error limpia resultados anteriores", async () => {
-  const e = montar(); const examen = e.entrada.value;
-  e.motor.value = "seguimiento"; await e.motor.listeners.change();
-  const seguimiento = e.entrada.value;
-  await e.ejecutar.listeners.click();
-  e.entrada.value = "{incorrecto";
-  await e.ejecutar.listeners.click();
-  assert.equal(e.salida.textContent, "");
-  assert.equal(e["resultados-estudiantes"].children.length, 0);
-  assert.equal(e.ejecutar.disabled, false);
-  e.entrada.value = seguimiento;
-  e.motor.value = "examen"; await e.motor.listeners.change();
-  assert.equal(e.entrada.value, examen);
-  e.motor.value = "seguimiento"; await e.motor.listeners.change();
-  assert.equal(e.entrada.value, seguimiento);
+function crearWavBase64(duracionSeg = 1.5, frecuencia = 260) {
+  const tasa = 16000;
+  const muestras = Math.floor(tasa * duracionSeg);
+  const bytesPcm = muestras * 2;
+  const buf = Buffer.alloc(44 + bytesPcm);
+  buf.write("RIFF", 0);
+  buf.writeUInt32LE(36 + bytesPcm, 4);
+  buf.write("WAVE", 8);
+  buf.write("fmt ", 12);
+  buf.writeUInt32LE(16, 16);
+  buf.writeUInt16LE(1, 20);
+  buf.writeUInt16LE(1, 22);
+  buf.writeUInt32LE(tasa, 24);
+  buf.writeUInt32LE(tasa * 2, 28);
+  buf.writeUInt16LE(2, 32);
+  buf.writeUInt16LE(16, 34);
+  buf.write("data", 36);
+  buf.writeUInt32LE(bytesPcm, 40);
+  for (let i = 0; i < muestras; i++) {
+    const val = Math.round(Math.sin((2 * Math.PI * frecuencia * i) / tasa) * 14000);
+    buf.writeInt16LE(val, 44 + i * 2);
+  }
+  return buf.toString("base64");
+}
+
+test("Entrega 3B retira controles experimentales, demo ficticia y captura redundante del DOM", () => {
+  const html = readFileSync(join(raiz, "frontend/index.html"), "utf8");
+  const idsEliminados = [
+    "experimental-panel",
+    "demostracion-integral",
+    "advanced-tools-drawer",
+    "technical-drawer",
+    "integracion-fuentes-avanzado",
+    "abrir-seguimiento",
+    "select-contexto-simulado",
+    "btn-group-classroom",
+    "webcam-feed",
+    "btn-start-camera",
+    "btn-stop-camera",
+    "btn-capture-predict",
+    "btn-new-capture",
+    "input-upload-image",
+    "modo-analisis-captura",
+    "auto-capture-enabled",
+    "auto-capture-interval",
+    "experimental-audio",
+    "experimental-acad-g1",
+    "experimental-acad-g2",
+    "experimental-json",
+    "experimental-modelo-facial",
+    "analisis-experimental",
+    "ejecutar-demo-integral",
+    "motor",
+    "entrada",
+    "ejecutar",
+    "actualizar-integracion"
+  ];
+  for (const id of idsEliminados) {
+    assert.doesNotMatch(html, new RegExp(`id="${id}"`), `No debe quedar el control obsoleto #${id}`);
+  }
+  assert.doesNotMatch(html, /Demostración integral con cuatro estudiantes ficticios/i);
+  assert.doesNotMatch(html, /Análisis experimental facial, acústico y académico/i);
+  assert.doesNotMatch(html, /<input\b|<textarea\b|<select\b/i);
+
+  assert.match(html, /<aside[^>]*class="app-sidebar"/);
+  assert.match(html, /<header[^>]*class="app-header"/);
+  assert.match(html, /<main[^>]*class="dashboard-content"/);
+  assert.match(html, /<ul[^>]*id="module-reception-list"/);
+  assert.match(html, /<h1\b/);
+  assert.match(html, /<h2\b/);
+  assert.match(html, /<h3\b/);
+  assert.match(html, /<h4\b/);
 });
 
-test("el acceso del panel abre seguimiento y muestra la coincidencia con sus fuentes", async () => {
-  const e = montar();
-  e["ejemplo-seguimiento"].value = "coincidencia";
-  await e["abrir-seguimiento"].listeners.click();
-  assert.equal(e["technical-drawer"].open, true);
-  assert.equal(e.motor.value, "seguimiento");
-  await e.ejecutar.listeners.click();
-  const texto = contenido(e["resultados-estudiantes"]);
-  assert.match(texto, /ID demo-juan · sesión demo-01/);
-  assert.match(texto, /Coincidencia contextual/);
-  assert.match(texto, /tarea-demo-1/);
-  assert.match(texto, /Evento familiar declarado \(simulado\)/);
-  assert.match(texto, /Destinatarios sugeridos/);
-});
+test("estado inicial automático muestra espera por IMAGEN, VIDEO y AUDIO sin inventar historial ni datos", async () => {
+  const { e, api } = montar();
+  assert.match(e["general-analysis-headline"].textContent, /Esperando datos de los módulos IMAGEN, VIDEO y AUDIO/);
+  assert.equal(e["capture-status-text"].textContent, "En espera");
+  for (const mod of ["imagen", "video", "audio", "academico"]) {
+    assert.equal(e[`mod-status-${mod}`].textContent, "Sin datos recibidos");
+  }
+  assert.equal(e["students-count-badge"].textContent, "Sin datos");
+  assert.equal(e["btn-toggle-students-panel"].hidden, true);
+  assert.equal(e["riesgo-score-num"].textContent, "—");
+  assert.match(e["riesgo-nivel-text"].textContent, /Sin datos curriculares suficientes/);
+  assert.match(e["assistant-narrative-text"].textContent, /perfiles ficticios ni historial inventado/i);
 
-test("panel de integración muestra estados y distingue un servidor no disponible", async () => {
-  const e = montar();
-  await e["actualizar-integracion"].listeners.click();
-  const modulos = contenido(e["integracion-modulos"]);
-  assert.match(modulos, /IMAGEN · adaptador disponible/);
-  assert.match(modulos, /VIDEO · adaptador disponible/);
-  assert.match(modulos, /AUDIO · productor y contrato pendientes/);
+  await api.verificarSaludBackend();
+  assert.match(e["backend-health-text"].textContent, /Servicio local de inferencia disponible/);
+
   const offline = montar({ fetch: async () => { throw new Error("sin conexión"); } });
-  await offline["actualizar-integracion"].listeners.click();
-  assert.match(contenido(offline["integracion-modulos"]), /No se pudo consultar/);
-  assert.equal(offline["actualizar-integracion"].disabled, false);
+  await offline.api.verificarSaludBackend();
+  assert.match(offline.e["backend-health-text"].textContent, /no disponible/i);
 });
 
-test("seguimiento multimodal muestra procedencia, escena sin identidad y errores por fuente", async () => {
-  const e = montar();
-  e["ejemplo-seguimiento"].value = "multimodal";
-  await e["abrir-seguimiento"].listeners.click();
-  await e.ejecutar.listeners.click();
-  assert.equal(e.indice.textContent, "30");
-  const texto = contenido(e["resultados-estudiantes"]);
-  assert.match(texto, /Fuentes recibidas en esta evaluación/);
-  assert.match(texto, /fixture-imagen.*sintetica/);
-  assert.match(texto, /registro-demo/);
-  assert.match(texto, /revision-demo-1/);
-  assert.match(texto, /conteo de escena sin identidad individual.*cap-demo-1/);
-  const datos = JSON.parse(e.entrada.value);
-  datos.fuentes[0].modulo = "audio";
-  e.entrada.value = JSON.stringify(datos);
-  await e.ejecutar.listeners.click();
-  assert.match(e.estado.textContent, /Fuente 1 \(audio, contrato_pendiente\)/);
-  assert.equal(e["resultados-estudiantes"].children.length, 0);
-});
+test("recepción automática vía evento diferencia abstención con hipótesis vs clasificación facial concluyente", () => {
+  const { e, win, api } = montar();
 
-test("panel experimental muestra características declaradas y fusión pendiente", async () => {
-  const e = montar();
-  e["experimental-json"].value = JSON.stringify({
-    schema_version: 1, audio: { duracion_segundos: 4, f0_hz: 150, naturaleza: "sintetica" }
-  });
-  await e["analisis-experimental"].listeners.submit({ preventDefault() {} });
-  assert.match(e["experimental-estado"].textContent, /Evaluación experimental completada/);
-  const salida = contenido(e["experimental-resultados"]);
-  assert.match(salida, /caracteristicas declaradas/);
-  assert.match(salida, /f0_hz: 150/);
-  assert.match(salida, /clasificador acústico pendientes/);
-  assert.match(salida, /Fusión estadística pendiente/);
-});
-
-test("panel experimental muestra notas faltantes y consulta modelos por separado", async () => {
-  const e = montar();
-  e["experimental-json"].value = '{"schema_version":1,"academico":{"G1":8}}';
-  await e["analisis-experimental"].listeners.submit({ preventDefault() {} });
-  assert.match(contenido(e["experimental-resultados"]), /Campos faltantes: G2, corte, escala/);
-  await e["experimental-consultar-modelos"].listeners.click();
-  assert.match(contenido(e["experimental-modelos"]), /facial historico.*rasgos sinteticos/);
-});
-
-test("panel experimental envía WAV y muestra su abstención calibrada", async () => {
-  const e = montar({
-    FileReader: class {
-      readAsDataURL() { this.result = "data:audio/wav;base64,UklGRg=="; this.onload(); }
-    },
-    async fetch(url, opciones) {
-      assert.match(url, /analisis-experimental$/);
-      assert.deepEqual(JSON.parse(opciones.body).audio, { evento_id: "a1", wav_b64: "UklGRg==" });
-      return { ok: true, async json() { return {
-        fuentes: { audio: { estado: "abstencion", modelo: { algoritmo: "random_forest", version: "fase7-1.0",
-          dataset: { dominio: "RAVDESS" } }, puntajes_calibrados: { neutral: 0.51 }, criterio_abstencion: {
-            motivos: ["probabilidad_insuficiente"], maximo: .51, umbral: .55, margen_observado: .2, margen_minimo: .1
-          } } },
-        sincronizacion: { estado: "fuentes_insuficientes" }
-      }; } };
-    }
-  });
-  e["experimental-audio"].files = [{ size: 8 }];
-  e["experimental-json"].value = '{"schema_version":1,"audio":{"evento_id":"a1"}}';
-  await e["analisis-experimental"].listeners.submit({ preventDefault() {} });
-  const salida = contenido(e["experimental-resultados"]);
-  assert.match(salida, /abstencion/);
-  assert.match(salida, /random_forest.*fase7-1\.0.*RAVDESS/);
-  assert.match(salida, /neutral: 0\.510/);
-  assert.match(salida, /Abstención por probabilidad insuficiente.*mínimo 0\.55/);
-  assert.doesNotMatch(salida, /clasificador acústico pendientes/);
-});
-
-test("panel experimental selecciona el modelo facial y muestra conflictos declarados", async () => {
-  const e = montar({ async fetch(_url, opciones) {
-    const entrada = JSON.parse(opciones.body);
-    assert.equal(entrada.imagen.modelo_facial, "real");
-    return { ok: true, async json() { return {
-      fuentes: { imagen: { estado: "abstencion", origen_entrenamiento: "datos_reales",
-        modelo: { algoritmo: "hog_logistica", version: "fase8-1.0", dataset: { nombre: "CMU Face Images" } } } },
-      sincronizacion: { estado: "referencias_incompatibles", conflictos_referencia: ["sesiones_distintas"] }
-    }; } };
-  } });
-  e["experimental-modelo-facial"].value = "real";
-  e["experimental-json"].value = '{"schema_version":1,"imagen":{"imagen_b64":"AA=="}}';
-  await e["analisis-experimental"].listeners.submit({ preventDefault() {} });
-  const salida = contenido(e["experimental-resultados"]);
-  assert.match(salida, /CMU Face Images/);
-  assert.match(salida, /Datos de entrenamiento: datos reales/);
-  assert.match(salida, /sesiones distintas/);
-});
-
-test("demostración integral usa la API y muestra cuatro casos con procedencia", async () => {
-  const e = montar();
-  const real = process.env.AULAPREDICT_E2E_FASE10 === "1";
-  e["demo-integral-fusion"].checked = real;
-  await e["ejecutar-demo-integral"].listeners.click();
-  assert.match(e["estado-demo-integral"].textContent, /Demostración sintética completada/);
-  const salida = contenido(e["resultados-demo-integral"]);
-  for (const caso of "ABCD") assert.match(salida, new RegExp(`Caso ${caso}`));
-  assert.match(salida, /Campos faltantes.*G2/);
-  assert.match(salida, /Registros académicos excluidos/);
-  assert.match(salida, /sesion distinta/);
-  if (real) {
-    assert.match(salida, /compatible · ejecutada/);
-    assert.match(salida, /Probabilidades.*RAVDESS|RAVDESS.*Probabilidades/);
-  } else {
-    assert.match(salida, /sin ejecutar/);
-  }
-});
-
-test("panel comprueba el servidor, selecciona un caso y reinicia", async () => {
-  const e = montar();
-  await e["verificar-demo-integral"].listeners.click();
-  assert.match(contenido(e["inventario-demo-integral"]), /Backend disponible/);
-  e["demo-integral-caso"].value = "D";
-  await e["ejecutar-demo-integral"].listeners.click();
-  assert.match(contenido(e["resultados-demo-integral"]), /Caso D.*sesion distinta/);
-  assert.doesNotMatch(contenido(e["resultados-demo-integral"]), /Caso A/);
-  e["reiniciar-demo-integral"].listeners.click();
-  assert.equal(e["demo-integral-caso"].value, "todos");
-  assert.equal(contenido(e["resultados-demo-integral"]), "");
-});
-
-test("seguimiento muestra asistencia, participación y prioridad académica separadas", async () => {
-  const e = montar();
-  e["ejemplo-seguimiento"].value = "participacion";
-  await e["abrir-seguimiento"].listeners.click();
-  await e.ejecutar.listeners.click();
-  const salida = contenido(e["resultados-estudiantes"]);
-  assert.match(salida, /Prioridad académica: 15/);
-  assert.match(salida, /Registros de asistencia: 5 · ausencias: 2/);
-  assert.match(salida, /Participaciones declaradas: 2/);
-  assert.match(salida, /Participaciones declaradas: 0/);
-  assert.match(salida, /Registros académicos excluidos/);
-});
-
-function montarCamara({ usarNativo = true, alternativo, responder, abrirCamara, sinAPI = false } = {}) {
-  let reloj = 0;
-  let siguienteId = 0;
-  let detecciones = 0;
-  let rostros = [];
-  let detenidas = 0;
-  const timers = new Map();
-  const peticiones = [];
-  const track = { stop() { detenidas++; }, addEventListener() {} };
-  const vacia = () => Response.json({ total_alumnos: 0, estudiantes: [] });
-  const e = montar({
-    navigator: sinAPI ? {} : { mediaDevices: { async getUserMedia(opciones) {
-      assert.equal(opciones.audio, false);
-      const stream = { getTracks: () => [track] };
-      return abrirCamara ? abrirCamara(stream) : stream;
-    } } },
-    FaceDetector: usarNativo ? class { async detect() { detecciones++; return rostros; } } : undefined,
-    crearDetectorAlternativo: alternativo || (async () => { throw new Error("Detector no disponible"); }),
-    performance: { now: () => reloj },
-    setTimeout(fn, ms) { const id = ++siguienteId; timers.set(id, { fn, ms }); return id; },
-    clearTimeout(id) { timers.delete(id); },
-    fetch: async (url, opciones) => {
-      peticiones.push({ url, opciones });
-      return responder ? responder(url, opciones) : vacia();
-    }
-  }, elementos => {
-    Object.assign(elementos["webcam-feed"], {
-      currentTime: 0, readyState: 2, videoWidth: 640, videoHeight: 480, paused: false, async play() {}
-    });
-  });
-  return {
-    e, peticiones, vacia, detecciones: () => detecciones, detenidas: () => detenidas,
-    estado: () => e["capture-status-text"].textContent,
-    async revisar(ms, detectado = true) {
-      reloj += ms;
-      e["webcam-feed"].currentTime += 1;
-      rostros = detectado ? [{ boundingBox: { width: 50, height: 50 } }] : [];
-      const siguiente = [...timers].find(([, timer]) => timer.ms === 500);
-      if (!siguiente) return;
-      timers.delete(siguiente[0]);
-      await siguiente[1].fn();
-    }
-  };
-}
-
-test("distingue permiso denegado, cámara ausente y navegador sin API", async () => {
-  for (const [opciones, mensaje] of [
-    [{ abrirCamara: () => { throw new DOMException("denegado", "NotAllowedError"); } }, /Permiso de cámara denegado/],
-    [{ abrirCamara: () => { throw new DOMException("ausente", "NotFoundError"); } }, /No se encontró una cámara/],
-    [{ sinAPI: true }, /localhost o HTTPS/],
-    [{ abrirCamara: () => { throw new DOMException("ocupada", "NotReadableError"); } }, /otra aplicación/]
-  ]) {
-    const camara = montarCamara(opciones);
-    const { e, peticiones } = camara;
-    await e["btn-start-camera"].listeners.click();
-    assert.match(camara.estado(), mensaje);
-    assert.equal(e["btn-start-camera"].disabled, false);
-    assert.equal(e["btn-stop-camera"].hidden, true);
-    assert.equal(e["input-upload-image"].disabled, false);
-    await camara.revisar(10000);
-    assert.equal(peticiones.length, 0);
-  }
-});
-
-test("detener durante el permiso libera un stream concedido tarde", async () => {
-  let permitir;
-  const camara = montarCamara({ abrirCamara: stream => new Promise(resolve => {
-    permitir = () => resolve(stream);
-  }) });
-  const { e } = camara;
-  const apertura = e["btn-start-camera"].listeners.click();
-  e["btn-stop-camera"].listeners.click();
-  permitir();
-  await apertura;
-  await camara.revisar(10000);
-  assert.equal(camara.detenidas(), 1);
-  assert.equal(e["webcam-feed"].srcObject, null);
-  assert.equal(camara.peticiones.length, 0);
-});
-
-test("permite cambiar de captura manual a automática al volver al visor", async () => {
-  const camara = montarCamara({ responder: () => Response.json({
-    total_alumnos: 1, estudiantes: [{ id: 1, nombre: "Estudiante 1" }]
-  }) });
-  const { e, peticiones } = camara;
-  e["auto-capture-enabled"].checked = false;
-  await e["btn-start-camera"].listeners.click();
-  await camara.revisar(500);
-  assert.equal(peticiones.length, 0);
-  await e["btn-capture-predict"].listeners.click();
-  assert.equal(peticiones.length, 1);
-  assert.match(camara.estado(), /1 persona · identidad desconocida/);
-  e["auto-capture-enabled"].checked = true;
-  e["auto-capture-enabled"].listeners.change();
-  await camara.revisar(5000);
-  assert.equal(peticiones.length, 1);
-  e["btn-new-capture"].listeners.click();
-  await camara.revisar(500);
-  assert.equal(peticiones.length, 2);
-});
-
-test("detector nativo solo envía con rostro y respeta el intervalo por cámara", async () => {
-  const camara = montarCamara();
-  const { e, peticiones } = camara;
-  await camara.revisar(500);
-  assert.equal(peticiones.length, 0);
-  await e["btn-start-camera"].listeners.click();
-  await camara.revisar(500, false);
-  assert.equal(camara.detecciones(), 1);
-  assert.equal(peticiones.length, 0);
-  await camara.revisar(500);
-  assert.equal(peticiones.length, 1);
-  assert.match(peticiones[0].url, /\/api\/prediccion\/analizar-captura$/);
-  assert.equal(JSON.parse(peticiones[0].opciones.body).imagen_b64, "data:image/jpeg;base64,DEMO");
-  assert.match(camara.estado(), /No se detectaron personas/);
-  await camara.revisar(4999);
-  assert.equal(peticiones.length, 1);
-  await camara.revisar(1);
-  assert.equal(peticiones.length, 2);
-  e["auto-capture-interval"].value = "10";
-  await camara.revisar(5000);
-  assert.equal(peticiones.length, 2);
-  await camara.revisar(5000);
-  assert.equal(peticiones.length, 3);
-});
-
-test("usa detector alternativo cuando falta el nativo y lo libera al detener", async () => {
-  let cerrado = 0;
-  const camara = montarCamara({ usarNativo: false, alternativo: async () => ({
-    detectForVideo: () => ({ detections: [{ boundingBox: { width: 20, height: 20 } }] }),
-    close: () => { cerrado++; }
-  }) });
-  await camara.e["btn-start-camera"].listeners.click();
-  await camara.revisar(500);
-  camara.e["btn-stop-camera"].listeners.click();
-  await camara.revisar(6000);
-  assert.equal(camara.peticiones.length, 1);
-  assert.equal(camara.detenidas(), 1);
-  assert.equal(cerrado, 1);
-});
-
-test("si no hay detector, mantiene la captura manual", async () => {
-  const camara = montarCamara({ usarNativo: false });
-  const { e, peticiones } = camara;
-  await e["btn-start-camera"].listeners.click();
-  assert.match(e["auto-capture-status"].textContent, /Detector facial no disponible/);
-  await camara.revisar(10000);
-  assert.equal(peticiones.length, 0);
-  await e["btn-capture-predict"].listeners.click();
-  assert.equal(peticiones.length, 1);
-  assert.equal(e["captured-image-display"].style.display, "block");
-});
-
-test("la foto subida usa el mismo endpoint sin abrir cámara", async () => {
-  let solicitud;
-  const e = montar({
-    FileReader: class {
-      readAsDataURL() {
-        this.result = "data:image/jpeg;base64,FOTO";
-        this.onload();
-        this.onloadend();
-      }
-    },
-    fetch: async (url, opciones) => {
-      solicitud = { url, cuerpo: JSON.parse(opciones.body) };
-      return Response.json({ total_alumnos: 0, estudiantes: [] });
-    }
-  });
-  e.servidor.value = "http://servidor-externo.example";
-  e["select-contexto-simulado"].value = "celular";
-  const entrada = e["input-upload-image"];
-  entrada.files = [{ name: "ejemplo.jpg" }];
-  await entrada.listeners.change({ target: entrada });
-  assert.equal(solicitud.url, `${base}/api/prediccion/analizar-captura`);
-  assert.equal(solicitud.cuerpo.imagen_b64, "data:image/jpeg;base64,FOTO");
-  assert.deepEqual(solicitud.cuerpo.contexto_externo.acciones_detectadas, ["uso_celular"]);
-  assert.equal(e["captured-image-display"].src, solicitud.cuerpo.imagen_b64);
-});
-
-test("el lienzo deja pasar clics al encendido y el visor distingue un error de reproducción", async () => {
-  const css = readFileSync(join(raiz, "frontend/style.css"), "utf8");
-  assert.match(css, /#overlay-canvas\s*\{[^}]*pointer-events:\s*none/);
-  assert.match(css, /#overlay-canvas\.interactivo\s*\{[^}]*pointer-events:\s*auto/);
-  const camara = montarCamara();
-  const { e } = camara;
-  e["webcam-feed"].play = async () => { throw new DOMException("reproducción", "NotAllowedError"); };
-  await e["btn-start-camera"].listeners.click();
-  assert.match(camara.estado(), /visor no pudo reproducir/);
-  assert.equal(camara.detenidas(), 1);
-  e["webcam-feed"].play = async () => {};
-  await e["btn-start-camera"].listeners.click();
-  assert.equal(camara.estado(), "Cámara lista");
-  await camara.revisar(1000);
-  assert.equal(camara.detecciones(), 0);
-  assert.equal(camara.peticiones.length, 0);
-  e["btn-stop-camera"].listeners.click();
-  assert.equal(camara.detenidas(), 2);
-});
-
-test("el fotograma en modo facial se envía como imagen real sin contexto de aula", async () => {
-  const { e, peticiones } = montarCamara({ responder: () => Response.json({
-    fuentes: { imagen: { estado: "modelo_no_disponible" } }
-  }) });
-  e["modo-analisis-captura"].value = "facial";
-  await e["btn-start-camera"].listeners.click();
-  await e["btn-capture-predict"].listeners.click();
-  assert.match(peticiones[0].url, /\/analisis-experimental$/);
-  assert.deepEqual(JSON.parse(peticiones[0].opciones.body), {
-    schema_version: 1, imagen: { imagen_b64: "data:image/jpeg;base64,DEMO", modelo_facial: "real" }
-  });
-  assert.match(e["capture-status-text"].textContent, /Modelo facial no disponible/);
-});
-
-test("el aviso del lienzo se limita al modo Aula y la interfaz distingue resultados faciales", async () => {
-  let dibujar;
-  const avisos = [];
-  const respuestas = [
-    { total_alumnos: 0, estudiantes: [] },
-    { fuentes: { imagen: { estado: "abstencion", rostros_detectados: 1, puntajes_calibrados: { neutral: 0.42 } } } },
-    { fuentes: { imagen: { estado: "evidencia_insuficiente", deteccion_facial: "sin_rostro", rostros_detectados: 0 } } },
-    { fuentes: { imagen: { estado: "evidencia_insuficiente", deteccion_facial: "rostro_pequeno", rostros_detectados: 1 } } },
-    { fuentes: { imagen: { estado: "error_inferencia" } } },
-  ];
-  const e = montar({
-    window: { addEventListener() {} },
-    setInterval() {},
-    requestAnimationFrame(fn) { dibujar = fn; },
-    FileReader: class {
-      readAsDataURL() {
-        this.result = "data:image/png;base64,FOTO";
-        this.onload();
-        this.onloadend();
-      }
-    },
-    fetch: async url => Response.json(url.endsWith("/api/modulos") ? {} : respuestas.shift()),
-  }, elementos => {
-    elementos["overlay-canvas"].getContext = () => ({
-      clearRect() {}, fillRect() {}, fillText(texto) { avisos.push(texto); },
-    });
-  });
-  const entrada = e["input-upload-image"];
-  const subir = async () => {
-    entrada.files = [{ name: "foto.png" }];
-    await entrada.listeners.change({ target: entrada });
-    dibujar();
-  };
-  await subir();
-  assert.match(e["capture-status-text"].textContent, /No se detectaron personas/);
-  assert.match(avisos.pop(), /Sin personas detectadas/);
-  e["modo-analisis-captura"].value = "facial";
-  for (const mensaje of [/Rostro detectado.*Abstención/, /No se detectó ningún rostro/,
-                         /Rostro detectado.*Demasiado pequeño/, /Error técnico/]) {
-    await subir();
-    assert.match(e["capture-status-text"].textContent, mensaje);
-    assert.match(e["students-count-badge"].textContent, /rostro|Rostro|Error/);
-    assert.deepEqual(avisos, []);
-  }
-});
-
-test("la foto facial anticipa la vista previa, limita archivos y permite reintentar tras timeout", async () => {
-  let limite;
-  let peticiones = 0;
-  const e = montar({
-    setTimeout(fn, ms) { assert.equal(ms, 30000); limite = fn; },
-    clearTimeout() {},
-    FileReader: class {
-      readAsDataURL() {
-        this.result = "data:image/png;base64,FOTO";
-        this.onload();
-        this.onloadend();
-      }
-    },
-    async fetch(url, { signal }) {
-      assert.match(url, /\/analisis-experimental$/);
-      assert.equal(e["captured-image-display"].style.display, "block");
-      assert.match(e["capture-status-text"].textContent, /Fotografía seleccionada/);
-      if (++peticiones === 1) return new Promise((_, reject) => signal.addEventListener("abort", reject));
-      return Response.json({ fuentes: { imagen: { estado: "abstencion", puntajes_calibrados: { neutral: 0.42 } } } });
-    }
-  });
-  e["modo-analisis-captura"].value = "facial";
-  const entrada = e["input-upload-image"];
-  const subir = (type, size) => {
-    entrada.files = [{ name: "foto.png", type, size }];
-    return entrada.listeners.change({ target: entrada });
-  };
-  await subir("image/gif", 1024);
-  await subir("image/png", 5 * 1024 ** 2 + 1);
-  assert.equal(peticiones, 0);
-  const primera = subir("image/png", 1024);
-  await new Promise(setImmediate);
-  limite();
-  await primera;
-  assert.match(e["capture-status-text"].textContent, /tardó demasiado/);
-  assert.equal(entrada.disabled, false);
-  await subir("image/png", 1024);
-  assert.match(e["capture-status-text"].textContent, /Abstención/);
-  assert.match(contenido(e["resultado-facial-captura"]), /neutral 0.420/);
-});
-
-test("una solicitud en curso bloquea duplicados y se cancela al detener la cámara", async () => {
-  let resolver;
-  const camara = montarCamara({ responder: () => new Promise(resolve => { resolver = resolve; }) });
-  const { e, peticiones } = camara;
-  await e["btn-start-camera"].listeners.click();
-  const enCurso = camara.revisar(500);
-  await new Promise(setImmediate);
-  await e["btn-capture-predict"].listeners.click();
-  assert.equal(peticiones.length, 1);
-  e["btn-stop-camera"].listeners.click();
-  assert.equal(peticiones[0].opciones.signal.aborted, true);
-  resolver(camara.vacia());
-  await enCurso;
-  await camara.revisar(6000);
-  assert.equal(peticiones.length, 1);
-  assert.equal(camara.estado(), "Cámara detenida");
-});
-
-test("maneja errores HTTP, de red y de formato; pausa el modo automático", async () => {
-  const casos = [
-    [() => new Response(null, { status: 400 }), /leer la solicitud/],
-    [() => new Response(null, { status: 422 }), /rechazó el formato/],
-    [() => new Response(null, { status: 500 }), /no pudo analizar/],
-    [() => { throw new Error("offline"); }, /conectar/],
-    [() => new Response("html"), /respuesta de captura inválida/],
-    [() => Response.json({ total_alumnos: 1, estudiantes: [] }), /respuesta de captura inválida/]
-  ];
-  for (const [responder, mensaje] of casos) {
-    const camara = montarCamara({ responder });
-    await camara.e["btn-start-camera"].listeners.click();
-    await camara.revisar(500);
-    assert.match(camara.estado(), mensaje);
-    assert.equal(camara.e["auto-capture-enabled"].checked, false);
-    assert.equal(camara.e["btn-capture-predict"].disabled, false);
-    await camara.revisar(6000);
-    assert.equal(camara.peticiones.length, 1);
-  }
-});
-
-test("si faltan modelos, explica el estado y no muestra valores de respaldo", async () => {
-  const camara = montarCamara({ responder: () => Response.json({
-    total_alumnos: 1, estudiantes: [{ id: 1, score: 15 }], modelos_predictivos_disponibles: false
-  }) });
-  await camara.e["btn-start-camera"].listeners.click();
-  await camara.revisar(500);
-  assert.match(camara.estado(), /Modelos predictivos no disponibles/);
-  assert.equal(camara.e["riesgo-score-num"].textContent, "—");
-});
-
-test("captura facial con abstención actualiza el panel facial con 4 probabilidades reales y oculta categorías no evaluadas", async () => {
-  const e = montar({
-    FileReader: class {
-      readAsDataURL() { this.result = "data:image/jpeg;base64,FOTO"; this.onload(); this.onloadend(); }
-    },
-    fetch: async () => Response.json({
+  // 1) Abstención con hipótesis explícita vía CustomEvent
+  win.dispatchEvent({
+    type: "aulapredict:resultados",
+    detail: {
       fuentes: {
         imagen: {
           estado: "abstencion",
           rostros_detectados: 1,
-          puntajes_calibrados: { neutral: 0.313, alegria: 0.312, enojo: 0.236, tristeza: 0.139 },
+          hipotesis: { categoria: "neutral", probabilidad: 0.284, concluyente: false },
+          calidad_entrada: { recorte_px: [96, 96] },
+          puntajes_calibrados: { neutral: 0.284, alegria: 0.26, enojo: 0.24, tristeza: 0.216 },
           criterio_abstencion: { umbral: 0.55, margen_minimo: 0.10, motivos: ["probabilidad_insuficiente", "margen_insuficiente"] },
           modelo: { algoritmo: "hog_svm", version: "fase8-1.0", dataset: { nombre: "CMU Face Images" } }
         }
       }
-    })
+    }
   });
-  e["modo-analisis-captura"].value = "facial";
-  const entrada = e["input-upload-image"];
-  entrada.files = [{ name: "prueba.jpg" }];
-  await entrada.listeners.change({ target: entrada });
 
-  // 1. Panel facial muestra 4 expresiones y modelo real
-  assert.match(e["facial-card-title"].textContent, /4 Expresiones Observables/);
-  assert.match(e["facial-card-sublabel"].textContent, /CMU Face Images/);
+  assert.equal(e["mod-status-imagen"].textContent, "Abstención");
+  assert.equal(e["mod-status-video"].textContent, "Sin datos recibidos");
+  assert.equal(e["students-count-badge"].textContent, "1 rostro detectado");
+  assert.equal(e["btn-toggle-students-panel"].hidden, false);
+  assert.equal(e["btn-toggle-students-panel"].getAttribute("aria-expanded"), "false");
+  assert.equal(e["emo-pct-neutral"].textContent, "28.4%");
   assert.equal(e["emo-item-miedo"].style.display, "none");
   assert.equal(e["emo-item-sorpresa"].style.display, "none");
   assert.equal(e["emo-item-disgusto"].style.display, "none");
-  assert.equal(e["emo-pct-neutral"].textContent, "31.3%");
-  assert.equal(e["emo-pct-felicidad"].textContent, "31.2%");
-  assert.equal(e["emo-pct-enojo"].textContent, "23.6%");
-  assert.equal(e["emo-pct-tristeza"].textContent, "13.9%");
+  assert.match(e["dominant-emotion-text"].textContent, /Hipótesis no concluyente: Neutral \(28\.4%\)/);
   assert.match(e["dominant-emotion-text"].textContent, /Abstención preventiva/);
-  assert.match(e["dominant-emotion-text"].textContent, /probabilidad insuficiente.*margen insuficiente/);
-
-  // 2. Tarjeta académica no inventa notas
-  assert.equal(e["riesgo-score-num"].textContent, "—");
-  assert.match(e["riesgo-nivel-text"].textContent, /Predicción académica no disponible/);
-
-  // 3. Panel dinámico actualiza resultados independientes sin fabricar causas/consecuencias
-  assert.doesNotMatch(e["events-card-title"].textContent, /Inactivo en captura individual/);
   assert.match(e["causes-list"].innerHTML, /Hipótesis no concluyente.*Neutral/i);
-  assert.match(e["consequences-list"].innerHTML, /No se fabrican causas previas ni consecuencias futuras/i);
-
-  // 4. Asistente predictivo resume la ejecución
-  assert.match(e["assistant-narrative-text"].innerHTML, /1 rostro detectado/);
-  assert.match(e["assistant-narrative-text"].innerHTML, /Abstención del modelo HOG\+SVM/);
-  assert.match(e["assistant-narrative-text"].innerHTML, /No disponible \(faltan notas curriculares/);
-});
-
-test("captura facial con clasificación destaca la expresión observable sin atribuir diagnóstico interno", async () => {
-  const e = montar({
-    FileReader: class {
-      readAsDataURL() { this.result = "data:image/jpeg;base64,FOTO"; this.onload(); this.onloadend(); }
-    },
-    fetch: async () => Response.json({
-      fuentes: {
-        imagen: {
-          estado: "estimacion_experimental",
-          rostros_detectados: 1,
-          expresion: "alegria",
-          puntajes_calibrados: { neutral: 0.15, alegria: 0.72, enojo: 0.08, tristeza: 0.05 },
-          modelo: { algoritmo: "hog_svm", version: "fase8-1.0", dataset: { nombre: "CMU Face Images" } }
-        }
-      }
-    })
-  });
-  e["modo-analisis-captura"].value = "facial";
-  const entrada = e["input-upload-image"];
-  entrada.files = [{ name: "alegria.jpg" }];
-  await entrada.listeners.change({ target: entrada });
-
-  assert.match(e["dominant-emotion-text"].textContent, /Expresión observable: Alegria/);
-  assert.equal(e["emo-pct-felicidad"].textContent, "72.0%");
-  assert.equal(e["emo-pct-neutral"].textContent, "15.0%");
+  assert.match(e["consequences-list"].innerHTML, /Sin sucesos artificiales/);
   assert.equal(e["riesgo-score-num"].textContent, "—");
-  assert.match(e["riesgo-nivel-text"].textContent, /Predicción académica no disponible/);
-});
 
-test("panel experimental con calificaciones G1 y G2 actualiza la proyección académica independientemente", async () => {
-  const e = montar({
-    fetch: async () => Response.json({
-      schema_version: 1,
-      fuentes: { imagen: { estado: "sin_entrada" } },
-      academico: {
-        estado: "estimacion_experimental",
-        desenlace_estimado: "no_aprueba",
-        probabilidad_no_aprueba: 0.78,
-        puntajes_calibrados: { aprueba: 0.22, no_aprueba: 0.78 },
-        corte: "despues_g2",
-        modelo: { algoritmo: "logistic_regression", version: "fase7-1.0", dataset: "UCI Student Performance" },
-        limitacion: "Uso de investigación."
-      },
-      sincronizacion: { estado: "fuentes_insuficientes", fuentes_elegibles: [] }
-    })
-  });
-  e["experimental-json"].value = JSON.stringify({
-    schema_version: 1, academico: { G1: 6, G2: 7, corte: "despues_g2", escala: "0-20" }
-  });
-  await e["analisis-experimental"].listeners.submit({ preventDefault() {} });
-
-  assert.equal(e["riesgo-score-num"].textContent, "78");
-  assert.match(e["riesgo-nivel-text"].textContent, /Riesgo de desaprobación/);
-  assert.match(e["exam-risk-desc"].textContent, /UCI Student Performance/);
-});
-
-test("cambio de modalidad entre facial y aula actualiza los avisos de captura y prepara la interfaz", async () => {
-  const e = montar();
-  e["modo-analisis-captura"].value = "aula";
-  e["modo-analisis-captura"].listeners.change({ target: e["modo-analisis-captura"] });
-  assert.match(e["capture-status-text"].textContent, /Modo captura de aula histórica/);
-
-  e["modo-analisis-captura"].value = "facial";
-  e["modo-analisis-captura"].listeners.change({ target: e["modo-analisis-captura"] });
-  assert.match(e["capture-status-text"].textContent, /Modo facial experimental/);
-});
-
-test("recuperación tras error de inferencia no congela la interfaz y permite reintento", async () => {
-  let intentos = 0;
-  const e = montar({
-    FileReader: class {
-      readAsDataURL() { this.result = "data:image/jpeg;base64,FOTO"; this.onload(); this.onloadend(); }
-    },
-    fetch: async () => {
-      intentos++;
-      if (intentos === 1) return new Response(null, { status: 500 });
-      return Response.json({
-        fuentes: {
-          imagen: {
-            estado: "abstencion", rostros_detectados: 1,
-            puntajes_calibrados: { neutral: 0.4, alegria: 0.3, enojo: 0.2, tristeza: 0.1 }
-          }
-        }
-      });
-    }
-  });
-  e["modo-analisis-captura"].value = "facial";
-  const entrada = e["input-upload-image"];
-  entrada.files = [{ name: "foto.jpg" }];
-  await entrada.listeners.change({ target: entrada });
-
-  assert.match(e["capture-status-text"].textContent, /El motor de predicción no pudo analizar la imagen/);
-  assert.match(e["dominant-emotion-text"].textContent, /Error técnico/);
-  assert.equal(entrada.disabled, false);
-
-  // Segundo intento: se recupera exitosamente
-  entrada.files = [{ name: "foto2.jpg" }];
-  await entrada.listeners.change({ target: entrada });
-  assert.match(e["capture-status-text"].textContent, /Abstención/);
-  assert.equal(e["emo-pct-neutral"].textContent, "40.0%");
-});
-
-test("panel compacto con un rostro en modo facial muestra resumen mínimo contraído por defecto", async () => {
-  const e = montar({
-    FileReader: class {
-      readAsDataURL() { this.result = "data:image/jpeg;base64,FOTO"; this.onload(); this.onloadend(); }
-    },
-    fetch: async () => Response.json({
-      fuentes: {
-        imagen: {
-          estado: "abstencion",
-          rostros_detectados: 1,
-          calidad_entrada: { recorte_px: [96, 96] },
-          puntajes_calibrados: { neutral: 0.313, alegria: 0.312, enojo: 0.236, tristeza: 0.139 },
-          modelo: { algoritmo: "hog_svm", version: "fase8-1.0", dataset: { nombre: "CMU Face Images" } }
-        }
-      }
-    })
-  });
-  e["modo-analisis-captura"].value = "facial";
-  const entrada = e["input-upload-image"];
-  entrada.files = [{ name: "rostro.jpg" }];
-  await entrada.listeners.change({ target: entrada });
-
-  assert.ok(e["students-selection-card"].classList.contains("compact-mode"));
-  assert.match(e["students-panel-title"].textContent, /Detección y Análisis Facial/);
-  assert.doesNotMatch(e["students-panel-subtitle"].textContent, /Haz clic en cualquier alumno/);
-  assert.equal(e["students-count-badge"].textContent, "1 rostro detectado");
-  assert.match(e["students-grid"].innerHTML, /Rostro 1 · Identidad desconocida/);
-  assert.match(e["students-grid"].innerHTML, /Resultado facial disponible/);
-  assert.equal(e["btn-toggle-students-panel"].hidden, false);
-  assert.equal(e["btn-toggle-students-panel"].getAttribute("aria-expanded"), "false");
-  assert.doesNotMatch(e["students-grid"].innerHTML, /OpenCV Haar Cascade/);
-});
-
-test("panel compacto sin rostros indica ausencia sin contenedores vacíos ni botón de detalles", async () => {
-  const e = montar({
-    FileReader: class {
-      readAsDataURL() { this.result = "data:image/jpeg;base64,FOTO"; this.onload(); this.onloadend(); }
-    },
-    fetch: async () => Response.json({
-      fuentes: {
-        imagen: {
-          estado: "evidencia_insuficiente",
-          deteccion_facial: "sin_rostro",
-          rostros_detectados: 0
-        }
-      }
-    })
-  });
-  e["modo-analisis-captura"].value = "facial";
-  const entrada = e["input-upload-image"];
-  entrada.files = [{ name: "vacio.jpg" }];
-  await entrada.listeners.change({ target: entrada });
-
-  assert.ok(e["students-selection-card"].classList.contains("compact-mode"));
-  assert.equal(e["students-count-badge"].textContent, "No se detectaron rostros");
-  assert.match(e["students-grid"].innerHTML, /No se detectaron rostros/);
-  assert.equal(e["btn-toggle-students-panel"].hidden, true);
-});
-
-test("panel facial puede expandirse para mostrar detalles técnicos y volver a contraerse", async () => {
-  const e = montar({
-    FileReader: class {
-      readAsDataURL() { this.result = "data:image/jpeg;base64,FOTO"; this.onload(); this.onloadend(); }
-    },
-    fetch: async () => Response.json({
-      fuentes: {
-        imagen: {
-          estado: "estimacion_experimental",
-          rostros_detectados: 1,
-          expresion: "alegria",
-          calidad_entrada: { recorte_px: [120, 120] },
-          puntajes_calibrados: { neutral: 0.1, alegria: 0.75, enojo: 0.1, tristeza: 0.05 }
-        }
-      }
-    })
-  });
-  e["modo-analisis-captura"].value = "facial";
-  const entrada = e["input-upload-image"];
-  entrada.files = [{ name: "feliz.jpg" }];
-  await entrada.listeners.change({ target: entrada });
-
-  // Contraído inicialmente
-  assert.equal(e["btn-toggle-students-panel"].getAttribute("aria-expanded"), "false");
-  assert.equal(e["students-toggle-label"].textContent, "Detalles");
-
-  // Expandir
+  // 2) Expandir y contraer detalles visuales
   e["btn-toggle-students-panel"].listeners.click();
   assert.equal(e["btn-toggle-students-panel"].getAttribute("aria-expanded"), "true");
   assert.equal(e["students-toggle-label"].textContent, "Contraer");
   assert.match(e["students-grid"].innerHTML, /OpenCV Haar Cascade/);
-  assert.match(e["students-grid"].innerHTML, /120 × 120 px/);
+  assert.match(e["students-grid"].innerHTML, /96 × 96 px/);
   assert.match(e["students-grid"].innerHTML, /No atribuida/);
 
-  // Contraer nuevamente
   e["btn-toggle-students-panel"].listeners.click();
   assert.equal(e["btn-toggle-students-panel"].getAttribute("aria-expanded"), "false");
-  assert.equal(e["students-toggle-label"].textContent, "Detalles");
-  assert.doesNotMatch(e["students-grid"].innerHTML, /120 × 120 px/);
-});
+  assert.doesNotMatch(e["students-grid"].innerHTML, /96 × 96 px/);
 
-test("cambio dinámico entre Facial experimental y Modo Aula actualiza todos los encabezados y mensajes", async () => {
-  const e = montar();
-  e["modo-analisis-captura"].value = "facial";
-  e["modo-analisis-captura"].listeners.change({ target: e["modo-analisis-captura"] });
-
-  assert.ok(e["students-selection-card"].classList.contains("compact-mode"));
-  assert.match(e["students-panel-title"].textContent, /Detección y Análisis Facial/);
-  assert.equal(e["students-count-badge"].textContent, "Esperando captura facial");
-  assert.doesNotMatch(e["facial-card-title"].textContent, /Sin selección/);
-  assert.match(e["events-card-title"].textContent, /Inactivo en captura individual/);
-  assert.match(e["academic-card-title"].textContent, /Independiente/);
-
-  e["modo-analisis-captura"].value = "aula";
-  e["modo-analisis-captura"].listeners.change({ target: e["modo-analisis-captura"] });
-
-  assert.equal(e["students-selection-card"].classList.contains("compact-mode"), false);
-  assert.match(e["students-panel-title"].textContent, /Selección y Estado de Alumnos/);
-  assert.equal(e["students-count-badge"].textContent, "Esperando captura");
-  assert.match(e["facial-card-title"].textContent, /Sin selección/);
-});
-
-test("modo aula carga estudiantes seleccionables, permite contraer/expandir y conserva seguimiento", async () => {
-  const e = montar({
-    fetch: async () => Response.json({
-      total_alumnos: 2,
-      resolucion_captura: "1280x720",
-      modelos_predictivos_disponibles: true,
-      estudiantes: [
-        {
-          id: 1, nombre: "Alonso", estado: "Concentrado", estadoClase: "status-concentrado",
-          atencion: 90, tipoAtencion: "attention-fill-green",
-          emociones: { neutral: 80, felicidad: 10, tristeza: 2, miedo: 2, enojo: 2, sorpresa: 2, disgusto: 2, dominante: "Neutral" },
-          causas: [], consecuencias: [], score: 15, nivelRiesgo: "BAJO", esRiesgoAlto: false, alertaExamen: "Sin riesgo", narrativa: "Estable"
-        },
-        {
-          id: 2, nombre: "Beatriz", estado: "Distraída", estadoClase: "status-distraido",
-          atencion: 45, tipoAtencion: "attention-fill-amber",
-          emociones: { neutral: 40, felicidad: 5, tristeza: 30, miedo: 10, enojo: 5, sorpresa: 5, disgusto: 5, dominante: "Tristeza" },
-          causas: [], consecuencias: [], score: 70, nivelRiesgo: "ALTO", esRiesgoAlto: true, alertaExamen: "Atención requerida", narrativa: "Revisar"
-        }
-      ]
-    })
-  });
-  e["modo-analisis-captura"].value = "aula";
-  await e["btn-group-classroom"].listeners.click();
-
-  assert.equal(e["students-selection-card"].classList.contains("compact-mode"), false);
-  assert.equal(e["students-count-badge"].textContent, "2 Alumnos Detectados");
-  assert.match(e["students-grid"].innerHTML, /Alonso/);
-  assert.match(e["students-grid"].innerHTML, /Beatriz/);
-  assert.equal(e["btn-toggle-students-panel"].hidden, false);
-  assert.equal(e["btn-toggle-students-panel"].getAttribute("aria-expanded"), "true");
-
-  // Contraer lista en Modo Aula
-  e["btn-toggle-students-panel"].listeners.click();
-  assert.equal(e["btn-toggle-students-panel"].getAttribute("aria-expanded"), "false");
-  assert.match(e["students-grid"].innerHTML, /2 alumnos disponibles/);
-
-  // Expandir lista nuevamente
-  e["btn-toggle-students-panel"].listeners.click();
-  assert.equal(e["btn-toggle-students-panel"].getAttribute("aria-expanded"), "true");
-  assert.match(e["students-grid"].innerHTML, /Beatriz/);
-});
-
-test("botón Nueva Captura reinicia panel compacto, resultados faciales y estado de espera", async () => {
-  const e = montar({
-    FileReader: class {
-      readAsDataURL() { this.result = "data:image/jpeg;base64,FOTO"; this.onload(); this.onloadend(); }
-    },
-    fetch: async () => Response.json({
-      fuentes: { imagen: { estado: "abstencion", rostros_detectados: 1, puntajes_calibrados: { neutral: 0.4, alegria: 0.3, enojo: 0.2, tristeza: 0.1 } } }
-    })
-  });
-  e["modo-analisis-captura"].value = "facial";
-  e["input-upload-image"].files = [{ name: "rostro.jpg" }];
-  await e["input-upload-image"].listeners.change({ target: e["input-upload-image"] });
-  assert.equal(e["students-count-badge"].textContent, "1 rostro detectado");
-
-  e["btn-new-capture"].listeners.click();
-  assert.equal(e["students-count-badge"].textContent, "Esperando captura facial");
-  assert.equal(e["btn-toggle-students-panel"].hidden, true);
-  assert.equal(e["emo-pct-neutral"].textContent, "0%");
-});
-
-test("fallos parciales de audio o imagen sin rostro no invalidan predicción académica válida", async () => {
-  const e = montar({
-    fetch: async () => Response.json({
-      schema_version: 1,
-      fuentes: {
-        imagen: { estado: "evidencia_insuficiente", deteccion_facial: "sin_rostro", rostros_detectados: 0 },
-        audio: { estado: "error_inferencia", motivo: "Fallo de formato de audio" }
-      },
-      academico: {
-        estado: "estimacion_experimental",
-        desenlace_estimado: "aprueba",
-        probabilidad_no_aprueba: 0.18,
-        puntajes_calibrados: { aprueba: 0.82, no_aprueba: 0.18 },
-        corte: "despues_g2",
-        modelo: { algoritmo: "logistic_regression", version: "fase7-1.0", dataset: "UCI Student Performance" }
-      },
-      sincronizacion: { estado: "fuentes_insuficientes", fuentes_elegibles: [] }
-    })
-  });
-  e["experimental-json"].value = JSON.stringify({
-    schema_version: 1, academico: { G1: 15, G2: 16, corte: "despues_g2", escala: "0-20" }
-  });
-  await e["analisis-experimental"].listeners.submit({ preventDefault() {} });
-
-  assert.equal(e["riesgo-score-num"].textContent, "18");
-  assert.match(e["riesgo-nivel-text"].textContent, /Aprobación proyectada/);
-  assert.match(e["academic-card-title"].textContent, /Evaluación curricular/);
-});
-
-test("CSS mantiene arquitectura responsive sin alturas mínimas excesivas en panel compacto", () => {
-  const css = readFileSync(join(raiz, "frontend/style.css"), "utf8");
-  assert.match(css, /\.top-row-grid\s*\{[^}]*align-items:\s*start/);
-  assert.match(css, /\.right-analysis-column\s*\{[^}]*flex-direction:\s*column/);
-  assert.match(css, /\.bottom-row-grid\s*\{[^}]*repeat\(2,/);
-  assert.match(css, /\.students-selection-card\.compact-mode/);
-  assert.match(css, /@media\s*\(max-width:\s*1200px\)/);
-  assert.match(css, /@media\s*\(max-width:\s*768px\)/);
-});
-
-test("Entrega 1 ubica Reconocimiento Facial en columna derecha debajo de Detección Facial sin duplicar salida", () => {
-  const html = readFileSync(join(raiz, "frontend/index.html"), "utf8");
-  const inicioTop = html.indexOf('class="top-row-grid"');
-  const inicioRight = html.indexOf('class="right-analysis-column"');
-  const inicioStudents = html.indexOf('id="students-selection-card"');
-  const inicioEmotions = html.indexOf('id="emotions-results-card"');
-  const inicioBottom = html.indexOf('class="bottom-row-grid"');
-  assert.ok(inicioTop !== -1 && inicioRight > inicioTop);
-  assert.ok(inicioStudents > inicioRight && inicioEmotions > inicioStudents);
-  assert.ok(inicioBottom > inicioEmotions);
-  assert.match(html, /<div id="resultado-facial-captura" class="sr-only"/);
-});
-
-test("Entrega 2 simplifica pantalla principal, oculta formularios JSON y agrupa avanzadas por defecto", async () => {
-  const html = readFileSync(join(raiz, "frontend/index.html"), "utf8");
-  for (const id of ["experimental-panel", "demostracion-integral", "advanced-tools-drawer",
-                    "technical-drawer", "experimental-json-details", "technical-json-details"]) {
-    assert.match(html, new RegExp(`<details[^>]*id="${id}"(?![^>]*\\bopen\\b)[^>]*>`));
-  }
-  const inicioAdv = html.indexOf('id="advanced-tools-drawer"');
-  const inicioTech = html.indexOf('id="technical-drawer"');
-  const inicioInt = html.indexOf('id="integracion-fuentes-avanzado"');
-  const finAdv = html.indexOf("</section>\n      </main>");
-  assert.ok(inicioAdv !== -1 && inicioTech > inicioAdv && inicioInt > inicioAdv && inicioInt < finAdv);
-  assert.doesNotMatch(html, /solo envía fotogramas si la activas/);
-  const e = montar();
-  await e["abrir-seguimiento"].listeners.click();
-  assert.equal(e["advanced-tools-drawer"].open, true);
-  assert.equal(e["technical-drawer"].open, true);
-});
-
-test("Entrega 3 audio WAV independiente actualiza resultados sin exigir foto y no se confunde con expresión facial", async () => {
-  const e = montar({
-    FileReader: class {
-      readAsDataURL() { this.result = "data:audio/wav;base64,UklGRg=="; this.onload(); }
-    },
-    fetch: async () => Response.json({
-      schema_version: 1,
-      fuentes: {
-        imagen: { estado: "sin_entrada" },
-        audio: {
-          estado: "abstencion",
-          expresion_vocal: null,
-          hipotesis: { categoria: "calma", probabilidad: 0.43, concluyente: false },
-          puntajes_calibrados: { calma: 0.43, enojo: 0.29, sorpresa: 0.16, neutral: 0.12 },
-          criterio_abstencion: { motivos: ["probabilidad_insuficiente"], maximo: 0.43, umbral: 0.55, margen_observado: 0.14, margen_minimo: 0.10 },
-          calidad_entrada: { duracion_segundos: 1.5 },
-          modelo: { algoritmo: "logistic_regression", version: "fase8-1.0", dataset: { nombre: "RAVDESS" } }
-        }
-      },
-      academico: { estado: "sin_entrada" },
-      sincronizacion: { estado: "fuentes_insuficientes" }
-    })
-  });
-  e["experimental-audio"].files = [{ size: 16 }];
-  e["experimental-json"].value = "";
-  await e["analisis-experimental"].listeners.submit({ preventDefault() {} });
-
-  assert.doesNotMatch(e["events-card-title"].textContent, /Inactivo en captura individual/);
-  assert.match(e["events-card-title"].textContent, /\(Audio\)/);
-  assert.match(e["causes-list"].innerHTML, /Hipótesis vocal no concluyente.*Calma/i);
-  assert.match(e["causes-list"].innerHTML, /RAVDESS.*no facial/i);
-  assert.match(e["dominant-emotion-text"].textContent, /Sin fotografía.*acústica/);
-  assert.match(e["facial-card-sublabel"].textContent, /Sin fotografía enviada/);
-  assert.match(e["assistant-narrative-text"].innerHTML, /Modalidad de audio.*Calma/);
-  assert.equal(e["riesgo-score-num"].textContent, "—");
-});
-
-test("Entrega 3 notas G1 y G2 desde formulario compacto evalúan modalidad académica independiente y detectan datos incompletos", async () => {
-  const peticiones = [];
-  const e = montar({
-    fetch: async (_url, opciones) => {
-      const cuerpo = JSON.parse(opciones.body);
-      peticiones.push(cuerpo);
-      if (cuerpo.academico && cuerpo.academico.G2 == null) {
-        return Response.json({
-          schema_version: 1,
-          fuentes: { imagen: { estado: "sin_entrada" } },
-          academico: { estado: "evidencia_insuficiente", campos_faltantes: ["G2"] },
-          sincronizacion: { estado: "fuentes_insuficientes" }
-        });
-      }
-      return Response.json({
-        schema_version: 1,
-        fuentes: { imagen: { estado: "sin_entrada" } },
-        academico: {
-          estado: "estimacion_experimental",
-          desenlace_estimado: "aprueba",
-          desenlace: "G3 < 10/20",
-          probabilidad_no_aprueba: 0.04,
-          puntajes_calibrados: { aprueba: 0.96, no_aprueba: 0.04 },
-          corte: "despues_g2",
-          limitacion: "UCI Student Performance."
-        },
-        sincronizacion: { estado: "fuentes_insuficientes" }
-      });
-    }
-  });
-
-  // 1) Caso completo (G1=15, G2=16) sin foto ni audio
-  e["experimental-acad-g1"].value = "15";
-  e["experimental-acad-g2"].value = "16";
-  await e["analisis-experimental"].listeners.submit({ preventDefault() {} });
-  assert.deepEqual(peticiones[0].academico, { G1: 15, G2: 16, corte: "despues_g2", escala: "0-20" });
-  assert.equal(e["riesgo-score-num"].textContent, "4");
-  assert.match(e["riesgo-nivel-text"].textContent, /Aprobación proyectada/);
-  assert.doesNotMatch(e["events-card-title"].textContent, /Inactivo en captura individual/);
-  assert.match(e["causes-list"].innerHTML, /Aprobación proyectada/);
-
-  // 2) Caso incompleto (solo G1=14) no inventa G2
-  e["experimental-acad-g1"].value = "14";
-  e["experimental-acad-g2"].value = "";
-  await e["analisis-experimental"].listeners.submit({ preventDefault() {} });
-  assert.deepEqual(peticiones[1].academico, { G1: 14, corte: "despues_g2", escala: "0-20" });
-  assert.equal(e["riesgo-score-num"].textContent, "—");
-  assert.match(e["riesgo-nivel-text"].textContent, /Datos insuficientes.*G2/);
-  assert.match(e["causes-list"].innerHTML, /nunca inventa calificaciones ausentes/i);
-
-  // 3) Validación accesible fuera de rango + limpiar entradas
-  e["experimental-acad-g1"].value = "25";
-  await e["analisis-experimental"].listeners.submit({ preventDefault() {} });
-  assert.equal(e["experimental-acad-g1"].getAttribute("aria-invalid"), "true");
-  assert.match(e["experimental-estado"].textContent, /entre 0 y 20/);
-
-  e["experimental-limpiar"].listeners.click();
-  assert.equal(e["experimental-acad-g1"].value, "");
-  assert.equal(e["experimental-acad-g1"].getAttribute("aria-invalid"), "false");
-});
-
-test("Entrega 3 diferencia hipótesis no concluyente vs clasificación concluyente y maneja 0/N rostros", async () => {
-  let respuestaActual;
-  const e = montar({
-    FileReader: class {
-      readAsDataURL() { this.result = "data:image/jpeg;base64,FOTO"; this.onload(); this.onloadend(); }
-    },
-    fetch: async () => Response.json(respuestaActual)
-  });
-  e["modo-analisis-captura"].value = "facial";
-  const entrada = e["input-upload-image"];
-
-  // Abstención con hipótesis explícita
-  respuestaActual = {
-    fuentes: {
-      imagen: {
-        estado: "abstencion",
-        rostros_detectados: 1,
-        hipotesis: { categoria: "neutral", probabilidad: 0.284, concluyente: false },
-        puntajes_calibrados: { neutral: 0.284, alegria: 0.26, enojo: 0.24, tristeza: 0.216 },
-        criterio_abstencion: { motivos: ["probabilidad_insuficiente", "margen_insuficiente"] }
-      }
-    }
-  };
-  entrada.files = [{ name: "duda.jpg" }];
-  await entrada.listeners.change({ target: entrada });
-  assert.match(e["dominant-emotion-text"].textContent, /Hipótesis no concluyente: Neutral \(28\.4%\)/);
-  assert.match(e["dominant-emotion-text"].textContent, /Abstención preventiva/);
-
-  // Clasificación concluyente
-  respuestaActual = {
+  // 3) Clasificación facial concluyente
+  api.aplicarResultados({
     fuentes: {
       imagen: {
         estado: "estimacion_experimental",
         rostros_detectados: 1,
         expresion: "alegria",
         hipotesis: { categoria: "alegria", probabilidad: 0.72, concluyente: true },
-        puntajes_calibrados: { alegria: 0.72, neutral: 0.14, enojo: 0.08, tristeza: 0.06 }
+        puntajes_calibrados: { alegria: 0.72, neutral: 0.14, enojo: 0.08, tristeza: 0.06 },
+        modelo: { algoritmo: "hog_svm", version: "fase8-1.0", dataset: { nombre: "CMU Face Images" } }
       }
     }
-  };
-  entrada.files = [{ name: "alegria.jpg" }];
-  await entrada.listeners.change({ target: entrada });
-  assert.match(e["dominant-emotion-text"].textContent, /Clasificación concluyente/);
+  });
+  assert.equal(e["mod-status-imagen"].textContent, "Concluyente");
+  assert.equal(e["emo-pct-felicidad"].textContent, "72.0%");
+  assert.match(e["dominant-emotion-text"].textContent, /Expresión observable: Alegria \(72\.0%\).*Clasificación concluyente/);
   assert.match(e["causes-list"].innerHTML, /Clasificación facial concluyente.*Alegría/);
 
-  // Múltiples rostros
-  respuestaActual = {
+  // 4) Reinicio al estado de espera
+  api.reiniciarResultados();
+  assert.equal(e["capture-status-text"].textContent, "En espera");
+  assert.equal(e["mod-status-imagen"].textContent, "Sin datos recibidos");
+  assert.equal(e["btn-toggle-students-panel"].hidden, true);
+  assert.equal(e["emo-pct-neutral"].textContent, "0%");
+});
+
+test("maneja VIDEO independiente, 0 rostros y múltiples rostros sin inventar resultados", () => {
+  const { e, api } = montar();
+
+  api.aplicarResultados({
+    fuentes: {
+      video: {
+        estado: "evidencia_insuficiente",
+        deteccion_facial: "sin_rostro",
+        rostros_detectados: 0
+      }
+    }
+  });
+  assert.equal(e["mod-status-video"].textContent, "Evidencia insuficiente");
+  assert.equal(e["mod-status-imagen"].textContent, "Sin datos recibidos");
+  assert.equal(e["students-count-badge"].textContent, "No se detectaron rostros");
+  assert.equal(e["btn-toggle-students-panel"].hidden, true);
+  assert.match(e["consequences-list"].innerHTML, /Evidencia visual insuficiente \(VIDEO\)/);
+
+  api.aplicarResultados({
     fuentes: {
       imagen: {
         estado: "evidencia_insuficiente",
         deteccion_facial: "multiples_rostros",
-        rostros_detectados: 2
+        rostros_detectados: 3
       }
     }
-  };
-  entrada.files = [{ name: "dos.jpg" }];
-  await entrada.listeners.change({ target: entrada });
-  assert.equal(e["students-count-badge"].textContent, "2 rostros detectados");
-  assert.match(e["dominant-emotion-text"].textContent, /varios rostros/i);
-  assert.match(e["causes-list"].innerHTML, /evidencia insuficiente \(rostros: 2\)/i);
+  });
+  assert.equal(e["students-count-badge"].textContent, "3 rostros detectados");
+  assert.match(e["dominant-emotion-text"].textContent, /múltiples rostros/i);
+  assert.match(e["causes-list"].innerHTML, /rostros: 3/);
+});
 
-  // Reinicio restaura estado inactivo inicial
-  e["btn-new-capture"].listeners.click();
-  assert.match(e["events-card-title"].textContent, /Inactivo en captura individual/);
+test("AUDIO y ACADÉMICO funcionan independientemente, aíslan fallos parciales y soportan orquestar", () => {
+  const { e, api } = montar();
+
+  // Audio independiente con abstención RAVDESS (no facial)
+  api.aplicarResultados({
+    fuentes: {
+      imagen: { estado: "sin_entrada" },
+      audio: {
+        estado: "abstencion",
+        hipotesis: { categoria: "calma", probabilidad: 0.43, concluyente: false },
+        puntajes_calibrados: { calma: 0.43, enojo: 0.29, sorpresa: 0.16, neutral: 0.12 },
+        criterio_abstencion: { motivos: ["probabilidad_insuficiente"], umbral: 0.55, margen_minimo: 0.10 }
+      }
+    },
+    academico: { estado: "sin_entrada" }
+  });
+  assert.equal(e["mod-status-audio"].textContent, "Abstención");
+  assert.match(e["causes-list"].innerHTML, /Hipótesis vocal no concluyente.*Calma/);
+  assert.match(e["causes-list"].innerHTML, /RAVDESS.*no facial/);
+  assert.equal(e["riesgo-score-num"].textContent, "—");
+
+  // Audio solo con descriptores
+  api.aplicarResultados({
+    fuentes: { audio: { estado: "caracteristicas_declaradas", duracion_segundos: 3.5 } }
+  });
+  assert.equal(e["mod-status-audio"].textContent, "Descriptores recibidos");
+  assert.match(e["causes-list"].innerHTML, /3\.5s/);
+
+  // Formato anidado de /api/prediccion/orquestar con fallo parcial de audio + académico completo
+  api.aplicarResultados({
+    analisis: {
+      fuentes: {
+        imagen: { estado: "evidencia_insuficiente", deteccion_facial: "sin_rostro", rostros_detectados: 0 },
+        audio: { estado: "error_inferencia", motivo: "Audio silencioso" }
+      },
+      academico: {
+        estado: "estimacion_experimental",
+        desenlace_estimado: "no_aprueba",
+        desenlace: "G3 < 10/20",
+        probabilidad_no_aprueba: 0.78,
+        corte: "despues_g2",
+        limitacion: "Uso educativo."
+      }
+    }
+  });
+  assert.equal(e["mod-status-audio"].textContent, "error inferencia");
+  assert.equal(e["mod-status-academico"].textContent, "Concluyente");
+  assert.equal(e["riesgo-score-num"].textContent, "78");
+  assert.match(e["riesgo-nivel-text"].textContent, /Riesgo de desaprobación/);
+
+  // Datos académicos incompletos no imputan notas
+  api.aplicarResultados({
+    academico: { estado: "evidencia_insuficiente", campos_faltantes: ["G2"] }
+  });
+  assert.equal(e["mod-status-academico"].textContent, "Evidencia insuficiente");
+  assert.equal(e["riesgo-score-num"].textContent, "—");
+  assert.match(e["riesgo-nivel-text"].textContent, /Datos insuficientes.*G2/);
+});
+
+test("app.js tolera DOM parcial sin lanzar excepciones cuando faltan nodos", () => {
+  const { api } = montar({
+    document: {
+      getElementById: () => null,
+      createElement: () => new Elemento()
+    }
+  });
+  assert.doesNotThrow(() => {
+    api.reiniciarResultados();
+    api.aplicarResultados({ academico: { estado: "evidencia_insuficiente", campos_faltantes: ["G1"] } });
+  });
+});
+
+test("CSS conserva arquitectura de dos columnas, filas compactas y breakpoints responsive", () => {
+  const css = readFileSync(join(raiz, "frontend/style.css"), "utf8");
+  assert.match(css, /\.top-row-grid\s*\{[^}]*align-items:\s*start/);
+  assert.match(css, /\.right-analysis-column\s*\{[^}]*flex-direction:\s*column/);
+  assert.match(css, /\.bottom-row-grid\s*\{[^}]*repeat\(2,/);
+  assert.match(css, /\.status-reception-card/);
+  assert.match(css, /\.module-reception-row/);
+  assert.match(css, /\.students-selection-card\.compact-mode/);
+  assert.match(css, /\.btn-panel-toggle\[hidden\]\s*\{[^}]*display:\s*none/);
+  assert.match(css, /@media\s*\(max-width:\s*1200px\)/);
+  assert.match(css, /@media\s*\(max-width:\s*768px\)/);
+});
+
+test("backend preserva todos los endpoints, adaptadores e inferencias independientes sin depender de formularios UI", async () => {
+  // 1. Salud y adaptadores de módulos
+  const rSalud = await fetch(`${base}/api/salud`);
+  assert.equal(rSalud.status, 200);
+  const rModulos = await fetch(`${base}/api/modulos`);
+  assert.equal(rModulos.status, 200);
+  const modulos = (await rModulos.json()).modulos;
+  const imgMod = modulos.find(m => m.modulo === "imagen" || m.carpeta === "backend/modulos/imagen");
+  const vidMod = modulos.find(m => m.modulo === "video" || m.carpeta === "backend/modulos/video");
+  assert.ok(imgMod && imgMod.estado);
+  assert.ok(vidMod && vidMod.estado);
+
+  // 2. Modelos de investigación y demostración integral sintética siguen intactos
+  const rModelos = await fetch(`${base}/api/prediccion/modelos-investigacion`);
+  assert.equal(rModelos.status, 200);
+  const rDemo = await fetch(`${base}/api/prediccion/demostracion-integral`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ solicitar_fusion: false })
+  });
+  assert.equal(rDemo.status, 200);
+  const demo = await rDemo.json();
+  assert.equal(demo.casos.length, 4);
+
+  // 3. Seguimiento e integración JSON internos intactos
+  const rEj = await fetch(`${base}/api/prediccion/estudiantes/ejemplos/juan`);
+  assert.equal(rEj.status, 200);
+  const rEst = await fetch(`${base}/api/prediccion/estudiantes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(await rEj.json())
+  });
+  assert.equal(rEst.status, 200);
+
+  // 4. Análisis independiente de Audio WAV + Académico conectado en vivo a AulaPredict.aplicarResultados
+  const wavB64 = crearWavBase64();
+  const rExp = await fetch(`${base}/api/prediccion/analisis-experimental`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      schema_version: 1,
+      audio: { wav_b64: wavB64 },
+      academico: { G1: 15, G2: 16, corte: "despues_g2", escala: "0-20" }
+    })
+  });
+  assert.equal(rExp.status, 200);
+  const expPayload = await rExp.json();
+  assert.ok(["estimacion_experimental", "abstencion"].includes(expPayload.fuentes.audio.estado));
+  assert.equal(expPayload.academico.estado, "estimacion_experimental");
+
+  const { e, api } = montar();
+  api.aplicarResultados(expPayload);
+  assert.equal(e["mod-status-academico"].textContent, "Concluyente");
+  assert.notEqual(e["riesgo-score-num"].textContent, "—");
+  assert.notEqual(e["mod-status-audio"].textContent, "Sin datos recibidos");
 });
