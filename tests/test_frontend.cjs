@@ -3,7 +3,7 @@
 // limpieza de paneles obsoletos y contratos backend preservados. Sin paquetes npm externos.
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
-const { readFileSync } = require("node:fs");
+const { existsSync, readFileSync } = require("node:fs");
 const { resolve, join } = require("node:path");
 const { spawn } = require("node:child_process");
 const { createServer } = require("node:net");
@@ -813,6 +813,7 @@ test("backend preserva endpoints internos de modulos, seguimiento, demo sintetic
 
   const rModelos = await fetch(`${base}/api/prediccion/modelos-investigacion?cargar=false`);
   assert.equal(rModelos.status, 200);
+  const modelos = await rModelos.json();
 
   const rDemo = await fetch(`${base}/api/prediccion/demostracion-integral`, {
     method: "POST",
@@ -831,16 +832,19 @@ test("backend preserva endpoints internos de modulos, seguimiento, demo sintetic
   });
   assert.equal(rEst.status, 200);
 
-  // Flujo real de subida de fotografía con astronaut.png conectada al controlador UI
-  const astroB64 = `data:image/png;base64,${readFileSync(join(raiz, "_archivo/fase7/datos/astronaut.png")).toString("base64")}`;
+  const rutaAstro = join(raiz, "_archivo/fase7/datos/astronaut.png");
+  const hayFoto = existsSync(rutaAstro);
+  // PNG sintético de 160 × 160 sin rostro para el clon base.
+  const pngSinRostro = "iVBORw0KGgoAAAANSUhEUgAAAKAAAACgCAAAAACupDjxAAAAL0lEQVR42u3BAQ0AAADCoPdPbQ8HFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPBqZKAAAbE2mIIAAAAASUVORK5CYII=";
+  const fotoB64 = hayFoto ? readFileSync(rutaAstro).toString("base64") : pngSinRostro;
   const e = montar({
     FileReader: class {
-      readAsDataURL() { this.result = astroB64; this.onload(); this.onloadend(); }
+      readAsDataURL() { this.result = `data:image/png;base64,${fotoB64}`; this.onload(); this.onloadend(); }
     }
   });
-  e["input-upload-image"].files = [{ name: "astronaut.png", type: "image/png", size: 120000 }];
+  e["input-upload-image"].files = [{ name: "captura.png", type: "image/png", size: Buffer.from(fotoB64, "base64").length }];
   await e["input-upload-image"].listeners.change({ target: e["input-upload-image"] });
-  assert.equal(e["students-count-badge"].textContent, "1 rostro detectado");
+  assert.equal(e["students-count-badge"].textContent, hayFoto ? "1 rostro detectado" : "No se detectaron rostros");
   assert.match(e["facial-card-title"].textContent, /4 Expresiones Observables/);
   assert.equal(e["riesgo-score-num"].textContent, "—");
 
@@ -857,8 +861,13 @@ test("backend preserva endpoints internos de modulos, seguimiento, demo sintetic
   assert.equal(rExp.status, 200);
   const payload = await rExp.json();
   e._api.aplicarResultados(payload);
-  assert.notEqual(e["riesgo-score-num"].textContent, "—");
-  assert.match(e["causes-list"].innerHTML, /Aprobación proyectada/);
+  if (modelos.academico.estado === "archivo_presente") {
+    assert.notEqual(e["riesgo-score-num"].textContent, "—");
+    assert.match(e["causes-list"].innerHTML, /Aprobación proyectada/);
+  } else {
+    assert.equal(payload.academico.estado, "modelo_no_disponible");
+    assert.equal(e["riesgo-score-num"].textContent, "—");
+  }
 });
 
 // ============================================================================
