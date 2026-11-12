@@ -151,7 +151,39 @@ function renderizarPanelesInferiores(estudiante) {
   const domEmoText = elemento("dominant-emotion-text");
   const actionBadge = elemento("student-action-badge");
 
+  // Restaurar visibilidad de las 7 filas de emociones para modo aula
+  ["neutral", "felicidad", "tristeza", "miedo", "enojo", "sorpresa", "disgusto"].forEach(k => {
+    const it = elemento(`emo-item-${k}`);
+    if (it) it.style.display = "";
+  });
+
+  const lblNeutral = elemento("emo-label-neutral"); if (lblNeutral) lblNeutral.textContent = "Neutral (😐)";
+  const lblFelicidad = elemento("emo-label-felicidad"); if (lblFelicidad) lblFelicidad.textContent = "Alegría (😊)";
+  const lblTristeza = elemento("emo-label-tristeza"); if (lblTristeza) lblTristeza.textContent = "Tristeza (😢)";
+  const lblMiedo = elemento("emo-label-miedo"); if (lblMiedo) lblMiedo.textContent = "Miedo (😨)";
+  const lblEnojo = elemento("emo-label-enojo"); if (lblEnojo) lblEnojo.textContent = "Enojo (😠)";
+  const lblSorpresa = elemento("emo-label-sorpresa"); if (lblSorpresa) lblSorpresa.textContent = "Sorpresa (😲)";
+  const lblDisgusto = elemento("emo-label-disgusto"); if (lblDisgusto) lblDisgusto.textContent = "Disgusto (🤢)";
+
+  const facialTitle = elemento("facial-card-title");
+  const facialSub = elemento("facial-card-sublabel");
+  const facialFooter = elemento("facial-card-footer");
+  const eventsTitle = elemento("events-card-title");
+  const eventsFooter = elemento("events-card-footer");
+  const academicTitle = elemento("academic-card-title");
+  const academicFooter = elemento("academic-card-footer");
+
   if (!estudiante) {
+    if (facialTitle) facialTitle.textContent = '🔮 Reconocimiento Facial (Sin selección)';
+    if (facialSub) facialSub.textContent = "Estimación experimental de la expresión facial";
+    if (facialFooter) facialFooter.innerHTML = '<span>Modelo facial experimental · Categorías observables</span>';
+
+    if (eventsTitle) eventsTitle.textContent = '📋 Predicción de Sucesos Probables (Sin selección)';
+    if (eventsFooter) eventsFooter.innerHTML = '<span>Proyección de sucesos basada en contexto y tiempo en aula</span>';
+
+    if (academicTitle) academicTitle.textContent = '📈 Análisis y Proyección Académica (Sin selección)';
+    if (academicFooter) academicFooter.innerHTML = '<span>La evaluación académica requiere datos curriculares verificados</span>';
+
     // Reseteo limpio cuando no hay estudiantes en la captura o antes de capturar
     if (emoNeutral && barNeutral) { emoNeutral.textContent = "0%"; barNeutral.style.width = "0%"; }
     if (emoFelicidad && barFelicidad) { emoFelicidad.textContent = "0%"; barFelicidad.style.width = "0%"; }
@@ -180,12 +212,22 @@ function renderizarPanelesInferiores(estudiante) {
     if (riskBanner) riskBanner.className = "risk-score-banner bg-risk-optimal";
     if (riesgoScoreNum) riesgoScoreNum.textContent = "—";
     if (riesgoNivelText) riesgoNivelText.textContent = "Sin evaluar — Esperando captura";
-    if (examRiskDesc) examRiskDesc.textContent = "Presiona 'Capturar Imagen y Predecir' (o recibe una captura) para calcular el riesgo académico del estudiante.";
+    if (examRiskDesc) examRiskDesc.textContent = "Presiona 'Capturar fotograma' o 'Subir Foto' para iniciar el análisis.";
     if (narrativeText) {
       narrativeText.innerHTML = "Esperando captura para evaluar las emociones y el desempeño de los estudiantes en el aula.";
     }
     return;
   }
+
+  if (facialTitle) facialTitle.textContent = `🔮 Reconocimiento Facial: 7 Emociones (Histórico) (${estudiante.nombre})`;
+  if (facialSub) facialSub.textContent = "Modelo sintético experimental (v2.5) · Supervisión de aula";
+  if (facialFooter) facialFooter.innerHTML = '<span>🔬 Modelo Facial Histórico (7 Emociones) · Rasgos Sintéticos</span>';
+
+  if (eventsTitle) eventsTitle.textContent = `📋 Predicción de Sucesos Probables (${estudiante.nombre})`;
+  if (eventsFooter) eventsFooter.innerHTML = '<span>Proyección de sucesos de aula basada en postura y distractores</span>';
+
+  if (academicTitle) academicTitle.textContent = `📈 Análisis y Proyección Académica (${estudiante.nombre})`;
+  if (academicFooter) academicFooter.innerHTML = '<span>Modelo experimental entrenado con datos sintéticos</span>';
 
   const emos = estudiante.emociones || {};
   if (emoNeutral && barNeutral) {
@@ -217,7 +259,7 @@ function renderizarPanelesInferiores(estudiante) {
     barDisgusto.style.width = `${emos.disgusto !== undefined ? emos.disgusto : 0}%`;
   }
   if (domEmoText) {
-    domEmoText.textContent = emos.dominante || "Neutral / Concentración (😐)";
+    domEmoText.textContent = emos.dominante || "Neutral (😐)";
   }
   if (actionBadge) {
     actionBadge.textContent = estudiante.accionDetectada || "Atento a la clase sin distractores";
@@ -267,6 +309,199 @@ function renderizarPanelesInferiores(estudiante) {
   if (examRiskDesc) examRiskDesc.textContent = estudiante.alertaExamen;
   if (narrativeText) {
     narrativeText.innerHTML = (estudiante.narrativa || "").replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+  }
+}
+
+function renderizarResultadoFacial(resultadoFacial, resultadoAcademico) {
+  const labels = typeof document !== "undefined" && document.querySelectorAll ? document.querySelectorAll(".selected-student-label") : [];
+  const rostros = resultadoFacial?.rostros_detectados ?? (resultadoFacial?.deteccion_facial === "sin_rostro" ? 0 : (resultadoFacial ? 1 : 0));
+  const labelText = resultadoFacial
+    ? (rostros === 1 ? "(Rostro 1 · Identidad desconocida)" : rostros > 1 ? `(${rostros} rostros detectados)` : "(Sin rostro detectado)")
+    : "(Sin selección)";
+
+  labels.forEach(el => { el.textContent = labelText; });
+  const fLabel = elemento("facial-student-label"); if (fLabel) fLabel.textContent = labelText;
+  const evLabel = elemento("events-student-label"); if (evLabel) evLabel.textContent = "(Captura facial individual)";
+  const acLabel = elemento("academic-student-label"); if (acLabel) acLabel.textContent = resultadoAcademico?.estado === "estimacion_experimental" ? "(Evaluación académica)" : "(No disponible)";
+
+  // Título y subtítulo del panel facial adaptados al clasificador operativo
+  const facialTitle = elemento("facial-card-title");
+  if (facialTitle) {
+    facialTitle.textContent = `🔮 Reconocimiento Facial: 4 Expresiones Observables ${labelText}`;
+  }
+  const facialSub = elemento("facial-card-sublabel");
+  if (facialSub) {
+    const descMod = resultadoFacial?.modelo ? describirModeloExperimental(resultadoFacial.modelo) : "HOG+SVM · fase8-1.0 · CMU Face Images";
+    facialSub.textContent = `Modelo ${descMod} (datos reales)`;
+  }
+
+  // Ocultar las 3 emociones no evaluadas por el modelo operativo de 4 categorías
+  const itemMiedo = elemento("emo-item-miedo"); if (itemMiedo) itemMiedo.style.display = "none";
+  const itemSorpresa = elemento("emo-item-sorpresa"); if (itemSorpresa) itemSorpresa.style.display = "none";
+  const itemDisgusto = elemento("emo-item-disgusto"); if (itemDisgusto) itemDisgusto.style.display = "none";
+
+  // Mostrar las 4 emociones verificadas
+  const itemNeutral = elemento("emo-item-neutral"); if (itemNeutral) itemNeutral.style.display = "";
+  const itemFelicidad = elemento("emo-item-felicidad"); if (itemFelicidad) itemFelicidad.style.display = "";
+  const itemTristeza = elemento("emo-item-tristeza"); if (itemTristeza) itemTristeza.style.display = "";
+  const itemEnojo = elemento("emo-item-enojo"); if (itemEnojo) itemEnojo.style.display = "";
+
+  const lblFelicidad = elemento("emo-label-felicidad"); if (lblFelicidad) lblFelicidad.textContent = "Alegría (😊)";
+  const lblNeutral = elemento("emo-label-neutral"); if (lblNeutral) lblNeutral.textContent = "Neutral (😐)";
+  const lblTristeza = elemento("emo-label-tristeza"); if (lblTristeza) lblTristeza.textContent = "Tristeza (😢)";
+  const lblEnojo = elemento("emo-label-enojo"); if (lblEnojo) lblEnojo.textContent = "Enojo (😠)";
+
+  const emoNeutral = elemento("emo-pct-neutral");
+  const barNeutral = elemento("emo-bar-neutral");
+  const emoFelicidad = elemento("emo-pct-felicidad");
+  const barFelicidad = elemento("emo-bar-felicidad");
+  const emoTristeza = elemento("emo-pct-tristeza");
+  const barTristeza = elemento("emo-bar-tristeza");
+  const emoEnojo = elemento("emo-pct-enojo");
+  const barEnojo = elemento("emo-bar-enojo");
+  const domEmoText = elemento("dominant-emotion-text");
+  const actionBadge = elemento("student-action-badge");
+  const facialFooter = elemento("facial-card-footer");
+
+  const puntajes = resultadoFacial?.puntajes_calibrados || resultadoFacial?.puntajes_no_calibrados;
+  if (puntajes) {
+    const pAlegria = puntajes.alegria ?? puntajes.felicidad ?? 0;
+    const pNeutral = puntajes.neutral ?? 0;
+    const pEnojo = puntajes.enojo ?? 0;
+    const pTristeza = puntajes.tristeza ?? 0;
+
+    if (emoFelicidad && barFelicidad) {
+      emoFelicidad.textContent = `${(pAlegria * 100).toFixed(1)}%`;
+      barFelicidad.style.width = `${(pAlegria * 100).toFixed(1)}%`;
+    }
+    if (emoNeutral && barNeutral) {
+      emoNeutral.textContent = `${(pNeutral * 100).toFixed(1)}%`;
+      barNeutral.style.width = `${(pNeutral * 100).toFixed(1)}%`;
+    }
+    if (emoEnojo && barEnojo) {
+      emoEnojo.textContent = `${(pEnojo * 100).toFixed(1)}%`;
+      barEnojo.style.width = `${(pEnojo * 100).toFixed(1)}%`;
+    }
+    if (emoTristeza && barTristeza) {
+      emoTristeza.textContent = `${(pTristeza * 100).toFixed(1)}%`;
+      barTristeza.style.width = `${(pTristeza * 100).toFixed(1)}%`;
+    }
+  } else {
+    if (emoFelicidad && barFelicidad) { emoFelicidad.textContent = "0%"; barFelicidad.style.width = "0%"; }
+    if (emoNeutral && barNeutral) { emoNeutral.textContent = "0%"; barNeutral.style.width = "0%"; }
+    if (emoEnojo && barEnojo) { emoEnojo.textContent = "0%"; barEnojo.style.width = "0%"; }
+    if (emoTristeza && barTristeza) { emoTristeza.textContent = "0%"; barTristeza.style.width = "0%"; }
+  }
+
+  if (actionBadge) {
+    actionBadge.textContent = "Sin supervisión de aula (análisis facial individual de identidad desconocida)";
+  }
+
+  if (domEmoText) {
+    if (resultadoFacial?.estado === "abstencion") {
+      let motivos = "confianza (< 55%) o margen (< 10%) insuficientes";
+      if (resultadoFacial.criterio_abstencion?.motivos?.length) {
+        motivos = resultadoFacial.criterio_abstencion.motivos.map(m =>
+          m === "probabilidad_insuficiente" ? "probabilidad insuficiente (< 55%)"
+          : m === "margen_insuficiente" ? "margen insuficiente (< 10%)"
+          : m.replaceAll("_", " ")
+        ).join(" y ");
+      }
+      domEmoText.textContent = `Abstención preventiva · ${motivos}`;
+    } else if (resultadoFacial?.estado === "estimacion_experimental") {
+      const exp = resultadoFacial.expresion ? resultadoFacial.expresion.charAt(0).toUpperCase() + resultadoFacial.expresion.slice(1) : "Sin clasificar";
+      domEmoText.textContent = `Expresión observable: ${exp} (estimación experimental)`;
+    } else if (resultadoFacial?.estado === "evidencia_insuficiente") {
+      domEmoText.textContent = ESTADOS_DETECCION_FACIAL[resultadoFacial.deteccion_facial] || "Evidencia facial insuficiente";
+    } else if (resultadoFacial?.estado === "modelo_no_disponible") {
+      domEmoText.textContent = "Rostro detectado · Modelo facial no disponible";
+    } else if (resultadoFacial?.estado === "error_inferencia") {
+      domEmoText.textContent = "Error técnico durante el análisis facial";
+    } else {
+      domEmoText.textContent = resultadoFacial?.motivo || "Sin evaluación";
+    }
+  }
+
+  if (facialFooter) {
+    facialFooter.innerHTML = '<span>🔬 Modelo Facial HOG+SVM (fase8-1.0) · CMU Face Images (4 expresiones verificadas)</span>';
+  }
+
+  // Tarjeta 2: Sucesos Probables (no aplicable a foto individual)
+  const causesList = elemento("causes-list");
+  if (causesList) {
+    causesList.innerHTML = `<div class="prediction-empty-notice"><span>ℹ️</span><span>No aplicable a captura facial individual.<br>La proyección de causas previas requiere eventos temporales o contexto de aula.</span></div>`;
+  }
+  const consequencesList = elemento("consequences-list");
+  if (consequencesList) {
+    consequencesList.innerHTML = `<div class="prediction-empty-notice"><span>ℹ️</span><span>No aplicable a captura facial individual.<br>La proyección de consecuencias futuras requiere supervisión grupal de clase.</span></div>`;
+  }
+  const eventsFooter = elemento("events-card-footer");
+  if (eventsFooter) {
+    eventsFooter.innerHTML = '<span>Requiere supervisión de aula o secuencia temporal</span>';
+  }
+
+  // Tarjeta 3: Análisis Académico
+  const riskBanner = elemento("risk-score-banner");
+  const riesgoScoreNum = elemento("riesgo-score-num");
+  const riesgoNivelText = elemento("riesgo-nivel-text");
+  const examRiskDesc = elemento("exam-risk-desc");
+  const narrativeText = elemento("assistant-narrative-text");
+  const academicFooter = elemento("academic-card-footer");
+
+  if (resultadoAcademico && resultadoAcademico.estado === "estimacion_experimental") {
+    const pctNoAprueba = Math.round((resultadoAcademico.probabilidad_no_aprueba ?? 0) * 100);
+    if (riesgoScoreNum) riesgoScoreNum.textContent = String(pctNoAprueba);
+    if (riesgoNivelText) {
+      riesgoNivelText.textContent = resultadoAcademico.desenlace_estimado === "no_aprueba"
+        ? "Riesgo de desaprobación (G3 < 10/20)"
+        : "Aprobación proyectada (G3 >= 10/20)";
+    }
+    if (riskBanner) {
+      riskBanner.className = `risk-score-banner ${resultadoAcademico.desenlace_estimado === "no_aprueba" ? "bg-risk-high" : "bg-risk-optimal"}`;
+    }
+    if (examRiskDesc) {
+      examRiskDesc.textContent = `Proyección con modelo de investigación: ${(resultadoAcademico.probabilidad_no_aprueba * 100).toFixed(1)}% prob. de no aprobar. Variables: G1 y G2 (escala 0-20). Procedencia: UCI Student Performance.`;
+    }
+    if (academicFooter) {
+      academicFooter.innerHTML = '<span>Modelo: Regresión Logística (fase7-1.0 · UCI Student Performance)</span>';
+    }
+  } else {
+    if (riskBanner) riskBanner.className = "risk-score-banner bg-risk-unavailable";
+    if (riesgoScoreNum) riesgoScoreNum.textContent = "—";
+    if (riesgoNivelText) riesgoNivelText.textContent = "Predicción académica no disponible: faltan datos académicos suficientes.";
+    if (examRiskDesc) {
+      examRiskDesc.textContent = "Para calcular la proyección académica se requieren calificaciones curriculares (G1 y G2 en escala 0-20) y registros de asistencia o evaluación. Las expresiones faciales nunca sustituyen el desempeño académico.";
+    }
+    if (academicFooter) {
+      academicFooter.innerHTML = '<span>La evaluación académica requiere datos curriculares verificados</span>';
+    }
+  }
+
+  // Resumen del Asistente Predictivo
+  if (narrativeText) {
+    const dMsg = rostros === 1
+      ? "1 rostro detectado por OpenCV Haar Cascade"
+      : rostros > 1 ? `${rostros} rostros detectados` : "Ningún rostro detectado";
+    let fMsg = "Sin clasificar";
+    if (resultadoFacial?.estado === "abstencion") {
+      fMsg = "Abstención del modelo HOG+SVM (confianza o margen insuficiente para clasificación categórica)";
+    } else if (resultadoFacial?.estado === "estimacion_experimental") {
+      fMsg = `Expresión observable: <strong>${resultadoFacial.expresion}</strong> (estimación experimental)`;
+    } else if (resultadoFacial?.estado === "evidencia_insuficiente") {
+      fMsg = ESTADOS_DETECCION_FACIAL[resultadoFacial.deteccion_facial] || "Evidencia insuficiente";
+    } else if (resultadoFacial) {
+      fMsg = ESTADOS_FACIALES[resultadoFacial.estado] || resultadoFacial.estado;
+    }
+    const acMsg = resultadoAcademico && resultadoAcademico.estado === "estimacion_experimental"
+      ? `Proyección académica calculada: desenlace estimado '${resultadoAcademico.desenlace_estimado}' con notas G1/G2.`
+      : "No disponible (faltan notas curriculares G1 y G2 en escala 0-20).";
+
+    narrativeText.innerHTML = `<strong>Resumen de la ejecución:</strong><br>` +
+      `• <strong>Detección facial:</strong> ${dMsg} (identidad no atribuida).<br>` +
+      `• <strong>Modelo facial:</strong> ${fMsg}.<br>` +
+      `• <strong>Proyección académica:</strong> ${acMsg}<br>` +
+      `• <strong>Supervisión de aula:</strong> Inactiva en captura individual. Para análisis de distractores, activa <em>Captura de aula histórica</em> o presiona <em>Probar con Captura Grupal</em>.<br>` +
+      `• <strong>Limitación:</strong> Las expresiones observables no constituyen diagnóstico psicológico ni determinan rendimiento escolar.`;
   }
 }
 
@@ -823,6 +1058,7 @@ async function procesarCaptura(obtenerImagen, origen) {
       lista(resultadoFacial, "Expresión facial experimental · identidad desconocida", lineasDemoModelo("Imagen", datos));
       estadoCaptura(datos.estado === "evidencia_insuficiente" && Object.hasOwn(ESTADOS_DETECCION_FACIAL, datos.deteccion_facial)
         ? ESTADOS_DETECCION_FACIAL[datos.deteccion_facial] : ESTADOS_FACIALES[datos.estado]);
+      renderizarResultadoFacial(datos);
       return;
     }
 
@@ -847,7 +1083,11 @@ async function procesarCaptura(obtenerImagen, origen) {
     estudiantesEnCaptura = [];
     estadoCuadricula = facial ? "facial" : "espera";
     seleccionarEstudiante(null);
-    estadoCaptura(agotado ? "El servidor tardó demasiado en responder. Puedes reintentar." : error.message);
+    const mensajeError = agotado ? "El servidor tardó demasiado en responder. Puedes reintentar." : error.message;
+    estadoCaptura(mensajeError);
+    if (facial) {
+      renderizarResultadoFacial({ estado: "error_inferencia", motivo: mensajeError, rostros_detectados: 0 });
+    }
     if (origen === "automatica") {
       elemento("auto-capture-enabled").checked = false;
       estadoAutomatico("Captura automática pausada tras el error. Puedes reactivarla.");
@@ -934,6 +1174,26 @@ function configurarEventosCaptura() {
   elemento("auto-capture-enabled").addEventListener("change", actualizarEstadoAutomatico);
 
   configurarSubidaFoto();
+
+  const selectModo = elemento("modo-analisis-captura");
+  if (selectModo) {
+    selectModo.addEventListener("change", (e) => {
+      const modo = e.target.value;
+      if (modo === "facial") {
+        estadoCaptura("Modo facial experimental seleccionado. Captura o sube una fotografía con rostro frontal.");
+        if (estadoCuadricula === "espera" || estadoCuadricula === "sin_personas") {
+          estadoCuadricula = "facial";
+          renderizarCuadriculaEstudiantes();
+        }
+      } else {
+        estadoCaptura("Modo captura de aula histórica seleccionado. Captura o sube una imagen de aula con estudiantes.");
+        if (estadoCuadricula === "facial") {
+          estadoCuadricula = "espera";
+          renderizarCuadriculaEstudiantes();
+        }
+      }
+    });
+  }
 }
 
 configurarEventosCaptura();
@@ -1263,6 +1523,11 @@ elemento("analisis-experimental").addEventListener("submit", async (evento) => {
       ...(salida.sincronizacion.conflictos_referencia ?? []).map(conflicto => conflicto.replaceAll("_", " ")),
       "Fusión estadística pendiente."
     ]);
+    if (salida.fuentes?.imagen && salida.fuentes.imagen.estado !== "sin_entrada") {
+      renderizarResultadoFacial(salida.fuentes.imagen, salida.academico);
+    } else if (salida.academico && salida.academico.estado !== "sin_entrada") {
+      renderizarResultadoFacial(null, salida.academico);
+    }
     estado.textContent = "Evaluación experimental completada.";
   } catch (error) {
     resultados.replaceChildren();

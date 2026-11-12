@@ -136,6 +136,47 @@ class ExperimentalTests(unittest.TestCase):
                 salida = self.enviar(imagen=imagen, audio=otro_audio).json()
                 self.assertEqual(salida["sincronizacion"]["estado"], "referencias_incompatibles")
 
+    def test_modelo_fase8_cuatro_expresiones_con_abstencion(self):
+        cara = Mock()
+        cara.detectMultiScale.return_value = [(10, 10, 80, 80)]
+        modelo_svm = Mock()
+        modelo_svm.classes_ = ["alegria", "enojo", "neutral", "tristeza"]
+        modelo_svm.predict_proba.return_value = [[.312, .236, .313, .139]]
+        artefacto = {
+            "modelo": modelo_svm, "tipo": "facial", "version": "fase8-1.0",
+            "algoritmo": "hog_svm", "dataset": "cmu-face-images", "sklearn": "1.5.0"
+        }
+        with (patch.object(experimental.predictor, "_obtener_face_cascade", return_value=cara),
+              patch.object(experimental.modelos_fase7, "obtener_modelo", return_value=artefacto)):
+            salida = self.enviar(imagen={"imagen_b64": imagen_b64(), "modelo_facial": "real"}).json()["fuentes"]["imagen"]
+            self.assertEqual(salida["estado"], "abstencion")
+            self.assertIsNone(salida["expresion"])
+            self.assertEqual(list(salida["puntajes_calibrados"].keys()), ["alegria", "enojo", "neutral", "tristeza"])
+            self.assertEqual(salida["criterio_abstencion"]["motivos"], ["probabilidad_insuficiente", "margen_insuficiente"])
+            self.assertEqual(salida["modelo"]["algoritmo"], "hog_svm")
+
+    def test_analisis_academico_independiente_con_notas(self):
+        modelo_acad = Mock()
+        modelo_acad.classes_ = ["aprueba", "no_aprueba"]
+        modelo_acad.predict_proba.return_value = [[.15, .85]]
+        artefacto = {
+            "modelo": modelo_acad, "tipo": "academico", "version": "fase7-1.0",
+            "algoritmo": "logistic_regression", "dataset": "UCI Student Performance", "sklearn": "1.5.0"
+        }
+        with patch.object(experimental.modelos_fase7, "obtener_modelo", return_value=artefacto):
+            salida = self.enviar(academico={"G1": 8, "G2": 7, "corte": "despues_g2", "escala": "0-20"}).json()
+            acad = salida["academico"]
+            self.assertEqual(acad["estado"], "estimacion_experimental")
+            self.assertEqual(acad["desenlace_estimado"], "no_aprueba")
+            self.assertAlmostEqual(acad["probabilidad_no_aprueba"], .85)
+            self.assertEqual(salida["fuentes"]["imagen"]["estado"], "sin_entrada")
+
+    def test_analisis_facial_sin_notas_conserva_academico_sin_entrada(self):
+        with patch.object(experimental, "analizar_expresion", return_value={"estado": "abstencion"}):
+            salida = self.enviar(imagen={"imagen_b64": imagen_b64()}).json()
+            self.assertEqual(salida["fuentes"]["imagen"]["estado"], "abstencion")
+            self.assertEqual(salida["academico"]["estado"], "sin_entrada")
+
 
 def datos_academicos():
     return {

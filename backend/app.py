@@ -8,6 +8,19 @@ RAIZ = Path(__file__).resolve().parent.parent
 if str(RAIZ) not in sys.path:
     sys.path.insert(0, str(RAIZ))
 
+if "AULAPREDICT_MODELOS_FASE7" not in os.environ and (RAIZ / "_archivo" / "fase7" / "modelos" / "academico.joblib").is_file():
+    os.environ["AULAPREDICT_MODELOS_FASE7"] = str(RAIZ / "_archivo" / "fase7" / "modelos")
+if "AULAPREDICT_MODELOS_FASE8" not in os.environ and (RAIZ / "_archivo" / "fase8" / "modelos").is_dir():
+    os.environ["AULAPREDICT_MODELOS_FASE8"] = str(RAIZ / "_archivo" / "fase8" / "modelos")
+if "AULAPREDICT_DEMO_IMAGEN" not in os.environ and (RAIZ / "_archivo" / "fase7" / "datos" / "astronaut.png").is_file():
+    os.environ["AULAPREDICT_DEMO_IMAGEN"] = str(RAIZ / "_archivo" / "fase7" / "datos" / "astronaut.png")
+if "AULAPREDICT_DEMO_RAVDESS" not in os.environ and (RAIZ / "_archivo" / "fase7" / "datos" / "ravdess-speech.zip").is_file():
+    os.environ["AULAPREDICT_DEMO_RAVDESS"] = str(RAIZ / "_archivo" / "fase7" / "datos" / "ravdess-speech.zip")
+if "AULAPREDICT_DEMO_TRACKING" not in os.environ and (RAIZ / "_archivo" / "fase9" / "ravdess-tracking.zip").is_file():
+    os.environ["AULAPREDICT_DEMO_TRACKING"] = str(RAIZ / "_archivo" / "fase9" / "ravdess-tracking.zip")
+if "AULAPREDICT_FUSION_FASE10" not in os.environ and (RAIZ / "_archivo" / "fase9" / "fusion.joblib").is_file():
+    os.environ["AULAPREDICT_FUSION_FASE10"] = str(RAIZ / "_archivo" / "fase9" / "fusion.joblib")
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse

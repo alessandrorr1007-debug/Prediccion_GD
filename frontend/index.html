@@ -216,21 +216,21 @@
              FILA INFERIOR (3 TARJETAS: PREDICCIÓN DEL ESTUDIANTE SELECCIONADO)
              ================================================================ -->
         <div class="bottom-row-grid">
-          <!-- Tarjeta 1 (Izquierda 33%): Reconocimiento Facial: 7 Emociones -->
+          <!-- Tarjeta 1 (Izquierda 33%): Reconocimiento Facial -->
           <section class="card prediction-card emotions-card">
             <div class="card-header-clean">
-              <h3 class="card-title-sm">
-                🔮 Reconocimiento Facial: 7 Emociones <span class="selected-student-label">(Sin selección)</span>
+              <h3 class="card-title-sm" id="facial-card-title">
+                🔮 Reconocimiento Facial <span class="selected-student-label" id="facial-student-label">(Sin selección)</span>
               </h3>
-              <span class="sub-label">Estimación experimental de la expresión facial</span>
+              <span class="sub-label" id="facial-card-sublabel">Estimación experimental de la expresión facial</span>
             </div>
 
-            <!-- 7 Barras Horizontales de Emociones Universales -->
-            <div class="emotions-bars-list">
-              <!-- 1. Neutral / Concentración (😐) -->
-              <div class="emotion-item">
+            <!-- Barras Horizontales de Expresiones Faciales -->
+            <div class="emotions-bars-list" id="emotions-bars-list">
+              <!-- 1. Neutral (😐) -->
+              <div class="emotion-item" id="emo-item-neutral">
                 <div class="emotion-title-row">
-                  <span class="emo-label">Neutral / Concentración (😐)</span>
+                  <span class="emo-label" id="emo-label-neutral">Neutral (😐)</span>
                   <span id="emo-pct-neutral" class="emo-val text-neutral">0%</span>
                 </div>
                 <div class="progress-track">
@@ -238,10 +238,10 @@
                 </div>
               </div>
 
-              <!-- 2. Felicidad / Motivación (😊) -->
-              <div class="emotion-item">
+              <!-- 2. Alegría (😊) -->
+              <div class="emotion-item" id="emo-item-felicidad">
                 <div class="emotion-title-row">
-                  <span class="emo-label">Felicidad / Motivación (😊)</span>
+                  <span class="emo-label" id="emo-label-felicidad">Alegría (😊)</span>
                   <span id="emo-pct-felicidad" class="emo-val text-felicidad">0%</span>
                 </div>
                 <div class="progress-track">
@@ -249,10 +249,10 @@
                 </div>
               </div>
 
-              <!-- 3. Tristeza / Decaimiento (😢) -->
-              <div class="emotion-item">
+              <!-- 3. Tristeza (😢) -->
+              <div class="emotion-item" id="emo-item-tristeza">
                 <div class="emotion-title-row">
-                  <span class="emo-label">Tristeza / Decaimiento (😢)</span>
+                  <span class="emo-label" id="emo-label-tristeza">Tristeza (😢)</span>
                   <span id="emo-pct-tristeza" class="emo-val text-tristeza">0%</span>
                 </div>
                 <div class="progress-track">
@@ -260,10 +260,10 @@
                 </div>
               </div>
 
-              <!-- 4. Miedo / Ansiedad / Estrés (😨) -->
-              <div class="emotion-item">
+              <!-- 4. Miedo (😨) -->
+              <div class="emotion-item" id="emo-item-miedo">
                 <div class="emotion-title-row">
-                  <span class="emo-label">Miedo / Ansiedad / Estrés (😨)</span>
+                  <span class="emo-label" id="emo-label-miedo">Miedo (😨)</span>
                   <span id="emo-pct-miedo" class="emo-val text-miedo">0%</span>
                 </div>
                 <div class="progress-track">
@@ -271,10 +271,10 @@
                 </div>
               </div>
 
-              <!-- 5. Enojo / Frustración (😠) -->
-              <div class="emotion-item">
+              <!-- 5. Enojo (😠) -->
+              <div class="emotion-item" id="emo-item-enojo">
                 <div class="emotion-title-row">
-                  <span class="emo-label">Enojo / Frustración (😠)</span>
+                  <span class="emo-label" id="emo-label-enojo">Enojo (😠)</span>
                   <span id="emo-pct-enojo" class="emo-val text-enojo">0%</span>
                 </div>
                 <div class="progress-track">
@@ -282,10 +282,10 @@
                 </div>
               </div>
 
-              <!-- 6. Sorpresa / Sobresalto (😲) -->
-              <div class="emotion-item">
+              <!-- 6. Sorpresa (😲) -->
+              <div class="emotion-item" id="emo-item-sorpresa">
                 <div class="emotion-title-row">
-                  <span class="emo-label">Sorpresa (😲)</span>
+                  <span class="emo-label" id="emo-label-sorpresa">Sorpresa (😲)</span>
                   <span id="emo-pct-sorpresa" class="emo-val text-sorpresa">0%</span>
                 </div>
                 <div class="progress-track">
@@ -293,10 +293,10 @@
                 </div>
               </div>
 
-              <!-- 7. Disgusto / Rechazo (🤢) -->
-              <div class="emotion-item">
+              <!-- 7. Disgusto (🤢) -->
+              <div class="emotion-item" id="emo-item-disgusto">
                 <div class="emotion-title-row">
-                  <span class="emo-label">Disgusto / Rechazo (🤢)</span>
+                  <span class="emo-label" id="emo-label-disgusto">Disgusto (🤢)</span>
                   <span id="emo-pct-disgusto" class="emo-val text-disgusto">0%</span>
                 </div>
                 <div class="progress-track">
@@ -309,24 +309,24 @@
             <div class="dominant-emotion-pill-wrap">
               <div id="dominant-pill-box" class="dominant-pill">
                 <span class="dot-accent-orange"></span>
-                <span>Estado Emocional Dominante: <strong id="dominant-emotion-text">Sin evaluar — Esperando captura</strong></span>
+                <span id="dominant-emotion-container">Estado Observable: <strong id="dominant-emotion-text">Sin evaluar — Esperando captura</strong></span>
               </div>
               <div id="action-pill-box" class="action-pill">
                 <span class="dot-action-blue"></span>
-                <span>Acción Detectada: <strong id="student-action-badge">Esperando detección en captura</strong></span>
+                <span>Contexto / Acción: <strong id="student-action-badge">Esperando detección en captura</strong></span>
               </div>
             </div>
 
-            <div class="card-footer-badge">
-              <span>✅ Modelo Facial de 7 Emociones Universales (v2.5) + Fusión Multimodal</span>
+            <div class="card-footer-badge" id="facial-card-footer">
+              <span>Modelo facial experimental · Categorías observables</span>
             </div>
           </section>
 
           <!-- Tarjeta 2 (Centro 34%): Predicción de Sucesos Probables -->
           <section class="card prediction-card events-card">
             <div class="card-header-clean">
-              <h3 class="card-title-sm">
-                📋 Predicción de Sucesos Probables <span class="selected-student-label">(Sin selección)</span>
+              <h3 class="card-title-sm" id="events-card-title">
+                📋 Predicción de Sucesos Probables <span class="selected-student-label" id="events-student-label">(Sin selección)</span>
               </h3>
             </div>
 
@@ -353,13 +353,16 @@
                 </div>
               </div>
             </div>
+            <div class="card-footer-badge" id="events-card-footer">
+              <span>Proyección de sucesos basada en contexto y tiempo en aula</span>
+            </div>
           </section>
 
           <!-- Tarjeta 3 (Derecha 33%): Análisis y Proyección Académica -->
           <section class="card prediction-card academic-card">
             <div class="card-header-clean">
-              <h3 class="card-title-sm">
-                📈 Análisis y Proyección Académica <span class="selected-student-label">(Sin selección)</span>
+              <h3 class="card-title-sm" id="academic-card-title">
+                📈 Análisis y Proyección Académica <span class="selected-student-label" id="academic-student-label">(Sin selección)</span>
               </h3>
             </div>
 
@@ -370,17 +373,17 @@
                 <span class="score-den">/ 100</span>
               </div>
               <div class="score-meta-col">
-                <span class="score-label">ÍNDICE EXPERIMENTAL POR CAPTURA</span>
+                <span class="score-label">PROYECCIÓN ACADÉMICA</span>
                 <strong id="riesgo-nivel-text" class="score-level-text">Sin evaluar — Esperando captura</strong>
               </div>
             </div>
 
-            <!-- Alerta de Examen Parcial (Enfocada en riesgo de jalar) -->
+            <!-- Alerta de Rendimiento Académico -->
             <div class="exam-risk-alert-box">
               <div class="alert-icon-wrap">⚠️</div>
               <div class="alert-text-wrap">
-                <strong>Estimación experimental:</strong>
-                <p id="exam-risk-desc">Captura o sube una imagen para consultar la salida del modelo sintético.</p>
+                <strong>Condición académica:</strong>
+                <p id="exam-risk-desc">Captura o sube una imagen para consultar la salida del modelo.</p>
               </div>
             </div>
 
@@ -388,15 +391,15 @@
             <div class="assistant-narrative-box">
               <div class="assistant-header-row">
                 <span class="assistant-sparkle">✨</span>
-                <span class="assistant-title">Asistente Predictivo en Vivo</span>
+                <span class="assistant-title" id="assistant-box-title">Asistente Predictivo · Resumen de Ejecución</span>
               </div>
               <p id="assistant-narrative-text" class="assistant-body-text">
                 Esperando captura para evaluar las emociones y el desempeño de los estudiantes en el aula.
               </p>
             </div>
 
-            <div class="card-footer-badge">
-              <span>Modelo experimental entrenado con datos sintéticos</span>
+            <div class="card-footer-badge" id="academic-card-footer">
+              <span>La evaluación académica requiere datos curriculares verificados</span>
             </div>
           </section>
         </div>

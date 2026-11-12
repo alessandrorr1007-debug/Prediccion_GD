@@ -1182,6 +1182,11 @@ body {
   border: 1px solid #BBF7D0;
 }
 
+.bg-risk-unavailable {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+}
+
 .score-number-col {
   display: flex;
   align-items: baseline;
@@ -1197,6 +1202,7 @@ body {
 
 .bg-risk-high .score-huge { color: #E11D48; }
 .bg-risk-optimal .score-huge { color: #16A34A; }
+.bg-risk-unavailable .score-huge { color: #64748B; }
 
 .score-den {
   font-size: 13px;
@@ -1225,6 +1231,7 @@ body {
 
 .bg-risk-high .score-level-text { color: #BE123C; }
 .bg-risk-optimal .score-level-text { color: #15803D; }
+.bg-risk-unavailable .score-level-text { color: #475569; }
 
 /* Alerta de Examen Parcial */
 .exam-risk-alert-box {

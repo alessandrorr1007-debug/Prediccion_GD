@@ -636,3 +636,153 @@ test("si faltan modelos, explica el estado y no muestra valores de respaldo", as
   assert.match(camara.estado(), /Modelos predictivos no disponibles/);
   assert.equal(camara.e["riesgo-score-num"].textContent, "—");
 });
+
+test("captura facial con abstención actualiza el panel facial con 4 probabilidades reales y oculta categorías no evaluadas", async () => {
+  const e = montar({
+    FileReader: class {
+      readAsDataURL() { this.result = "data:image/jpeg;base64,FOTO"; this.onload(); this.onloadend(); }
+    },
+    fetch: async () => Response.json({
+      fuentes: {
+        imagen: {
+          estado: "abstencion",
+          rostros_detectados: 1,
+          puntajes_calibrados: { neutral: 0.313, alegria: 0.312, enojo: 0.236, tristeza: 0.139 },
+          criterio_abstencion: { umbral: 0.55, margen_minimo: 0.10, motivos: ["probabilidad_insuficiente", "margen_insuficiente"] },
+          modelo: { algoritmo: "hog_svm", version: "fase8-1.0", dataset: { nombre: "CMU Face Images" } }
+        }
+      }
+    })
+  });
+  e["modo-analisis-captura"].value = "facial";
+  const entrada = e["input-upload-image"];
+  entrada.files = [{ name: "prueba.jpg" }];
+  await entrada.listeners.change({ target: entrada });
+
+  // 1. Panel facial muestra 4 expresiones y modelo real
+  assert.match(e["facial-card-title"].textContent, /4 Expresiones Observables/);
+  assert.match(e["facial-card-sublabel"].textContent, /CMU Face Images/);
+  assert.equal(e["emo-item-miedo"].style.display, "none");
+  assert.equal(e["emo-item-sorpresa"].style.display, "none");
+  assert.equal(e["emo-item-disgusto"].style.display, "none");
+  assert.equal(e["emo-pct-neutral"].textContent, "31.3%");
+  assert.equal(e["emo-pct-felicidad"].textContent, "31.2%");
+  assert.equal(e["emo-pct-enojo"].textContent, "23.6%");
+  assert.equal(e["emo-pct-tristeza"].textContent, "13.9%");
+  assert.match(e["dominant-emotion-text"].textContent, /Abstención preventiva/);
+  assert.match(e["dominant-emotion-text"].textContent, /probabilidad insuficiente.*margen insuficiente/);
+
+  // 2. Tarjeta académica no inventa notas
+  assert.equal(e["riesgo-score-num"].textContent, "—");
+  assert.match(e["riesgo-nivel-text"].textContent, /Predicción académica no disponible/);
+
+  // 3. Sucesos indican no aplicable a captura facial individual
+  assert.match(e["causes-list"].innerHTML, /No aplicable a captura facial individual/);
+
+  // 4. Asistente predictivo resume la ejecución
+  assert.match(e["assistant-narrative-text"].innerHTML, /1 rostro detectado/);
+  assert.match(e["assistant-narrative-text"].innerHTML, /Abstención del modelo HOG\+SVM/);
+  assert.match(e["assistant-narrative-text"].innerHTML, /No disponible \(faltan notas curriculares/);
+});
+
+test("captura facial con clasificación destaca la expresión observable sin atribuir diagnóstico interno", async () => {
+  const e = montar({
+    FileReader: class {
+      readAsDataURL() { this.result = "data:image/jpeg;base64,FOTO"; this.onload(); this.onloadend(); }
+    },
+    fetch: async () => Response.json({
+      fuentes: {
+        imagen: {
+          estado: "estimacion_experimental",
+          rostros_detectados: 1,
+          expresion: "alegria",
+          puntajes_calibrados: { neutral: 0.15, alegria: 0.72, enojo: 0.08, tristeza: 0.05 },
+          modelo: { algoritmo: "hog_svm", version: "fase8-1.0", dataset: { nombre: "CMU Face Images" } }
+        }
+      }
+    })
+  });
+  e["modo-analisis-captura"].value = "facial";
+  const entrada = e["input-upload-image"];
+  entrada.files = [{ name: "alegria.jpg" }];
+  await entrada.listeners.change({ target: entrada });
+
+  assert.match(e["dominant-emotion-text"].textContent, /Expresión observable: Alegria/);
+  assert.equal(e["emo-pct-felicidad"].textContent, "72.0%");
+  assert.equal(e["emo-pct-neutral"].textContent, "15.0%");
+  assert.equal(e["riesgo-score-num"].textContent, "—");
+  assert.match(e["riesgo-nivel-text"].textContent, /Predicción académica no disponible/);
+});
+
+test("panel experimental con calificaciones G1 y G2 actualiza la proyección académica independientemente", async () => {
+  const e = montar({
+    fetch: async () => Response.json({
+      schema_version: 1,
+      fuentes: { imagen: { estado: "sin_entrada" } },
+      academico: {
+        estado: "estimacion_experimental",
+        desenlace_estimado: "no_aprueba",
+        probabilidad_no_aprueba: 0.78,
+        puntajes_calibrados: { aprueba: 0.22, no_aprueba: 0.78 },
+        corte: "despues_g2",
+        modelo: { algoritmo: "logistic_regression", version: "fase7-1.0", dataset: "UCI Student Performance" },
+        limitacion: "Uso de investigación."
+      },
+      sincronizacion: { estado: "fuentes_insuficientes", fuentes_elegibles: [] }
+    })
+  });
+  e["experimental-json"].value = JSON.stringify({
+    schema_version: 1, academico: { G1: 6, G2: 7, corte: "despues_g2", escala: "0-20" }
+  });
+  await e["analisis-experimental"].listeners.submit({ preventDefault() {} });
+
+  assert.equal(e["riesgo-score-num"].textContent, "78");
+  assert.match(e["riesgo-nivel-text"].textContent, /Riesgo de desaprobación/);
+  assert.match(e["exam-risk-desc"].textContent, /UCI Student Performance/);
+});
+
+test("cambio de modalidad entre facial y aula actualiza los avisos de captura y prepara la interfaz", async () => {
+  const e = montar();
+  e["modo-analisis-captura"].value = "aula";
+  e["modo-analisis-captura"].listeners.change({ target: e["modo-analisis-captura"] });
+  assert.match(e["capture-status-text"].textContent, /Modo captura de aula histórica/);
+
+  e["modo-analisis-captura"].value = "facial";
+  e["modo-analisis-captura"].listeners.change({ target: e["modo-analisis-captura"] });
+  assert.match(e["capture-status-text"].textContent, /Modo facial experimental/);
+});
+
+test("recuperación tras error de inferencia no congela la interfaz y permite reintento", async () => {
+  let intentos = 0;
+  const e = montar({
+    FileReader: class {
+      readAsDataURL() { this.result = "data:image/jpeg;base64,FOTO"; this.onload(); this.onloadend(); }
+    },
+    fetch: async () => {
+      intentos++;
+      if (intentos === 1) return new Response(null, { status: 500 });
+      return Response.json({
+        fuentes: {
+          imagen: {
+            estado: "abstencion", rostros_detectados: 1,
+            puntajes_calibrados: { neutral: 0.4, alegria: 0.3, enojo: 0.2, tristeza: 0.1 }
+          }
+        }
+      });
+    }
+  });
+  e["modo-analisis-captura"].value = "facial";
+  const entrada = e["input-upload-image"];
+  entrada.files = [{ name: "foto.jpg" }];
+  await entrada.listeners.change({ target: entrada });
+
+  assert.match(e["capture-status-text"].textContent, /El motor de predicción no pudo analizar la imagen/);
+  assert.match(e["dominant-emotion-text"].textContent, /Error técnico/);
+  assert.equal(entrada.disabled, false);
+
+  // Segundo intento: se recupera exitosamente
+  entrada.files = [{ name: "foto2.jpg" }];
+  await entrada.listeners.change({ target: entrada });
+  assert.match(e["capture-status-text"].textContent, /Abstención/);
+  assert.equal(e["emo-pct-neutral"].textContent, "40.0%");
+});
