@@ -129,6 +129,12 @@ def construir_interpretacion_visual(resultado_imagen, objeto_det=None, *, result
             "hecho": f"Se detectaron {rostros} rostros en la imagen; la clasificación individual automática se omite.",
             "respaldo": resultado_imagen.get("detector_facial", "opencv_haar_frontalface_alt"),
         })
+    elif det_facial == "sin_recorte_facial":
+        observaciones.append({
+            "tipo": "rostro",
+            "hecho": "Se recibieron detecciones externas sin una captura para evaluar rostros.",
+            "respaldo": "detecciones_externas",
+        })
     elif estado != "imagen_invalida":
         observaciones.append({
             "tipo": "rostro",

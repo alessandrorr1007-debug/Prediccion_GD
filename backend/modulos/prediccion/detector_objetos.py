@@ -22,7 +22,7 @@ ETIQUETAS_OBJETOS = {
     "reloj": "Reloj",
     "laptop": "Computador portátil",
 }
-LICENCIA_YOLO = "AGPL-3.0 (Ultralytics)"
+LICENCIA_YOLO = "pendiente de verificar para best.pt"
 METRICAS_ENTRENAMIENTO_BEST = {
     "precision": 0.77568,
     "recall": 0.68693,
@@ -34,7 +34,7 @@ UMBRAL_PERSONA = 0.40
 LIMITACIONES_OBJETOS = [
     "La presencia de un objeto en una fotografía aislada no demuestra distracción, uso indebido ni bajo rendimiento académico.",
     "Los pesos best.pt cubren únicamente ocho clases escolares/de examen (persona, mochila, telefono, cuaderno, libro, audifonos, reloj, laptop).",
-    "El modelo YOLO local utiliza Ultralytics bajo licencia AGPL-3.0; su activación puede deshabilitarse sin afectar el análisis facial ni el contrato de entrada.",
+    "La licencia de best.pt debe acreditarse con su proveedor. Ultralytics ofrece AGPL-3.0 y licencia Enterprise.",
 ]
 
 
@@ -127,15 +127,21 @@ def normalizar_detecciones_externas(detecciones):
                     if np.isfinite(valor) and 0 <= valor <= 1:
                         confianza = round(valor, 4)
                         break
-                except (TypeError, ValueError):
+                except (TypeError, ValueError, OverflowError):
                     pass
         if confianza is None:
             continue
+        coordenadas = ("x1", "y1", "x2", "y2")
+        fuente_caja = item if all(k in item for k in coordenadas) else item.get("caja")
         caja = None
-        if all(k in item for k in ("x1", "y1", "x2", "y2")):
-            caja = {k: round(float(item[k]), 2) for k in ("x1", "y1", "x2", "y2")}
-        elif isinstance(item.get("caja"), dict):
-            caja = item["caja"]
+        if isinstance(fuente_caja, dict):
+            try:
+                valores = [float(fuente_caja[k]) for k in coordenadas]
+                x1, y1, x2, y2 = valores
+                if all(np.isfinite(valores)) and 0 <= x1 < x2 and 0 <= y1 < y2:
+                    caja = dict(zip(coordenadas, (round(v, 2) for v in valores)))
+            except (KeyError, TypeError, ValueError, OverflowError):
+                pass
         salida.append({
             "clase": clase,
             "etiqueta": ETIQUETAS_OBJETOS.get(clase, clase.replace("_", " ").capitalize()),

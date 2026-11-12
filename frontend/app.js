@@ -70,7 +70,10 @@ function construirInterpretacionLocal(img, acad, aud, backendInterp = null) {
   if (img) {
     const rostros = img.rostros_detectados ?? (img.deteccion_facial === "sin_rostro" ? 0 : 1);
     interpTexto = "La expresión facial observada es compatible con varias interpretaciones. No permite establecer por sí sola el estado emocional real del estudiante.";
-    if (img.estado === "estimacion_experimental" && hipImg) {
+    if (img.deteccion_facial === "sin_recorte_facial") {
+      obsTexto = "Se recibieron detecciones externas sin una captura facial.";
+      interpTexto = "Las detecciones de objetos se pueden mostrar con la procedencia del productor.";
+    } else if (img.estado === "estimacion_experimental" && hipImg) {
       obsTexto = `Expresión facial observable con mayor compatibilidad: ${hipImg.label.toLowerCase()} (${hipImg.pctTexto}).`;
       if (["tristeza", "enojo"].includes(hipImg.categoria)) {
         POSIBILIDADES_GENERALES_UI.forEach(d => hip.push({ tipo: "posibilidad_general_no_evaluada", descripcion: d, es_prediccion_individual: false, probabilidad_asignada: null }));
@@ -309,6 +312,14 @@ function renderizarDetalleVisual(visual) {
   const identidadTxt = resolverIdentidadVisual(visual);
   const chipsHtml = renderizarChipsObjetos(visual);
 
+  if (det === "sin_recorte_facial") {
+    if (countBadge) countBadge.textContent = "Rostros sin evaluar";
+    if (panelSubtitle) panelSubtitle.textContent = "Detecciones externas recibidas sin captura facial";
+    if (toggleBtn) toggleBtn.hidden = true;
+    container.innerHTML = `<div class="facial-compact-card">${chipsHtml}</div>`;
+    return;
+  }
+
   if (rostros === 1 || det === "rostro_detectado" || det === "rostro_pequeno" || estado === "abstencion" || estado === "estimacion_experimental") {
     if (countBadge) countBadge.textContent = "1 rostro detectado";
     if (panelSubtitle) panelSubtitle.textContent = `Análisis individual de expresión observable · ${identidadTxt}`;
@@ -522,8 +533,9 @@ function renderizarAnalisisIndependiente(resultadoImagen = null, resultadoAcadem
 
   renderizarDetalleVisual(img);
 
-  const rostros = img ? (img.rostros_detectados ?? (img.deteccion_facial === "sin_rostro" ? 0 : 1)) : 0;
-  const visualLabel = img
+  const sinRecorte = img?.deteccion_facial === "sin_recorte_facial";
+  const rostros = img && !sinRecorte ? (img.rostros_detectados ?? (img.deteccion_facial === "sin_rostro" ? 0 : 1)) : 0;
+  const visualLabel = sinRecorte ? "(Rostros sin evaluar)" : img
     ? (rostros === 1 ? `(Rostro 1 · ${identidadTxt})` : rostros > 1 ? `(${rostros} rostros)` : "(Sin rostro)")
     : "(Sin fotografía)";
 
@@ -536,7 +548,7 @@ function renderizarAnalisisIndependiente(resultadoImagen = null, resultadoAcadem
   }
   const facialSub = elemento("facial-card-sublabel");
   if (facialSub) {
-    facialSub.textContent = img
+    facialSub.textContent = sinRecorte ? "Detecciones externas recibidas sin captura facial" : img
       ? `Modelo ${describirModeloExperimental(img.modelo)} (${img.origen_entrenamiento === "sintetico" ? "datos sintéticos" : "datos reales"})`
       : "Sin fotografía enviada — Las demás modalidades operan de forma independiente";
   }

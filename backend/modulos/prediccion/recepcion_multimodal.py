@@ -207,8 +207,8 @@ def _construir_bloque_solo_detecciones(detecciones: list[dict[str, Any]], origen
     }
     return {
         "estado": "evidencia_insuficiente",
-        "deteccion_facial": "sin_rostro" if conteo_personas == 0 else "multiples_rostros" if conteo_personas > 1 else "sin_recorte_facial",
-        "rostros_detectados": conteo_personas,
+        "deteccion_facial": "sin_recorte_facial",
+        "rostros_detectados": None,
         "detector_facial": "no_ejecutado_solo_detecciones",
         "deteccion_objetos": obj_det,
         "motivo": "Se recibieron detecciones externas de objetos sin imagen facial para clasificar expresión.",
@@ -280,8 +280,9 @@ def _procesar_eventos_externos(
     )
     duplicados = sorted(dup_lote | set(dup_hist))
     contradictorios = sorted(contr_lote | set(contr_hist))
+    omitidos = set(dup_hist) | set(contradictorios)
 
-    con_fecha = [(idx, ev) for idx, ev in filtrados_lote if ev.fecha_hora is not None and ev.evento_id not in contradictorios]
+    con_fecha = [(idx, ev) for idx, ev in filtrados_lote if ev.fecha_hora is not None and ev.evento_id not in omitidos]
     reordenados = False
     if len(con_fecha) >= 2:
         fechas_orig = [ev.fecha_hora for _, ev in con_fecha]
@@ -289,7 +290,7 @@ def _procesar_eventos_externos(
             reordenados = True
 
     ordenados = sorted(
-        [(idx, ev) for idx, ev in filtrados_lote if ev.evento_id not in contradictorios],
+        [(idx, ev) for idx, ev in filtrados_lote if ev.evento_id not in omitidos],
         key=lambda par: (
             par[1].fecha_hora is None,
             par[1].fecha_hora or datetime.max.replace(tzinfo=timezone.utc),
@@ -325,7 +326,6 @@ def _procesar_eventos_externos(
                     "imagen_b64": datos["imagen_b64"],
                     "modelo_facial": datos.get("modelo_facial", "real"),
                     "detectar_objetos": bool(datos.get("detectar_objetos", False)),
-                    "detecciones_objetos": dets or None,
                     "evento_id": ev.evento_id,
                     "sesion_id": ev.sesion_id or entrada.sesion_id,
                     "fecha_hora": ev.fecha_hora.isoformat() if ev.fecha_hora else None,
@@ -336,7 +336,7 @@ def _procesar_eventos_externos(
                     "estado_identidad": ev.estado_identidad,
                 }
         elif ev.modulo == "audio":
-            if ev.tipo_observacion in {"asistencia", "transcripcion"}:
+            if ev.tipo_observacion not in {"vocal", "desconocida"}:
                 audio_incompatible = ev
                 continue
             payload_audio = {
@@ -346,7 +346,7 @@ def _procesar_eventos_externos(
                 "calidad": ev.calidad if ev.calidad is not None else datos.get("calidad"),
                 "origen": "modulo_audio",
                 "naturaleza": datos.get("naturaleza", "real"),
-                "tipo_observacion": ev.tipo_observacion if ev.tipo_observacion in {"vocal", "desconocida"} else "vocal",
+                "tipo_observacion": ev.tipo_observacion,
                 "estudiante_id": ev.estudiante_id,
                 "estado_identidad": ev.estado_identidad,
             }
@@ -361,8 +361,9 @@ def _procesar_eventos_externos(
 
     for mod in ("imagen", "video"):
         if mod in analisis_crudo and isinstance(analisis_crudo[mod], dict) and detecciones_extra[mod]:
-            previas = analisis_crudo[mod].get("detecciones_objetos") or []
-            analisis_crudo[mod]["detecciones_objetos"] = [*previas, *detecciones_extra[mod]]
+            previas = analisis_crudo[mod].get("detecciones_objetos")
+            if previas is None or isinstance(previas, list):
+                analisis_crudo[mod]["detecciones_objetos"] = [*(previas or []), *detecciones_extra[mod]]
 
     return {
         "recibidos": len(entrada.eventos),
@@ -523,9 +524,20 @@ def procesar_recepcion(entrada: EntradaRecepcion) -> dict[str, Any]:
         "fusion": _evaluar_fusion_honesta(entrada.solicitar_fusion, resultado_analisis),
     }
 
+    solo_reintentos = (
+        info_eventos["duplicados_omitidos"] > 0
+        and not info_eventos.get("elegibles")
+        and not info_eventos.get("excluidos")
+        and not info_eventos["contradictorios"]
+        and not errores
+        and entrada.seguimiento is None
+        and entrada.imagen_exportacion is None
+        and entrada.video_exportacion is None
+        and set(analisis_crudo) == {"schema_version"}
+    )
     actualizacion_id = ESTADO_CANAL.publicar(
         salida_final,
-        publicar=entrada.publicar_en_panel,
+        publicar=entrada.publicar_en_panel and not solo_reintentos,
         fuentes_activas=fuentes_activas,
         n_dup=info_eventos.get("duplicados_omitidos", 0),
         n_err=len(errores),

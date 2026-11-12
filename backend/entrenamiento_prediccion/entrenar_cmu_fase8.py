@@ -89,14 +89,16 @@ def intervalos(modelo, x, y, grupos):
     return {"exactitud": exactitud, "f1_macro": f1, "remuestreos_por_persona": 1000}
 
 
-def candidatos():
-    return {
+def candidatos(*, incluir_cnn=True):
+    modelos = {
         "mayoria": DummyClassifier(strategy="most_frequent"),
         "hog_logistica": make_pipeline(FunctionTransformer(hog_lote), StandardScaler(),
                                        LogisticRegression(C=.2, max_iter=400, random_state=SEMILLA)),
         "hog_svm": make_pipeline(FunctionTransformer(hog_lote), StandardScaler(), SVC(C=3)),
-        "cnn_regularizada": CNNFER(epochs=18, regularizada=True),
     }
+    if incluir_cnn:
+        modelos["cnn_regularizada"] = CNNFER(epochs=18, regularizada=True)
+    return modelos
 
 
 def particiones(personas):
@@ -107,11 +109,11 @@ def particiones(personas):
     return grupos, tuple(np.flatnonzero(np.isin(personas, grupo)) for grupo in grupos)
 
 
-def entrenar(ruta):
+def entrenar(ruta, *, incluir_cnn=True):
     cv2.setNumThreads(1)
     x, y, personas, poses, descartes = importar(ruta)
     grupos, indices = particiones(personas)
-    modelo, reporte = ajustar(x, y, indices, candidatos())
+    modelo, reporte = ajustar(x, y, indices, candidatos(incluir_cnn=incluir_cnn))
     prueba = indices[-1]
     return modelo, dict(reporte, tipo="facial", version=VERSION_FASE8, dataset=CMU, dataset_sha256=huella(ruta),
                         sklearn=sklearn.__version__, semilla=SEMILLA, umbral=UMBRAL, margen=MARGEN,
@@ -124,9 +126,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("dataset", type=Path)
     parser.add_argument("--salida", type=Path, required=True)
+    parser.add_argument("--sin-cnn", action="store_true", help="Compara los modelos clásicos sin instalar PyTorch.")
     args = parser.parse_args()
     with threadpool_limits(limits=1):
-        modelo, reporte = entrenar(args.dataset)
+        modelo, reporte = entrenar(args.dataset, incluir_cnn=not args.sin_cnn)
     args.salida.mkdir(parents=True, exist_ok=True)
     metadatos = {clave: reporte[clave] for clave in ("tipo", "version", "sklearn", "dataset")}
     joblib.dump(dict(metadatos, modelo=modelo, algoritmo=reporte["seleccion"]), args.salida / "facial.joblib", compress=3)

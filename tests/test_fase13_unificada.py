@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import struct
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 import wave
 
 import cv2
@@ -58,6 +58,35 @@ class Fase13UnificadaTests(unittest.TestCase):
         self.client = TestClient(app)
         self.addCleanup(self.client.close)
         recepcion_multimodal.ESTADO_CANAL.reiniciar()
+
+    def test_cajas_externas_invalidas_conservan_la_deteccion(self):
+        coordenadas = dict(x1=1, y1=2, x2=10, y2=20)
+        deteccion = {"clase": "persona", "confianza": 0.9}
+        entradas = [
+            dict(deteccion, **coordenadas),
+            dict(deteccion, caja=dict(coordenadas, x2=[])),
+            dict(deteccion, caja=dict(coordenadas, x2=float("nan"))),
+            dict(deteccion, caja=dict(coordenadas, x2=0)),
+        ]
+        salida = detector_objetos.normalizar_detecciones_externas(entradas)
+        self.assertEqual(len(salida), len(entradas))
+        self.assertEqual(salida[0]["caja"], coordenadas)
+        self.assertTrue(all("caja" not in objeto for objeto in salida[1:]))
+
+    def test_reintento_de_evento_no_reemplaza_el_resultado_publicado(self):
+        carga = {"schema_version": 1, "eventos": [{
+            "evento_id": "foto-1",
+            "modulo": "imagen",
+            "tipo_observacion": "objeto",
+            "datos_observados": {"objetos": [{"clase": "libro", "confianza": 0.9}]},
+        }]}
+        ruta = "/api/prediccion/recepcion"
+        primera = self.client.post(ruta, json=carga).json()
+        reintento = self.client.post(ruta, json=carga).json()
+        self.assertEqual(reintento["analisis"]["fuentes"]["imagen"]["estado"], "sin_entrada")
+        self.assertEqual(reintento["actualizacion_id"], primera["actualizacion_id"])
+        ultima = self.client.get(f"{ruta}/ultima").json()
+        self.assertEqual(ultima["resultado"], primera)
 
     def test_interpretacion_visual_rica_una_sola_foto_sin_academico_ni_diagnosticos(self):
         astro = _astronaut_b64()
@@ -174,6 +203,13 @@ class Fase13UnificadaTests(unittest.TestCase):
         self.assertTrue(diag["garantias"]["prohibe_diagnostico_psicologico_o_familiar"])
 
     def test_cuarentena_audio_no_vocal_e_aislamiento_errores_parciales(self):
+        modelo = Mock(classes_=["aprueba", "no_aprueba"])
+        modelo.predict_proba.return_value = [[0.82, 0.18]]
+        artefacto = {
+            "modelo": modelo, "tipo": "academico", "version": "fase7-1.0",
+            "algoritmo": "logistic_regression", "dataset": "fixture_sintetica",
+        }
+        self.enterContext(patch.object(recepcion_multimodal.modelos_fase7, "obtener_modelo", return_value=artefacto))
         t0 = datetime(2026, 5, 1, 10, 0, tzinfo=timezone.utc)
         r = self.client.post(
             "/api/prediccion/recepcion",
@@ -196,7 +232,10 @@ class Fase13UnificadaTests(unittest.TestCase):
                         "fecha_hora": (t0 + timedelta(seconds=1)).isoformat(),
                         "tipo_observacion": "objeto",
                         "datos_observados": {
-                            "objetos": [{"clase": "telefono", "confianza": 0.89}]
+                            "objetos": [
+                                {"clase": "telefono", "confianza": 0.89},
+                                {"clase": "persona", "confianza": 0.95},
+                            ]
                         },
                     },
                     {
@@ -216,6 +255,10 @@ class Fase13UnificadaTests(unittest.TestCase):
         self.assertEqual(datos["analisis"]["fuentes"]["audio"]["estado"], "tipo_incompatible_no_vocal")
         self.assertEqual(datos["analisis"]["fuentes"]["imagen"]["deteccion_objetos"]["estado"], "solo_externas")
         self.assertEqual(datos["analisis"]["fuentes"]["imagen"]["deteccion_objetos"]["objetos"][0]["clase"], "telefono")
+        imagen = datos["analisis"]["fuentes"]["imagen"]
+        self.assertEqual(imagen["deteccion_objetos"]["conteo_personas"], 1)
+        self.assertEqual(imagen["deteccion_facial"], "sin_recorte_facial")
+        self.assertIsNone(imagen["rostros_detectados"])
         self.assertEqual(datos["analisis"]["academico"]["estado"], "estimacion_experimental")
 
     def test_deduplicacion_orden_cronologico_sesion_ventana_e_identidades(self):

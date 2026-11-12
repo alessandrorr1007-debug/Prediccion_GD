@@ -1,7 +1,7 @@
 # Guía de Integración — Módulo PREDICCIÓN (AulaPredict)
 
 > **Estado:** Vigente (Fase 13C — Entrega Final Unificada)  
-> **Ruta del módulo:** `D:\Proyectos\PREDICCION`  
+> Ejecuta los comandos desde la raíz de tu clon.
 > **Canal HTTP principal:** `POST /api/prediccion/recepcion`, `GET /api/prediccion/recepcion/ultima`, `POST /api/prediccion/recepcion/reiniciar`, `GET /api/prediccion/diagnostico`  
 > **Política editorial:** PREDICCIÓN evalúa modalidades de forma independiente, publica interpretaciones visuales basadas estrictamente en hechos observables, prohíbe diagnósticos psicológicos/familiares/económicos, y no promedia probabilidades entre fuentes heterogéneas sin un modelo multimodal calibrado.
 
@@ -38,7 +38,7 @@ flowchart LR
 
 ## 2. Endpoints HTTP Disponibles
 
-Todos los endpoints restringen el acceso a red local (`127.0.0.1`, `::1`, `localhost`), rechazan cabeceras de proxy (`X-Forwarded-For`, `Forwarded`, `X-Real-IP`) u `Origin`/`Host` externos con `HTTP 403`, imponen límite de cuerpo de `8 MiB` (`HTTP 413`), omiten reflejar datos de entrada en `HTTP 422` y devuelven `Cache-Control: no-store`.
+Las tres rutas de recepción y la de diagnóstico de la tabla verifican que el cliente y el host sean de loopback (`127.0.0.1`, `::1`, `localhost`). Devuelven `403` si reciben cabeceras de proxy o un `Origin` distinto del origen del servidor. El límite del cuerpo es de 8 MiB (`413`) y los errores de validación (`422`) omiten el valor rechazado. Estas rutas devuelven `Cache-Control: no-store`. La API también incluye rutas con otras reglas de acceso. Ejecuta el servicio en loopback para la integración local y consulta el inventario completo en `/docs` o `/openapi.json`.
 
 | Método y Ruta | Propósito | Notas |
 | --- | --- | --- |
@@ -257,7 +257,8 @@ Si falta `G1` o `G2`, PREDICCIÓN devuelve `estado: "evidencia_insuficiente"` co
 2. **Aislamiento por sesión y ventana:** Si `sesion_id` del envoltorio difiere de un evento, el evento se excluye antes de inferir con motivo `"sesion_distinta"`. Si existe `ventana_captura`, los eventos sin fecha o fuera de `[inicio, fin]` se excluyen como `"fecha_faltante"` o `"captura_fuera_de_ventana"`.
 3. **Deduplicación e idempotencia (`evento_id`):** `_EstadoRecepcion` retiene las huellas SHA-256 de los últimos `256` `evento_id`. Un reenvío idéntico incrementa `duplicados_omitidos` y se omite sin reprocesar; un mismo `evento_id` con distinto contenido se bloquea y reporta en `contradictorios`.
 4. **Orden cronológico:** Eventos recibidos fuera de orden se ordenan ascendentemente por `fecha_hora` antes de aplicar las ventanas/modalidades y marcan `reordenados_cronologicamente: true`.
-5. **Privacidad en memoria:** Los resultados recibidos por `/recepcion` permanecen únicamente en memoria RAM volátil (`_EstadoRecepcion`) y nunca escriben imágenes, audios ni identificadores en disco.
+5. **Privacidad en memoria.** El canal guarda el último resultado publicado y las huellas de hasta 256 IDs de evento en RAM por proceso. Usa un solo worker para que productores y panel consulten el mismo estado. Un reinicio borra el estado y los IDs expulsados vuelven a ser elegibles. Coordina los IDs entre productores y reserva la ruta de reinicio para el operador local. `publicar_en_panel: false` procesa el lote y conserva la deduplicación, sin sustituir el resultado que consulta el panel.
+6. **Identidad y confianza local.** `verificada` representa la declaración del productor sobre el vínculo con un ID institucional. Haar detecta regiones faciales y el clasificador estima expresiones observables. El canal local carece de autenticación de productores. Conserva los IDs institucionales en el sistema autorizado y envía el mínimo de datos necesario para la sesión.
 
 ---
 
@@ -277,25 +278,27 @@ Si falta `G1` o `G2`, PREDICCIÓN devuelve `estado: "evidencia_insuficiente"` co
 
 ### 8.1 Modelos y licencias
 
-* **Clasificador facial:** `hog_svm` (`fase8-1.0`, scikit-learn / Joblib).
-* **Detector de objetos separado:** `backend/modelo_ia/best.pt` (`YOLOv8n`, Ultralytics, **licencia AGPL-3.0**). Clases soportadas: `persona`, `mochila`, `telefono`, `cuaderno`, `libro`, `audifonos`, `reloj`, `laptop`. Puede desactivarse sin afectar la inferencia facial definiendo `AULAPREDICT_DETECTOR_OBJETOS=off`.
-* **Audio y académico:** modelos calibrados RAVDESS (`phase8` / `phase7`) y UCI Student Performance (`phase7`).
+Consulta [Modelos de inferencia](MODELOS_INFERENCIA.md) para obtener los pesos autorizados, reproducir los modelos de CMU, RAVDESS y UCI, y verificar sus huellas. La instalación base funciona con Haar y los modelos sintéticos históricos. Configura el modelo de Fase 8 para habilitar los puntajes calibrados de expresión facial en el panel.
 
 ### 8.2 Levantar servidor y ejecutar pruebas
 
 ```powershell
-# 1. Activar entorno e iniciar FastAPI + Dashboard estático
-.\backend\.venv\Scripts\python.exe -m uvicorn backend.app:app --host 127.0.0.1 --port 8001
+# 1. Crear el entorno e instalar las dependencias base y de pruebas
+uv venv --python 3.11.15 backend/.venv
+uv pip install --python ./backend/.venv/Scripts/python.exe -r requirements.txt -r tests/requirements.txt
 
-# 2. Suite completa de pruebas Python (incluye Entrega Final Unificada)
+# 2. Iniciar FastAPI y el panel
+.\backend\.venv\Scripts\python.exe -m uvicorn backend.app:app --host 127.0.0.1 --port 8001 --no-proxy-headers
+
+# En otra terminal, desde la raíz del clon:
 .\backend\.venv\Scripts\python.exe -m pytest -q
 
-# 3. Suite automatizada Frontend + integración HTTP en Node.js
 node --test tests/test_frontend.cjs
 
-# 4. Verificación integral del proyecto
 .\verificar_aulapredict.bat --fusion
 ```
+
+Si el puerto 8001 está ocupado, usa `--port 18001` y abre `http://127.0.0.1:18001/`. Para actualizar el servidor habitual, detén desde su terminal la instancia que administras y vuelve a arrancar con el puerto 8001. Ejecuta el frontend desde el mismo origen que el backend. `.env.example` documenta variables que puedes exportar en la terminal antes del arranque. Para que la verificación ejecute la fusión experimental, prepara el modelo y las muestras pareadas según [Fase 9](ENTRENAMIENTO_FASE9.md) e [Integración Fase 10](INTEGRACION_FASE10.md).
 
 ---
 

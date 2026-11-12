@@ -4,6 +4,8 @@ Prototipo académico de Percepción Computacional. Predicción consume resultado
 
 Consulta la [guía de demostración de Predicción](docs/GUIA_DEMOSTRACION_PREDICCION.md) para repetir la sustentación con casos sintéticos.
 
+Para conectar IMAGEN, VIDEO, AUDIO y registros curriculares, usa la [guía de integración HTTP](docs/GUIA_INTEGRACION_PREDICCION.md). El [inventario de modelos](docs/MODELOS_INFERENCIA.md) incluye las huellas de los pesos auditados, sus fuentes y los comandos para entrenar los clasificadores de investigación desde los datos oficiales.
+
 El [motor experimental](docs/MOTOR_PREDICCION_EXPERIMENTAL.md) evalúa expresiones y descriptores acústicos declarados por separado, y documenta los indicadores de asistencia, participación y prioridad académica.
 
 ## Arquitectura
@@ -13,6 +15,7 @@ El [motor experimental](docs/MOTOR_PREDICCION_EXPERIMENTAL.md) evalúa expresion
 - **Predicción experimental por captura.** `backend/entrenamiento_prediccion/predictor.py` detecta candidatos con YOLO opcional o Haar, obtiene rasgos visuales y ejecuta dos Random Forest entrenados con datos sintéticos. Las referencias del encuadre no identifican institucionalmente a una persona.
 - **Visión heurística.** `backend/modulos/vision_service.py` mejora imágenes, analiza rasgos y calcula una proyección experimental cuando hay rostro. Su salida se mantiene separada del seguimiento académico.
 - **Web.** FastAPI sirve `frontend/index.html`, `app.js` y `style.css`. Node se usa para pruebas. El archivo TSX es una referencia aparte.
+- **Recepción automática.** El canal local procesa lotes multimodales, deduplica eventos y mantiene el último resultado publicado en RAM para el panel. Cada modalidad conserva su estado y procedencia.
 
 ## Instalación y arranque
 
@@ -40,6 +43,8 @@ backend/.venv/bin/python -m uvicorn backend.app:app --host 127.0.0.1 --port 8001
 
 Abre [el panel](http://localhost:8001) o verifica [el endpoint de salud](http://localhost:8001/api/salud). En [Render](https://render.com/docs/python-version), `render.yaml` fija Python 3.11.15, instala `requirements.txt` y escucha en `$PORT`. El seguimiento académico sigue siendo una demo local y rechaza accesos remotos.
 
+Si 8001 está ocupado, ejecuta Uvicorn con `--host 127.0.0.1 --port 18001 --no-proxy-headers` y abre `http://127.0.0.1:18001/`. Para verificar la entrega, instala también `tests/requirements.txt` y sigue los [comandos de prueba](docs/GUIA_INTEGRACION_PREDICCION.md#82-levantar-servidor-y-ejecutar-pruebas).
+
 ### Cámara y seguimiento en la web
 
 Pulsa **Iniciar visor de cámara** para conceder acceso. La captura automática busca un rostro localmente con `FaceDetector` o con MediaPipe y envía solo el fotograma elegido a AulaPredict. El intervalo inicial es de 5 segundos por cámara. El respaldo de MediaPipe necesita acceso a los recursos indicados en la [guía del frontend](frontend/README.md). Puedes capturar manualmente, subir una foto o detener el visor. En **Seguimiento académico** puedes evaluar los JSON sintéticos y revisar fuentes, coincidencias y destinatarios sugeridos.
@@ -56,6 +61,8 @@ Pulsa **Iniciar visor de cámara** para conceder acceso. La captura automática 
 - `POST /api/prediccion` y `POST /api/prediccion/integrar` — eventos normalizados y formatos de imagen/video.
 - `POST /api/prediccion/estudiantes` y `GET /api/prediccion/estudiantes/ejemplos/{caso}` — seguimiento y doce ejemplos sintéticos, solo en local.
 - `POST /api/prediccion/analisis-experimental` — análisis independiente de imagen, fotograma o descriptores acústicos.
+- `POST /api/prediccion/recepcion`, `GET /api/prediccion/recepcion/ultima`, `POST /api/prediccion/recepcion/reiniciar` y `GET /api/prediccion/diagnostico` — canal automático de loopback.
+- `POST /api/prediccion/orquestar`, `POST /api/prediccion/demostracion-integral` y `GET /api/prediccion/modelos-investigacion` — orquestación, demostración y estado de artefactos de investigación.
 - `POST /api/prediccion/analizar-captura` y `POST /api/vision/analizar` — JSON con `imagen_b64` y opciones de cada ruta. Véase el [contrato de captura](docs/CONTRATO_MODULOS.md#captura-visual-de-predicción).
 - `GET /api/vision/estado`, `GET /api/prediccion/ejemplo-aula` y `GET /api/prediccion/modelo/metricas` — diagnóstico, cinco perfiles ficticios y métricas.
 - `GET /docs` — documentación interactiva.
@@ -74,7 +81,7 @@ En Linux usa `backend/.venv/bin/python`. El [notebook reproducible](docs/entrena
 
 - **Imagen:** [SistemaSupervisionExamenes-Imagen](https://github.com/Zudo45/SistemaSupervisionExamenes-Imagen).
 - **Video:** [SistemaSupervisionExamenes](https://github.com/cesarcabanillas1921-bit/SistemaSupervisionExamenes).
-- **Audio:** pendiente de productor y contrato. Los adaptadores y manifiestos están en `backend/modulos/`; los ejemplos sintéticos están en `ejemplos/`.
+- **Audio:** la API admite señales vocales y conserva por separado las observaciones de asistencia o transcripción. Queda por validar el contrato con el productor externo. Los manifiestos están en `backend/modulos/` y los ejemplos sintéticos en `ejemplos/`.
 
 ## Seguimiento por estudiante
 

@@ -10,6 +10,10 @@ __pycache__/
 *$py.class
 *.so
 .pytest_cache/
+node_modules/
+.ruff_cache/
+.mypy_cache/
+.coverage
 
 # DeepFace y pesos pesados descargados dinámicamente
 .deepface/
@@ -19,6 +23,13 @@ weights/
 
 # Logs y variables de entorno
 *.log
+*.tmp
+*.pem
+*.key
+*.p12
+*.pfx
+*.sqlite*
+kaggle.json
 .env
 .env.*
 
@@ -50,7 +61,8 @@ datasets/
 *.npz
 *.npy
 *.pkl
-!backend/entrenamiento_prediccion/*.pkl
+!backend/entrenamiento_prediccion/modelo_emociones_facial.pkl
+!backend/entrenamiento_prediccion/modelo_sucesos_academicos.pkl
 *.pickle
 *.joblib
 *.safetensors
