@@ -118,10 +118,10 @@
                 <button id="btn-group-classroom" type="button" class="btn-action-ghost" title="Carga una captura grupal de aula con 5 estudiantes analizados por el modelo">
                   🖼️ Probar con Captura Grupal
                 </button>
-                <label for="input-upload-image" class="btn-action-ghost cursor-pointer" title="Sube una foto de aula para que el motor detecte rostros y prediga">
+                <label for="input-upload-image" class="btn-action-ghost cursor-pointer" title="Analiza una fotografía con el modo seleccionado">
                   📁 Subir Foto
                 </label>
-                <input id="input-upload-image" type="file" accept="image/*" style="display: none;">
+                <input id="input-upload-image" type="file" accept="image/jpeg,image/png,image/webp" style="display: none;">
               </div>
             </div>
 
@@ -141,7 +141,7 @@
                 <h4>Encuadra la Cámara Web</h4>
                 <p>Haz clic para iniciar el visor y capturar la imagen de los estudiantes frente a la pantalla.</p>
                 <button id="btn-start-camera" type="button" class="btn-primary-action">
-                  ▶ Iniciar Visor de Cámara
+                  ▶ Encender cámara
                 </button>
               </div>
 
@@ -164,9 +164,9 @@
 
             <!-- Botonera de Control: BOTÓN PRINCIPAL DE CAPTURA Y PREDICCIÓN -->
             <div class="capture-controls-toolbar">
-              <button id="btn-capture-predict" type="button" class="btn-main-capture" title="Congela la imagen, detecta rostros de alumnos y ejecuta el modelo de predicción">
+              <button id="btn-capture-predict" type="button" class="btn-main-capture" title="Captura un fotograma y lo envía al análisis seleccionado" disabled>
                 <span class="capture-icon">📸</span>
-                <span class="capture-text">Capturar Imagen y Predecir</span>
+                <span class="capture-text">Capturar fotograma</span>
               </button>
 
               <button id="btn-new-capture" type="button" class="btn-secondary-capture" title="Vuelve al visor en vivo para tomar una nueva foto">
@@ -175,12 +175,18 @@
               <button id="btn-stop-camera" type="button" class="btn-secondary-capture" hidden>Detener cámara</button>
             </div>
             <div class="auto-capture-controls">
-              <label><input id="auto-capture-enabled" type="checkbox" checked> Captura automática</label>
+              <label for="modo-analisis-captura">Modo de análisis</label>
+              <select id="modo-analisis-captura">
+                <option value="facial">Facial experimental</option>
+                <option value="aula">Captura de aula histórica</option>
+              </select>
+              <label><input id="auto-capture-enabled" type="checkbox"> Captura automática</label>
               <label for="auto-capture-interval">Intervalo por cámara (s)</label>
               <input id="auto-capture-interval" type="number" min="5" value="5" step="1">
             </div>
             <p id="auto-capture-status" class="capture-note" role="status">La captura automática requiere una cámara activa.</p>
-            <p class="capture-note">El detector busca rostros en el visor. Cada captura enviada se analiza sin verificar identidad.</p>
+            <div id="resultado-facial-captura" aria-live="polite"></div>
+            <p class="capture-note">La captura automática solo envía fotogramas si la activas. El análisis facial experimental muestra expresiones de identidad desconocida.</p>
           </section>
 
           <!-- Tarjeta Derecha (52%): Selección y Estado de Alumnos en la Captura -->

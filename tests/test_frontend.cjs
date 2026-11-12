@@ -52,6 +52,7 @@ function montar(globales = {}, configurar = () => {}) {
   elementos.motor.value = "examen";
   elementos.formato.value = "integracion";
   elementos["ejemplo-seguimiento"].value = "juan";
+  elementos["modo-analisis-captura"].value = "aula";
   elementos["auto-capture-enabled"].checked = true;
   elementos["auto-capture-interval"].value = "5";
   const contexto = vm.createContext({
@@ -336,7 +337,8 @@ test("distingue permiso denegado, cámara ausente y navegador sin API", async ()
   for (const [opciones, mensaje] of [
     [{ abrirCamara: () => { throw new DOMException("denegado", "NotAllowedError"); } }, /Permiso de cámara denegado/],
     [{ abrirCamara: () => { throw new DOMException("ausente", "NotFoundError"); } }, /No se encontró una cámara/],
-    [{ sinAPI: true }, /localhost o HTTPS/]
+    [{ sinAPI: true }, /localhost o HTTPS/],
+    [{ abrirCamara: () => { throw new DOMException("ocupada", "NotReadableError"); } }, /otra aplicación/]
   ]) {
     const camara = montarCamara(opciones);
     const { e, peticiones } = camara;
@@ -463,6 +465,81 @@ test("la foto subida usa el mismo endpoint sin abrir cámara", async () => {
   assert.equal(solicitud.cuerpo.imagen_b64, "data:image/jpeg;base64,FOTO");
   assert.deepEqual(solicitud.cuerpo.contexto_externo.acciones_detectadas, ["uso_celular"]);
   assert.equal(e["captured-image-display"].src, solicitud.cuerpo.imagen_b64);
+});
+
+test("el lienzo deja pasar clics al encendido y el visor distingue un error de reproducción", async () => {
+  const css = readFileSync(join(raiz, "frontend/style.css"), "utf8");
+  assert.match(css, /#overlay-canvas\s*\{[^}]*pointer-events:\s*none/);
+  assert.match(css, /#overlay-canvas\.interactivo\s*\{[^}]*pointer-events:\s*auto/);
+  const camara = montarCamara();
+  const { e } = camara;
+  e["webcam-feed"].play = async () => { throw new DOMException("reproducción", "NotAllowedError"); };
+  await e["btn-start-camera"].listeners.click();
+  assert.match(camara.estado(), /visor no pudo reproducir/);
+  assert.equal(camara.detenidas(), 1);
+  e["webcam-feed"].play = async () => {};
+  await e["btn-start-camera"].listeners.click();
+  assert.equal(camara.estado(), "Cámara lista");
+  await camara.revisar(1000);
+  assert.equal(camara.detecciones(), 0);
+  assert.equal(camara.peticiones.length, 0);
+  e["btn-stop-camera"].listeners.click();
+  assert.equal(camara.detenidas(), 2);
+});
+
+test("el fotograma en modo facial se envía como imagen real sin contexto de aula", async () => {
+  const { e, peticiones } = montarCamara({ responder: () => Response.json({
+    fuentes: { imagen: { estado: "modelo_no_disponible" } }
+  }) });
+  e["modo-analisis-captura"].value = "facial";
+  await e["btn-start-camera"].listeners.click();
+  await e["btn-capture-predict"].listeners.click();
+  assert.match(peticiones[0].url, /\/analisis-experimental$/);
+  assert.deepEqual(JSON.parse(peticiones[0].opciones.body), {
+    schema_version: 1, imagen: { imagen_b64: "data:image/jpeg;base64,DEMO", modelo_facial: "real" }
+  });
+  assert.match(e["capture-status-text"].textContent, /Modelo facial no disponible/);
+});
+
+test("la foto facial anticipa la vista previa, limita archivos y permite reintentar tras timeout", async () => {
+  let limite;
+  let peticiones = 0;
+  const e = montar({
+    setTimeout(fn, ms) { assert.equal(ms, 30000); limite = fn; },
+    clearTimeout() {},
+    FileReader: class {
+      readAsDataURL() {
+        this.result = "data:image/png;base64,FOTO";
+        this.onload();
+        this.onloadend();
+      }
+    },
+    async fetch(url, { signal }) {
+      assert.match(url, /\/analisis-experimental$/);
+      assert.equal(e["captured-image-display"].style.display, "block");
+      assert.match(e["capture-status-text"].textContent, /Fotografía seleccionada/);
+      if (++peticiones === 1) return new Promise((_, reject) => signal.addEventListener("abort", reject));
+      return Response.json({ fuentes: { imagen: { estado: "abstencion", puntajes_calibrados: { neutral: 0.42 } } } });
+    }
+  });
+  e["modo-analisis-captura"].value = "facial";
+  const entrada = e["input-upload-image"];
+  const subir = (type, size) => {
+    entrada.files = [{ name: "foto.png", type, size }];
+    return entrada.listeners.change({ target: entrada });
+  };
+  await subir("image/gif", 1024);
+  await subir("image/png", 5 * 1024 ** 2 + 1);
+  assert.equal(peticiones, 0);
+  const primera = subir("image/png", 1024);
+  await new Promise(setImmediate);
+  limite();
+  await primera;
+  assert.match(e["capture-status-text"].textContent, /tardó demasiado/);
+  assert.equal(entrada.disabled, false);
+  await subir("image/png", 1024);
+  assert.match(e["capture-status-text"].textContent, /Abstención/);
+  assert.match(contenido(e["resultado-facial-captura"]), /neutral 0.420/);
 });
 
 test("una solicitud en curso bloquea duplicados y se cancela al detener la cámara", async () => {

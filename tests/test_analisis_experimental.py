@@ -34,6 +34,15 @@ class ExperimentalTests(unittest.TestCase):
         self.assertEqual(salida["fuentes"]["audio"]["estado"], "sin_entrada")
         self.assertEqual(salida["sincronizacion"]["estado"], "fuentes_insuficientes")
 
+    def test_foto_corrupta_registra_tiempos_sin_cargar_modelos(self):
+        corrupta = base64.b64encode(b"No es una imagen").decode("ascii")
+        with patch.object(experimental.modelos_fase7, "obtener_modelo") as cargar:
+            respuesta = self.enviar(imagen={"imagen_b64": corrupta, "modelo_facial": "real"})
+        cargar.assert_not_called()
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta.json()["fuentes"]["imagen"]["estado"], "imagen_invalida")
+        self.assertRegex(respuesta.headers["Server-Timing"], r"^entrada;dur=\d+\.\d, evaluacion;dur=\d+\.\d$")
+
     def test_audio_declarado_independiente_y_errores_de_formato(self):
         salida = self.enviar(audio={"duracion_segundos": 4, "f0_hz": 150, "rms_normalizado": .2},
                              imagen={"imagen_b64": "!!!"}).json()["fuentes"]

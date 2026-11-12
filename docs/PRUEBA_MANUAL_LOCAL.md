@@ -19,6 +19,22 @@ Set-Location 'D:\Proyectos\PREDICCION'
 
 El verificador consulta el servidor por HTTP, muestra el inventario y ejecuta los cuatro casos. Con `--fusion` devuelve código 2 si la pareja o los pesos opcionales impiden ejecutarla. El código 1 indica que la verificación no pudo completarse. Para detener el servidor, pulsa `Ctrl+C` en su terminal. Si 8001 está ocupado, revisa qué servicio lo usa antes de volver a iniciar.
 
+## Probar la cámara y una fotografía
+
+1. En Chrome, abre [AulaPredict local](http://127.0.0.1:8001/). En **Captura de Imagen para Predicción**, deja seleccionado **Facial experimental** y pulsa **Encender cámara**.
+2. Cuando Chrome pregunte, pulsa **Permitir**. Si el sitio está bloqueado, abre el icono de controles a la izquierda de la dirección, entra en **Configuración del sitio**, permite **Cámara** y recarga. En Windows, revisa **Configuración > Privacidad y seguridad > Cámara** si el navegador sigue sin tener acceso. Cierra otras aplicaciones que estén usando el dispositivo.
+3. Comprueba que el visor muestre video en vivo y **Cámara lista**. Para la prueba manual, deja desmarcada **Captura automática**. Encuadra un rostro frontal y pulsa **Capturar fotograma**. La imagen queda visible mientras se analiza.
+4. Lee el resultado debajo de los controles. Una **abstención** puede mostrar probabilidades y el criterio por el que el modelo se abstuvo. **Evidencia facial insuficiente** pide una toma con un solo rostro frontal y tamaño suficiente. **Modelo facial no disponible** indica que faltan pesos utilizables. La expresión estimada se muestra con identidad desconocida y sin calcular riesgo académico a partir de la foto.
+5. Pulsa **Nueva Captura** para volver al visor. Pulsa **Detener cámara** para liberar el dispositivo. Si falla el visor, puedes volver a encender la cámara o usar la carga de fotografía.
+6. Con la cámara detenida, pulsa **Subir Foto** y elige un archivo JPEG, PNG o WebP de hasta 5 MiB. Si tienes instaladas las muestras locales, puedes usar `_archivo/fase7/datos/astronaut.png`. Confirma que se muestra la vista previa y que **Fotografía seleccionada · Analizando…** cambia al estado final.
+7. Si hay error de red, revisa que Uvicorn siga abierto. Si la imagen es inválida, vuelve a exportarla en un formato admitido. Selecciona de nuevo el archivo con **Subir Foto** para reintentar desde la misma página.
+
+La captura manual y la foto en modo **Facial experimental** usan `POST /api/prediccion/analisis-experimental`. La vista previa de cámara no envía imágenes por sí sola. Si eliges **Captura de aula histórica**, se usa `POST /api/prediccion/analizar-captura`, que puede tardar más de 30 segundos al inicializar los modelos de aula por primera vez.
+
+En la prueba HTTP local con `astronaut.png`, la ruta histórica tardó 43,75 s en la primera llamada y 608 ms en la segunda. Después de reiniciar Uvicorn, la ruta facial tardó 20,73 s en la primera llamada durante la ejecución concurrente de las suites y 274 ms en la segunda. La cabecera `Server-Timing` separa lectura y validación de la evaluación en el servidor.
+
+La verificación automatizada cubre permisos simulados, reproducción, envío, detención, errores y reintento. También se verificó la respuesta facial con una foto pública a través de Uvicorn y la presencia de los controles en Chrome. El acceso a la cámara física, su vista previa y el recorrido de carga con el selector de archivos requieren la prueba manual anterior.
+
 ## Probar el panel
 
 1. Expande **Demostración integral con cuatro estudiantes ficticios** y pulsa **Verificar sistema**.

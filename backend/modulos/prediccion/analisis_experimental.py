@@ -1,11 +1,12 @@
 """Evalúa señales y notas compatibles por separado, sin atribuir identidad."""
 import base64
 import logging
+from time import perf_counter
 from typing import Annotated, Literal
 
 import cv2
 import numpy as np
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 from pydantic import AwareDatetime, Field, model_validator
 from starlette.concurrency import run_in_threadpool
 
@@ -263,6 +264,13 @@ def estado_modelos(cargar: bool = True):
 
 
 @router.post("/prediccion/analisis-experimental")
-async def analisis_experimental(request: Request):
+async def analisis_experimental(request: Request, response: Response):
+    inicio = perf_counter()
     entrada = await leer_captura(request, EntradaExperimental)
-    return await run_in_threadpool(evaluar, entrada)
+    validada = perf_counter()
+    resultado = await run_in_threadpool(evaluar, entrada)
+    response.headers["Server-Timing"] = (
+        f"entrada;dur={(validada - inicio) * 1000:.1f}, "
+        f"evaluacion;dur={(perf_counter() - validada) * 1000:.1f}"
+    )
+    return resultado

@@ -593,7 +593,16 @@ function programarDeteccion(sesion) {
 }
 
 function actualizarEstadoAutomatico() {
-  if (!sesionCamara?.detectar) return;
+  if (!sesionCamara?.lista) return;
+  if (!sesionCamara.detectar) {
+    if (elemento("auto-capture-enabled").checked && !sesionCamara.preparando) {
+      const sesion = sesionCamara;
+      sesion.preparando = true;
+      return iniciarDetector(sesion).finally(() => { sesion.preparando = false; });
+    }
+    if (!elemento("auto-capture-enabled").checked) estadoAutomatico("Captura automática desactivada.");
+    return;
+  }
   const detector = sesionCamara.nativo ? "detector del navegador" : "MediaPipe";
   estadoAutomatico(elemento("auto-capture-enabled").checked
     ? `Captura automática lista con ${detector}. El intervalo se aplica a toda la cámara.`
@@ -609,8 +618,10 @@ async function iniciarCamara() {
   elemento("btn-stop-camera").hidden = false;
   estadoCaptura("Solicitando acceso a la cámara…");
 
+  let iniciandoVideo = false;
+  let limiteVideo;
   try {
-    if (!globalThis.navigator?.mediaDevices?.getUserMedia) {
+    if (globalThis.isSecureContext === false || !globalThis.navigator?.mediaDevices?.getUserMedia) {
       detenerCamara();
       estadoCaptura("La cámara requiere un navegador compatible en localhost o HTTPS. Puedes subir una foto.");
       return;
@@ -626,24 +637,44 @@ async function iniciarCamara() {
     sesion.stream = stream;
     for (const track of stream.getTracks()) {
       track.addEventListener("ended", () => {
-        if (sesionCamara === sesion) detenerCamara();
+        if (sesionCamara !== sesion) return;
+        detenerCamara();
+        estadoCaptura("La cámara se desconectó. Puedes volver a encenderla o subir una foto.");
       });
     }
+    iniciandoVideo = true;
+    video.muted = true;
+    video.playsInline = true;
     video.srcObject = stream;
-    await video.play();
-    if (sesionCamara !== sesion) return;
     video.classList.add("active");
+    video.style.display = "block";
+    try {
+      await Promise.race([
+        video.play(),
+        new Promise((_, reject) => {
+          limiteVideo = setTimeout(() => reject(new Error("Tiempo de espera del visor")), 8000);
+        })
+      ]);
+    } finally {
+      clearTimeout(limiteVideo);
+    }
+    if (sesionCamara !== sesion) return;
+    sesion.lista = true;
     volverANuevaCaptura();
-    await iniciarDetector(sesion);
+    await actualizarEstadoAutomatico();
   } catch (error) {
     if (sesionCamara !== sesion) return;
     detenerCamara();
-    if (error?.name === "NotAllowedError") {
+    if (iniciandoVideo) {
+      estadoCaptura("La cámara se abrió, pero el visor no pudo reproducir el video. Vuelve a encenderla o sube una foto.");
+    } else if (["NotAllowedError", "SecurityError"].includes(error?.name)) {
       estadoCaptura("Permiso de cámara denegado. Habilítalo en el navegador o sube una foto.");
     } else if (error?.name === "NotFoundError") {
       estadoCaptura("No se encontró una cámara disponible. Conéctala o sube una foto.");
-    } else {
+    } else if (["NotReadableError", "TrackStartError"].includes(error?.name)) {
       estadoCaptura("No se pudo abrir la cámara. Comprueba si otra aplicación la está usando o sube una foto.");
+    } else {
+      estadoCaptura("No se pudo iniciar la cámara. Revisa el dispositivo o sube una foto.");
     }
   }
 }
@@ -662,6 +693,7 @@ function detenerCamara() {
   video.classList.remove("active");
   elemento("btn-start-camera").disabled = false;
   elemento("btn-stop-camera").hidden = true;
+  elemento("auto-capture-enabled").checked = false;
   volverANuevaCaptura();
 }
 
@@ -670,9 +702,12 @@ function capturarFrame(video) {
     throw new Error("Inicia la cámara y espera a que el visor esté listo.");
   }
   const frame = document.createElement("canvas");
-  frame.width = video.videoWidth;
-  frame.height = video.videoHeight;
-  frame.getContext("2d").drawImage(video, 0, 0, frame.width, frame.height);
+  const escala = Math.min(1, 1280 / Math.max(video.videoWidth, video.videoHeight));
+  frame.width = Math.max(1, Math.round(video.videoWidth * escala));
+  frame.height = Math.max(1, Math.round(video.videoHeight * escala));
+  const contexto = frame.getContext("2d");
+  if (!contexto) throw new Error("No se pudo capturar el fotograma. Puedes subir una foto.");
+  contexto.drawImage(video, 0, 0, frame.width, frame.height);
   return frame;
 }
 
@@ -683,21 +718,33 @@ const CONTEXTOS_SIMULADOS = new Map([
 ]);
 const ERRORES_CAPTURA = {
   400: "El servidor no pudo leer la solicitud.",
+  413: "La imagen supera el tamaño admitido por el servidor.",
   422: "El servidor rechazó el formato de la imagen.",
   500: "El motor de predicción no pudo analizar la imagen. Verifica el servidor y sus modelos."
 };
+const ESTADOS_FACIALES = {
+  estimacion_experimental: "Estimación de expresión disponible",
+  abstencion: "Abstención del modelo facial",
+  evidencia_insuficiente: "Evidencia facial insuficiente",
+  imagen_invalida: "El servidor no pudo decodificar la foto",
+  modelo_no_disponible: "Modelo facial no disponible",
+  error_inferencia: "Error técnico durante el análisis facial"
+};
 
-async function solicitarAnalisis(imagen, signal) {
+async function solicitarAnalisis(imagen, signal, facial) {
   const contexto = CONTEXTOS_SIMULADOS.get(elemento("select-contexto-simulado").value);
-  const cuerpo = { imagen_b64: imagen };
-  if (contexto) cuerpo.contexto_externo = contexto;
+  const cuerpo = facial
+    ? { schema_version: 1, imagen: { imagen_b64: imagen, modelo_facial: "real" } }
+    : { imagen_b64: imagen };
+  if (!facial && contexto) cuerpo.contexto_externo = contexto;
+  const ruta = facial ? "analisis-experimental" : "analizar-captura";
 
   let respuesta;
   try {
     const baseCaptura = location.protocol === "file:" ? "http://localhost:8001" : location.origin;
     respuesta = imagen === null
       ? await fetch(`${baseCaptura}/api/prediccion/ejemplo-aula`, { signal })
-      : await fetch(`${baseCaptura}/api/prediccion/analizar-captura`, {
+      : await fetch(`${baseCaptura}/api/prediccion/${ruta}`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify(cuerpo), signal
         });
@@ -707,6 +754,13 @@ async function solicitarAnalisis(imagen, signal) {
   if (!respuesta.ok) throw new Error(ERRORES_CAPTURA[respuesta.status] || `Error HTTP ${respuesta.status}.`);
 
   const datos = await respuesta.json().catch(() => null);
+  if (facial) {
+    const resultado = datos?.fuentes?.imagen;
+    if (!Object.hasOwn(ESTADOS_FACIALES, resultado?.estado)) {
+      throw new Error("El servidor devolvió una respuesta facial inválida.");
+    }
+    return resultado;
+  }
   if (!Array.isArray(datos?.estudiantes) || datos.total_alumnos !== datos.estudiantes.length ||
       datos.estudiantes.some(estudiante => !Number.isInteger(estudiante?.id))) {
     throw new Error("El servidor devolvió una respuesta de captura inválida.");
@@ -722,18 +776,20 @@ async function procesarCaptura(obtenerImagen, origen) {
   const { signal } = controlador;
   const capturaManual = elemento("btn-capture-predict");
   const cargaFoto = elemento("input-upload-image");
+  const resultadoFacial = elemento("resultado-facial-captura");
+  const facial = origen !== "ejemplo" && elemento("modo-analisis-captura").value === "facial";
+  resultadoFacial.textContent = "";
+  elemento("overlay-canvas").classList.remove("interactivo");
   capturaManual.disabled = cargaFoto.disabled = true;
   estadoCaptura(origen === "automatica" ? "Analizando captura automática…"
-    : origen === "ejemplo" ? "Cargando ejemplo sintético…" : "Analizando imagen…");
+    : origen === "ejemplo" ? "Cargando ejemplo sintético…"
+      : origen === "archivo" ? "Leyendo fotografía…" : "Capturando fotograma…");
   let agotado = false;
   const limite = setTimeout(() => { agotado = true; controlador.abort(); }, 30000);
   try {
     const imagen = await obtenerImagen(signal);
     if (signal.aborted) return;
     if (esCamara && sesionCamara) sesionCamara.ultimaCaptura = performance.now();
-    const datos = await solicitarAnalisis(imagen, signal);
-    if (signal.aborted) return;
-
     modoCapturaCongelada = origen !== "automatica";
     if (modoCapturaCongelada) {
       const foto = elemento("captured-image-display");
@@ -742,9 +798,25 @@ async function procesarCaptura(obtenerImagen, origen) {
       elemento("webcam-feed").style.display = "none";
       elemento("camera-placeholder").classList.add("hidden");
     }
+    if (imagen !== null) {
+      estadoCaptura(origen === "archivo" ? "Fotografía seleccionada · Analizando…" : "Fotograma capturado · Analizando…");
+    }
+    const datos = await solicitarAnalisis(imagen, signal, facial);
+    if (signal.aborted) return;
+
+    if (facial) {
+      estudiantesEnCaptura = [];
+      estadoCuadricula = "espera";
+      seleccionarEstudiante(null);
+      elemento("cam-location-label").textContent = "Captura facial";
+      lista(resultadoFacial, "Expresión facial experimental · identidad desconocida", lineasDemoModelo("Imagen", datos));
+      estadoCaptura(ESTADOS_FACIALES[datos.estado]);
+      return;
+    }
 
     const disponibles = datos.modelos_predictivos_disponibles !== false;
     estudiantesEnCaptura = disponibles ? datos.estudiantes : [];
+    elemento("overlay-canvas").classList.toggle("interactivo", modoCapturaCongelada && estudiantesEnCaptura.length > 0);
     estadoCuadricula = disponibles ? "sin_personas" : "sin_modelos";
     seleccionarEstudiante(estudiantesEnCaptura[origen === "ejemplo" ? 2 : 0]?.id ?? null);
     elemento("cam-location-label").textContent = datos.resolucion_captura || "Captura";
@@ -763,7 +835,7 @@ async function procesarCaptura(obtenerImagen, origen) {
     estudiantesEnCaptura = [];
     estadoCuadricula = "espera";
     seleccionarEstudiante(null);
-    estadoCaptura(agotado ? "El servidor tardó demasiado en responder." : error.message);
+    estadoCaptura(agotado ? "El servidor tardó demasiado en responder. Puedes reintentar." : error.message);
     if (origen === "automatica") {
       elemento("auto-capture-enabled").checked = false;
       estadoAutomatico("Captura automática pausada tras el error. Puedes reactivarla.");
@@ -771,7 +843,8 @@ async function procesarCaptura(obtenerImagen, origen) {
   } finally {
     clearTimeout(limite);
     peticionCaptura = null;
-    capturaManual.disabled = cargaFoto.disabled = false;
+    capturaManual.disabled = !sesionCamara?.lista;
+    cargaFoto.disabled = false;
   }
 }
 
@@ -787,13 +860,16 @@ function volverANuevaCaptura() {
 
   if (imgDisplay) imgDisplay.style.display = "none";
   if (video) video.style.display = "block";
-  elemento("camera-placeholder").classList.toggle("hidden", Boolean(sesionCamara?.stream));
+  elemento("camera-placeholder").classList.toggle("hidden", Boolean(sesionCamara?.lista));
+  elemento("overlay-canvas").classList.remove("interactivo");
+  elemento("resultado-facial-captura").textContent = "";
+  elemento("btn-capture-predict").disabled = Boolean(peticionCaptura) || !sesionCamara?.lista;
   modoCapturaCongelada = false;
   estadoCuadricula = "espera";
   estudiantesEnCaptura = [];
   estudianteSeleccionadoId = null;
 
-  if (statusText) statusText.textContent = sesionCamara?.stream ? "Cámara lista" : "Cámara detenida";
+  if (statusText) statusText.textContent = sesionCamara?.lista ? "Cámara lista" : "Cámara detenida";
   if (!sesionCamara) estadoAutomatico("La captura automática requiere una cámara activa.");
   renderizarCuadriculaEstudiantes();
   renderizarPanelesInferiores(null);
@@ -810,6 +886,11 @@ function configurarSubidaFoto() {
     const archivo = evento.target.files?.[0];
     entrada.value = "";
     if (!archivo) return;
+    const formato = archivo.type ? /^(image\/(jpeg|png|webp))$/i.test(archivo.type) : /\.(jpe?g|png|webp)$/i.test(archivo.name);
+    if (!formato || archivo.size === 0 || archivo.size > 5 * 1024 ** 2) {
+      estadoCaptura("Selecciona una foto JPEG, PNG o WebP de hasta 5 MiB.");
+      return;
+    }
     return procesarCaptura((signal) => new Promise((resolve, reject) => {
       const lector = new FileReader();
       const cancelar = () => lector.abort();
