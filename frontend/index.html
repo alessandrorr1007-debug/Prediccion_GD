@@ -11,7 +11,7 @@
   <div class="app-layout">
     <!-- ====================================================================
          SIDEBAR IZQUIERDO FIJO (#0F294A - Azul Marino Institucional)
-         Enfocado EXCLUSIVAMENTE en el Módulo de Predicción Automática
+         Enfocado EXCLUSIVAMENTE en el Módulo de Predicción
          ==================================================================== -->
     <aside class="app-sidebar">
       <div>
@@ -39,8 +39,8 @@
         <div class="sidebar-model-info">
           <div class="model-info-heading">OPERACIÓN DEL MÓDULO</div>
           <div class="model-stat-row">
-            <span>Recepción:</span>
-            <strong>Automática por módulos</strong>
+            <span>Modelo facial:</span>
+            <strong>HOG + SVM (4 clases)</strong>
           </div>
           <div class="model-stat-row">
             <span>Identidad:</span>
@@ -48,7 +48,7 @@
           </div>
           <div class="model-stat-row">
             <span>Abstención:</span>
-            <strong>Umbral ≥ 55% · Margen ≥ 10%</strong>
+            <strong>≥ 55% · Margen ≥ 10%</strong>
           </div>
         </div>
       </div>
@@ -56,9 +56,9 @@
       <div class="sidebar-footer">
         <div class="system-status-chip">
           <span class="dot-online" aria-hidden="true"></span>
-          <span id="sidebar-connectivity-label">Red Local Conectada</span>
+          <span>Red Local Conectada</span>
         </div>
-        <div class="system-version">AulaPredict Core · Predicción Automática</div>
+        <div class="system-version">AulaPredict Core · Predicción Facial</div>
       </div>
     </aside>
 
@@ -69,8 +69,8 @@
       <header class="app-header">
         <div class="header-titles">
           <div class="view-tag">Cerebro Integrador de Predicción</div>
-          <h2 class="view-title">📊 Panel de Resultados Predictivos</h2>
-          <p class="view-subtitle">Recepción automática desde IMAGEN, VIDEO y AUDIO · Evaluación independiente, probabilidades e incertidumbre</p>
+          <h2 class="view-title">📸 Panel de Inferencia de Predicciones</h2>
+          <p class="view-subtitle">Análisis facial independiente por cámara o fotografía, probabilidades calibradas y recepción automática de modalidades</p>
         </div>
 
         <div class="header-user-profile" aria-label="Rol activo">
@@ -84,86 +84,95 @@
 
       <main class="dashboard-content">
         <!-- ================================================================
-             FILA SUPERIOR (2 COLUMNAS): ESTADO Y RECEPCIÓN + DETECCIÓN Y EXPRESIÓN
+             FILA SUPERIOR (2 COLUMNAS): CAPTURA IZQ + DETECCIÓN Y EXPRESIÓN DER
              ================================================================ -->
         <div class="top-row-grid">
-          <!-- Columna Izquierda: Estado General del Análisis y Recepción de Módulos -->
-          <section class="card status-reception-card" id="analysis-status-card" aria-labelledby="general-status-card-title">
+          <!-- Columna Izquierda: Captura de Imagen para Predicción -->
+          <section class="card camera-card" id="camera-capture-card" aria-labelledby="camera-card-title">
             <div class="card-header-bar">
               <div class="card-title-group">
-                <h3 class="card-title" id="general-status-card-title">📡 Estado General y Recepción</h3>
+                <h3 class="card-title" id="camera-card-title">📸 Captura de Imagen para Predicción</h3>
+                <span id="capture-status-indicator" class="live-indicator-chip waiting">
+                  <span class="dot-live" aria-hidden="true"></span>
+                  <span id="capture-status-text" role="status">Cámara detenida</span>
+                </span>
               </div>
-              <span id="capture-status-indicator" class="live-indicator-chip waiting">
-                <span class="dot-live" aria-hidden="true"></span>
-                <span id="capture-status-text" role="status">En espera</span>
-              </span>
-            </div>
 
-            <div id="general-analysis-banner" class="general-status-banner waiting">
-              <div class="general-status-icon" aria-hidden="true">⏳</div>
-              <div class="general-status-copy">
-                <strong id="general-analysis-headline">Esperando datos de los módulos IMAGEN, VIDEO y AUDIO</strong>
-                <p id="general-analysis-subtext">
-                  Cuando los módulos externos envíen fotogramas, alertas o segmentos compatibles, los resultados predictivos aparecerán automáticamente aquí.
-                </p>
+              <div class="capture-secondary-actions">
+                <label for="input-upload-image" id="label-upload-image" class="btn-action-ghost cursor-pointer" title="Sube una fotografía JPEG, PNG o WebP para evaluar el modelo facial">
+                  📁 Subir Foto
+                </label>
+                <input id="input-upload-image" type="file" accept="image/jpeg,image/png,image/webp" style="display: none;">
               </div>
             </div>
 
-            <div class="module-reception-block">
-              <h4 class="block-heading-sm">Resultados recibidos de los módulos</h4>
-              <ul class="module-reception-list" id="module-reception-list">
-                <li class="module-reception-row" id="mod-row-imagen">
-                  <div class="module-row-meta">
-                    <span class="module-name">IMAGEN</span>
-                    <span class="module-detail" id="mod-detail-imagen">Detección facial y expresión observable</span>
-                  </div>
-                  <span class="module-badge waiting" id="mod-status-imagen">Sin datos recibidos</span>
-                </li>
-                <li class="module-reception-row" id="mod-row-video">
-                  <div class="module-row-meta">
-                    <span class="module-name">VIDEO</span>
-                    <span class="module-detail" id="mod-detail-video">Fotogramas o secuencia visual</span>
-                  </div>
-                  <span class="module-badge waiting" id="mod-status-video">Sin datos recibidos</span>
-                </li>
-                <li class="module-reception-row" id="mod-row-audio">
-                  <div class="module-row-meta">
-                    <span class="module-name">AUDIO</span>
-                    <span class="module-detail" id="mod-detail-audio">Clasificación acústica independiente</span>
-                  </div>
-                  <span class="module-badge waiting" id="mod-status-audio">Sin datos recibidos</span>
-                </li>
-                <li class="module-reception-row" id="mod-row-academico">
-                  <div class="module-row-meta">
-                    <span class="module-name">ACADÉMICO</span>
-                    <span class="module-detail" id="mod-detail-academico">Datos curriculares compatibles</span>
-                  </div>
-                  <span class="module-badge waiting" id="mod-status-academico">Sin datos recibidos</span>
-                </li>
-              </ul>
+            <!-- Viewport de Captura (Video en vivo / Imagen congelada con Canvas) -->
+            <div class="camera-viewport-container">
+              <video id="webcam-feed" playsinline autoplay muted></video>
+              <img id="captured-image-display" alt="Captura congelada para predicción" style="display: none;">
+              <canvas id="overlay-canvas"></canvas>
+
+              <div id="camera-placeholder" class="camera-fallback-screen">
+                <div class="cam-icon-circle" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2v8a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <h4>Encuadra la Cámara Web</h4>
+                <p>Haz clic para iniciar el visor y capturar un rostro frontal, o sube una fotografía desde tu computadora.</p>
+                <button id="btn-start-camera" type="button" class="btn-primary-action">
+                  ▶ Encender cámara
+                </button>
+              </div>
+
+              <div class="hud-telemetry-badge" aria-hidden="true">
+                <span class="dot-rec"></span>
+                <span id="hud-fps-label">EVALUACIÓN FACIAL INDEPENDIENTE</span>
+              </div>
+
+              <div class="camera-overlay-bottom-bar">
+                <div class="cam-timestamp">
+                  <span id="live-datetime">—</span>
+                </div>
+                <div class="cam-location-tag">
+                  <span id="cam-location-label">Cámara local</span>
+                </div>
+              </div>
             </div>
 
-            <div class="service-health-strip">
-              <span id="backend-health-text">Comprobando servicio de inferencia…</span>
-              <span id="live-datetime" class="mono-timestamp">—</span>
+            <!-- Controles de fotografía -->
+            <div class="capture-controls-toolbar">
+              <button id="btn-capture-predict" type="button" class="btn-main-capture" title="Captura un fotograma y ejecuta el análisis facial" disabled>
+                <span class="capture-icon" aria-hidden="true">📸</span>
+                <span class="capture-text">Capturar fotograma</span>
+              </button>
+
+              <button id="btn-new-capture" type="button" class="btn-secondary-capture" title="Limpia la captura actual y vuelve al visor">
+                🔄 Nueva Captura
+              </button>
+              <button id="btn-stop-camera" type="button" class="btn-secondary-capture" hidden>Detener cámara</button>
             </div>
 
-            <div class="card-footer-badge">
-              <span>Recepción automática · Sin captura manual redundante ni atribución de identidad</span>
+            <div class="auto-capture-controls">
+              <label><input id="auto-capture-enabled" type="checkbox"> Captura automática</label>
+              <label for="auto-capture-interval">Intervalo por cámara (s)</label>
+              <input id="auto-capture-interval" type="number" min="5" value="5" step="1">
             </div>
+            <p id="auto-capture-status" class="capture-note" role="status">La captura automática requiere una cámara activa.</p>
+            <div id="resultado-facial-captura" class="sr-only" aria-live="polite"></div>
           </section>
 
-          <!-- Columna Derecha: Señales Visuales + Probabilidades e Incertidumbre -->
+          <!-- Columna Derecha: Detección y Análisis Facial + Reconocimiento Facial -->
           <div class="right-analysis-column">
             <section class="card students-selection-card compact-mode" id="students-selection-card">
               <div class="card-header-bar" id="students-header-bar">
                 <div class="students-header-title-wrap">
-                  <h3 class="card-title" id="students-panel-title">🎯 Detección y Señales Visuales</h3>
-                  <p class="card-subtitle-note" id="students-panel-subtitle">Resumen de detección recibida desde IMAGEN o VIDEO</p>
+                  <h3 class="card-title" id="students-panel-title">🎯 Detección y Análisis Facial</h3>
+                  <p class="card-subtitle-note" id="students-panel-subtitle">Captura o sube una fotografía para detectar el rostro y estimar su expresión</p>
                 </div>
                 <div class="students-header-actions">
                   <div class="students-counter-chip" id="students-counter-chip">
-                    <span id="students-count-badge">Sin datos</span>
+                    <span id="students-count-badge">Esperando captura</span>
                   </div>
                   <button type="button" id="btn-toggle-students-panel" class="btn-panel-toggle" aria-expanded="false" hidden>
                     <span id="students-toggle-icon" aria-hidden="true">▼</span>
@@ -172,12 +181,12 @@
                 </div>
               </div>
 
-              <div id="students-grid" class="students-grid-container" role="region" aria-label="Estado de detección visual recibida">
+              <div id="students-grid" class="students-grid-container" role="region" aria-label="Estado de detección facial">
                 <div class="facial-waiting-compact">
-                  <span class="facial-waiting-icon" aria-hidden="true">📡</span>
+                  <span class="facial-waiting-icon" aria-hidden="true">📸</span>
                   <div class="facial-waiting-text">
-                    <strong>Esperando datos de los módulos IMAGEN, VIDEO y AUDIO</strong>
-                    <p>No se ha recibido ninguna detección visual compatible. Al llegar un evento válido se mostrará aquí sin atribuir identidad.</p>
+                    <strong>Sin resultados de análisis todavía</strong>
+                    <p>Enciende la cámara o sube una fotografía para detectar el rostro sin asociar identidades.</p>
                   </div>
                 </div>
               </div>
@@ -186,9 +195,9 @@
             <section class="card prediction-card emotions-card" id="emotions-results-card">
               <div class="card-header-clean">
                 <h3 class="card-title-sm" id="facial-card-title">
-                  🔮 Probabilidades e Incertidumbre <span class="selected-student-label" id="facial-student-label">(En espera)</span>
+                  🔮 Reconocimiento Facial <span class="selected-student-label" id="facial-student-label">(En espera)</span>
                 </h3>
-                <span class="sub-label" id="facial-card-sublabel">Esperando datos del módulo IMAGEN o VIDEO</span>
+                <span class="sub-label" id="facial-card-sublabel">Probabilidades de las 4 expresiones observables · En espera</span>
               </div>
 
               <div class="emotions-bars-list" id="emotions-bars-list">
@@ -266,29 +275,29 @@
               <div class="dominant-emotion-pill-wrap">
                 <div id="dominant-pill-box" class="dominant-pill">
                   <span class="dot-accent-orange" aria-hidden="true"></span>
-                  <span id="dominant-emotion-container">Estado e incertidumbre: <strong id="dominant-emotion-text">Sin datos — Esperando entrada automática</strong></span>
+                  <span id="dominant-emotion-container">Estado Observable: <strong id="dominant-emotion-text">Sin evaluar — Esperando captura</strong></span>
                 </div>
                 <div id="action-pill-box" class="action-pill">
                   <span class="dot-action-blue" aria-hidden="true"></span>
-                  <span>Alcance: <strong id="student-action-badge">Recepción automática · Identidad desconocida</strong></span>
+                  <span>Alcance: <strong id="student-action-badge">Análisis facial individual · Identidad desconocida</strong></span>
                 </div>
               </div>
 
               <div class="card-footer-badge" id="facial-card-footer">
-                <span>Umbral concluyente ≥ 55% y margen ≥ 10% · Abstención automática ante incertidumbre</span>
+                <span>Modelo Facial HOG+SVM (fase8-1.0) · Umbral ≥ 55% y margen ≥ 10%</span>
               </div>
             </section>
           </div>
         </div>
 
         <!-- ================================================================
-             FILA INFERIOR (2 TARJETAS): PREDICCIONES / ADVERTENCIAS + PROYECCIÓN ACADÉMICA
+             ZONA INFERIOR: RESULTADOS PREDICTIVOS + PROYECCIÓN ACADÉMICA
              ================================================================ -->
         <div class="bottom-row-grid">
           <section class="card prediction-card events-card" id="events-results-card">
             <div class="card-header-clean">
               <h3 class="card-title-sm" id="events-card-title">
-                📋 Predicciones Generadas y Advertencias <span class="selected-student-label" id="events-student-label">(En espera)</span>
+                📋 Resultados Predictivos <span class="selected-student-label" id="events-student-label">(En espera)</span>
               </h3>
             </div>
 
@@ -299,29 +308,29 @@
                   <span id="events-block1-title" class="block-title">Resultados e Hipótesis por Modalidad</span>
                 </div>
                 <div id="causes-list" class="probabilities-list">
-                  <div class="prediction-empty-notice"><span>⏳</span><span>Esperando datos de los módulos IMAGEN, VIDEO y AUDIO para mostrar resultados o hipótesis por modalidad.</span></div>
+                  <div class="prediction-empty-notice"><span>📸</span><span>No existen resultados todavía. Captura un fotograma o sube una imagen para evaluar el modelo facial.</span></div>
                 </div>
               </div>
 
               <div class="event-block">
                 <div class="block-heading">
                   <span id="events-block2-icon" class="block-icon" aria-hidden="true">🛡️</span>
-                  <span id="events-block2-title" class="block-title">Advertencias de Evidencia Insuficiente y Límites</span>
+                  <span id="events-block2-title" class="block-title">Advertencias de Evidencia y Límites</span>
                 </div>
                 <div id="consequences-list" class="probabilities-list">
-                  <div class="prediction-empty-notice"><span>ℹ️</span><span>Ante ausencia de rostro, audio silencioso o datos académicos incompletos, se emitirán advertencias aquí sin inventar resultados.</span></div>
+                  <div class="prediction-empty-notice"><span>ℹ️</span><span>Ante incertidumbre, ausencia de rostro o múltiples rostros se explicará el motivo de abstención sin inventar predicciones.</span></div>
                 </div>
               </div>
             </div>
             <div class="card-footer-badge" id="events-card-footer">
-              <span>Inferencia independiente por modalidad · Sin fusión automática ni sucesos artificiales</span>
+              <span>Inferencia independiente por modalidad · Sin sucesos artificiales</span>
             </div>
           </section>
 
           <section class="card prediction-card academic-card" id="academic-results-card">
             <div class="card-header-clean">
               <h3 class="card-title-sm" id="academic-card-title">
-                📈 Proyección Académica <span class="selected-student-label" id="academic-student-label">(En espera)</span>
+                📈 Análisis y Proyección Académica <span class="selected-student-label" id="academic-student-label">(En espera)</span>
               </h3>
             </div>
 
@@ -340,22 +349,22 @@
               <div class="alert-icon-wrap" aria-hidden="true">⚠️</div>
               <div class="alert-text-wrap">
                 <strong>Condición de evaluación:</strong>
-                <p id="exam-risk-desc">La proyección académica se calculará automáticamente únicamente cuando existan datos curriculares suficientes. Las señales faciales o acústicas no sustituyen calificaciones.</p>
+                <p id="exam-risk-desc">La proyección académica se mostrará automáticamente cuando exista información curricular válida. Las expresiones faciales o vocales no sustituyen calificaciones.</p>
               </div>
             </div>
 
             <div class="assistant-narrative-box">
               <div class="assistant-header-row">
                 <span class="assistant-sparkle" aria-hidden="true">✨</span>
-                <span class="assistant-title" id="assistant-box-title">Resumen del Estado del Sistema</span>
+                <span class="assistant-title" id="assistant-box-title">Resumen de Evaluación</span>
               </div>
               <p id="assistant-narrative-text" class="assistant-body-text">
-                Esperando datos de los módulos IMAGEN, VIDEO y AUDIO. No se muestran perfiles ficticios ni historial inventado.
+                Sin resultados todavía. Captura o sube una fotografía facial, o aguarda datos compatibles para mostrar la evaluación correspondiente.
               </p>
             </div>
 
             <div class="card-footer-badge" id="academic-card-footer">
-              <span>Basado exclusivamente en evidencia verificada · Sin historial inventado</span>
+              <span>Basado exclusivamente en evidencia verificada · Identidad no atribuida</span>
             </div>
           </section>
         </div>
