@@ -275,6 +275,11 @@ function renderizarCuadriculaEstudiantes() {
   if (!container) return;
 
   const countBadge = elemento("students-count-badge");
+  if (estadoCuadricula === "facial") {
+    if (countBadge) countBadge.textContent = "Modo Aula";
+    container.textContent = "Consulta el resultado facial junto al visor.";
+    return;
+  }
   if (countBadge) {
     if (!modoCapturaCongelada && estudiantesEnCaptura.length === 0) {
       countBadge.textContent = "Esperando captura";
@@ -453,7 +458,7 @@ function iniciarRenderizadoCanvas() {
     });
 
     // Si no hay personas detectadas y la imagen está congelada, mostrar aviso en el visor
-    if (estudiantesEnCaptura.length === 0 && modoCapturaCongelada) {
+    if (estudiantesEnCaptura.length === 0 && estadoCuadricula === "sin_personas") {
       ctx.fillStyle = "rgba(15, 23, 42, 0.75)";
       const boxW = Math.min(w * 0.7, 340);
       const boxH = 44;
@@ -723,12 +728,18 @@ const ERRORES_CAPTURA = {
   500: "El motor de predicción no pudo analizar la imagen. Verifica el servidor y sus modelos."
 };
 const ESTADOS_FACIALES = {
-  estimacion_experimental: "Estimación de expresión disponible",
-  abstencion: "Abstención del modelo facial",
+  estimacion_experimental: "Rostro detectado · Estimación de expresión disponible",
+  abstencion: "Rostro detectado · Abstención del modelo facial",
   evidencia_insuficiente: "Evidencia facial insuficiente",
   imagen_invalida: "El servidor no pudo decodificar la foto",
-  modelo_no_disponible: "Modelo facial no disponible",
+  modelo_no_disponible: "Rostro detectado · Modelo facial no disponible",
   error_inferencia: "Error técnico durante el análisis facial"
+};
+const ESTADOS_DETECCION_FACIAL = {
+  sin_rostro: "No se detectó ningún rostro. Prueba con un rostro frontal visible.",
+  rostro_pequeno: "Rostro detectado · Demasiado pequeño para clasificar",
+  multiples_rostros: "Se detectaron varios rostros. Prueba con un solo rostro.",
+  calidad_insuficiente: "Rostro detectado · Calidad insuficiente"
 };
 
 async function solicitarAnalisis(imagen, signal, facial) {
@@ -780,6 +791,9 @@ async function procesarCaptura(obtenerImagen, origen) {
   const facial = origen !== "ejemplo" && elemento("modo-analisis-captura").value === "facial";
   resultadoFacial.textContent = "";
   elemento("overlay-canvas").classList.remove("interactivo");
+  estudiantesEnCaptura = [];
+  estadoCuadricula = facial ? "facial" : "espera";
+  seleccionarEstudiante(null);
   capturaManual.disabled = cargaFoto.disabled = true;
   estadoCaptura(origen === "automatica" ? "Analizando captura automática…"
     : origen === "ejemplo" ? "Cargando ejemplo sintético…"
@@ -805,12 +819,10 @@ async function procesarCaptura(obtenerImagen, origen) {
     if (signal.aborted) return;
 
     if (facial) {
-      estudiantesEnCaptura = [];
-      estadoCuadricula = "espera";
-      seleccionarEstudiante(null);
       elemento("cam-location-label").textContent = "Captura facial";
       lista(resultadoFacial, "Expresión facial experimental · identidad desconocida", lineasDemoModelo("Imagen", datos));
-      estadoCaptura(ESTADOS_FACIALES[datos.estado]);
+      estadoCaptura(datos.estado === "evidencia_insuficiente" && Object.hasOwn(ESTADOS_DETECCION_FACIAL, datos.deteccion_facial)
+        ? ESTADOS_DETECCION_FACIAL[datos.deteccion_facial] : ESTADOS_FACIALES[datos.estado]);
       return;
     }
 
@@ -833,7 +845,7 @@ async function procesarCaptura(obtenerImagen, origen) {
   } catch (error) {
     if (signal.aborted && !agotado) return;
     estudiantesEnCaptura = [];
-    estadoCuadricula = "espera";
+    estadoCuadricula = facial ? "facial" : "espera";
     seleccionarEstudiante(null);
     estadoCaptura(agotado ? "El servidor tardó demasiado en responder. Puedes reintentar." : error.message);
     if (origen === "automatica") {
@@ -1020,6 +1032,7 @@ function lineasDemoModelo(nombre, resultado) {
   if (categoria) lineas.push(`Categoría · ${categoria}`);
   if (resultado.desenlace) lineas.push(`Desenlace · ${resultado.desenlace}`);
   if (resultado.campos_faltantes) lineas.push(`Campos faltantes · ${resultado.campos_faltantes.join(", ")}`);
+  if (Number.isInteger(resultado.rostros_detectados)) lineas.push(`Rostros detectados · ${resultado.rostros_detectados}`);
   if (resultado.motivo) lineas.push(resultado.motivo.replaceAll("_", " "));
   if (resultado.criterio_abstencion?.motivos.length) lineas.push(resultado.criterio_abstencion.motivos.join(", ").replaceAll("_", " "));
   if (resultado.puntajes_calibrados) {

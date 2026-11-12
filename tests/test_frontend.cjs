@@ -501,6 +501,52 @@ test("el fotograma en modo facial se envía como imagen real sin contexto de aul
   assert.match(e["capture-status-text"].textContent, /Modelo facial no disponible/);
 });
 
+test("el aviso del lienzo se limita al modo Aula y la interfaz distingue resultados faciales", async () => {
+  let dibujar;
+  const avisos = [];
+  const respuestas = [
+    { total_alumnos: 0, estudiantes: [] },
+    { fuentes: { imagen: { estado: "abstencion", rostros_detectados: 1, puntajes_calibrados: { neutral: 0.42 } } } },
+    { fuentes: { imagen: { estado: "evidencia_insuficiente", deteccion_facial: "sin_rostro", rostros_detectados: 0 } } },
+    { fuentes: { imagen: { estado: "evidencia_insuficiente", deteccion_facial: "rostro_pequeno", rostros_detectados: 1 } } },
+    { fuentes: { imagen: { estado: "error_inferencia" } } },
+  ];
+  const e = montar({
+    window: { addEventListener() {} },
+    setInterval() {},
+    requestAnimationFrame(fn) { dibujar = fn; },
+    FileReader: class {
+      readAsDataURL() {
+        this.result = "data:image/png;base64,FOTO";
+        this.onload();
+        this.onloadend();
+      }
+    },
+    fetch: async url => Response.json(url.endsWith("/api/modulos") ? {} : respuestas.shift()),
+  }, elementos => {
+    elementos["overlay-canvas"].getContext = () => ({
+      clearRect() {}, fillRect() {}, fillText(texto) { avisos.push(texto); },
+    });
+  });
+  const entrada = e["input-upload-image"];
+  const subir = async () => {
+    entrada.files = [{ name: "foto.png" }];
+    await entrada.listeners.change({ target: entrada });
+    dibujar();
+  };
+  await subir();
+  assert.match(e["capture-status-text"].textContent, /No se detectaron personas/);
+  assert.match(avisos.pop(), /Sin personas detectadas/);
+  e["modo-analisis-captura"].value = "facial";
+  for (const mensaje of [/Rostro detectado.*Abstención/, /No se detectó ningún rostro/,
+                         /Rostro detectado.*Demasiado pequeño/, /Error técnico/]) {
+    await subir();
+    assert.match(e["capture-status-text"].textContent, mensaje);
+    assert.equal(e["students-count-badge"].textContent, "Modo Aula");
+    assert.deepEqual(avisos, []);
+  }
+});
+
 test("la foto facial anticipa la vista previa, limita archivos y permite reintentar tras timeout", async () => {
   let limite;
   let peticiones = 0;

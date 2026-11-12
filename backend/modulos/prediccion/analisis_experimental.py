@@ -6,9 +6,10 @@ from typing import Annotated, Literal
 
 import cv2
 import numpy as np
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Request
 from pydantic import AwareDatetime, Field, model_validator
 from starlette.concurrency import run_in_threadpool
+from starlette.responses import JSONResponse
 
 from backend.entrenamiento_prediccion import predictor
 from backend.entrenamiento_prediccion.imagenes import ImagenInvalida, decodificar_imagen
@@ -22,6 +23,9 @@ MARGEN = .15
 MODELO_FACIAL = {"nombre": "modelo_emociones_facial.pkl", "version": "2.5.0",
                 "origen": "rasgos sinteticos", "calibrado_en_rostros": False}
 logger = logging.getLogger(__name__)
+MIN_DETECCION_PX = 30
+MIN_CLASIFICACION_PX = 64
+MAX_LADO_DETECCION_PX = 1600
 
 
 class Referencia(Contrato):
@@ -78,39 +82,85 @@ def seleccionar_expresion(puntajes):
     return modelos_fase7.decidir(puntajes, UMBRAL, MARGEN)[0]
 
 
+def localizar_rostros(gris):
+    alto, ancho = gris.shape
+    escala = min(1, MAX_LADO_DETECCION_PX / max(ancho, alto))
+    muestra = gris
+    if escala < 1:
+        medidas = (max(1, round(ancho * escala)), max(1, round(alto * escala)))
+        muestra = cv2.resize(gris, medidas, interpolation=cv2.INTER_AREA)
+    alto_muestra, ancho_muestra = muestra.shape
+    cajas = []
+    caras = predictor.detectar_rostros(muestra, (MIN_DETECCION_PX, MIN_DETECCION_PX), experimental=True)
+    for x, y, w, h in caras:
+        izquierda = max(0, round(int(x) * ancho / ancho_muestra))
+        arriba = max(0, round(int(y) * alto / alto_muestra))
+        derecha = min(ancho, round(int(x + w) * ancho / ancho_muestra))
+        abajo = min(alto, round(int(y + h) * alto / alto_muestra))
+        if izquierda < derecha and arriba < abajo:
+            cajas.append({"x": izquierda, "y": arriba, "ancho": derecha - izquierda, "alto": abajo - arriba})
+    return cajas
+
+
 def analizar_expresion(entrada):
+    tiempos = {}
+
+    def medir(etapa, operacion, *args):
+        inicio = perf_counter()
+        try:
+            return operacion(*args)
+        finally:
+            tiempos[etapa] = round((perf_counter() - inicio) * 1000, 3)
+
     try:
-        imagen = decodificar_imagen(entrada.imagen_b64)
+        imagen = medir("decodificacion", decodificar_imagen, entrada.imagen_b64)
     except ImagenInvalida as error:
-        return {"estado": "imagen_invalida", "motivo": str(error)}
-    gris = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
-    caras = predictor.detectar_rostros(gris, (64, 64))
-    if len(caras) != 1:
-        return {"estado": "evidencia_insuficiente", "motivo": "Se requiere un solo rostro frontal de al menos 64 × 64.",
-                "rostros_detectados": len(caras)}
+        return {"estado": "imagen_invalida", "motivo": str(error), "tiempos_ms": tiempos}
+    gris = medir("escala_de_grises", cv2.cvtColor, imagen, cv2.COLOR_BGR2GRAY)
+    caras = medir("deteccion", localizar_rostros, gris)
+    alto, ancho = gris.shape
+    deteccion = {"rostros_detectados": len(caras), "rostros": caras, "imagen_px": [ancho, alto],
+                 "detector_facial": "opencv_haar_frontalface_alt", "tiempos_ms": tiempos}
+    if not caras:
+        return dict(deteccion, estado="evidencia_insuficiente", deteccion_facial="sin_rostro",
+                    motivo="Prueba con un rostro frontal visible y bien iluminado.")
+    if len(caras) > 1:
+        return dict(deteccion, estado="evidencia_insuficiente", deteccion_facial="multiples_rostros",
+                    motivo="Se requiere un solo rostro para clasificar.")
+    x, y, w, h = (caras[0][campo] for campo in ("x", "y", "ancho", "alto"))
+    if min(w, h) < MIN_CLASIFICACION_PX:
+        return dict(deteccion, estado="evidencia_insuficiente", deteccion_facial="rostro_pequeno",
+                    motivo="Acerca el rostro. La clasificación requiere un recorte de al menos 64 × 64 píxeles.")
     if entrada.calidad is not None and entrada.calidad < .4:
-        return {"estado": "evidencia_insuficiente", "motivo": "Calidad declarada insuficiente."}
-    x, y, w, h = caras[0]
-    calidad = {"declarada": entrada.calidad, "rostros_detectados": 1, "recorte_px": [int(w), int(h)]}
-    artefacto = modelos_fase7.obtener_modelo("facial") if entrada.modelo_facial != "historico" else None
+        return dict(deteccion, estado="evidencia_insuficiente", deteccion_facial="calidad_insuficiente",
+                    motivo="Calidad declarada insuficiente.")
+    calidad = {"declarada": entrada.calidad, "rostros_detectados": 1, "recorte_px": [w, h]}
+    deteccion.update(deteccion_facial="rostro_detectado", calidad_entrada=calidad)
+    artefacto = (medir("carga_modelo", modelos_fase7.obtener_modelo, "facial")
+                 if entrada.modelo_facial != "historico" else None)
     if artefacto is not None:
-        recorte = cv2.resize(gris[y:y+h, x:x+w], (48, 48), interpolation=cv2.INTER_AREA)
-        return dict(modelos_fase7.clasificar(artefacto, recorte.reshape(1, -1), "expresion"),
-                    calidad_entrada=calidad, origen_entrenamiento="datos_reales",
+        inicio = perf_counter()
+        recorte = gris[y:y+h, x:x+w]
+        tiempos["recorte"] = round((perf_counter() - inicio) * 1000, 3)
+        inicio = perf_counter()
+        vector = cv2.resize(recorte, (48, 48), interpolation=cv2.INTER_AREA).reshape(1, -1)
+        tiempos["preprocesamiento"] = round((perf_counter() - inicio) * 1000, 3)
+        return dict(deteccion, **medir("inferencia", modelos_fase7.clasificar, artefacto, vector, "expresion"),
+                    origen_entrenamiento="datos_reales",
                     limitacion="Categorías de expresión observable. No permiten inferir estados internos ni diagnósticos.")
     if entrada.modelo_facial == "real":
-        return {"estado": "modelo_no_disponible", "calidad_entrada": calidad,
-                "motivo": "No hay un modelo facial entrenado con datos reales habilitado."}
+        return dict(deteccion, estado="modelo_no_disponible",
+                    motivo="No hay un modelo facial entrenado con datos reales habilitado.")
     modelo = predictor.obtener_modelo_facial()
     if modelo is None:
-        return {"estado": "modelo_no_disponible", "modelo": MODELO_FACIAL}
+        return dict(deteccion, estado="modelo_no_disponible", modelo=MODELO_FACIAL)
     # Centrar el recorte evita que la posición en la imagen determine la inclinación.
     rasgos = predictor._extraer_rasgos_faciales(imagen[y:y+h, x:x+w], {"x": 0, "w": 1})
     vector = np.array([[rasgos[nombre] for nombre in predictor.RASGOS_FACIALES]])
     valores = modelo.predict_proba(vector)[0]
     puntajes = {ETIQUETAS[int(clase)]: float(p) for clase, p in zip(modelo.classes_, valores, strict=True)}
     expresion, criterio = modelos_fase7.decidir(puntajes, UMBRAL, MARGEN)
-    return {"estado": "estimacion_experimental" if expresion else "abstencion",
+    return {**deteccion, "estado": "estimacion_experimental" if expresion else "abstencion",
             "expresion": expresion, "puntajes_no_calibrados": puntajes, "modelo": MODELO_FACIAL,
             "calidad_entrada": calidad, "origen_entrenamiento": "sintetico", "criterio_abstencion": criterio}
 
@@ -264,13 +314,16 @@ def estado_modelos(cargar: bool = True):
 
 
 @router.post("/prediccion/analisis-experimental")
-async def analisis_experimental(request: Request, response: Response):
+async def analisis_experimental(request: Request):
     inicio = perf_counter()
     entrada = await leer_captura(request, EntradaExperimental)
     validada = perf_counter()
     resultado = await run_in_threadpool(evaluar, entrada)
+    evaluada = perf_counter()
+    response = JSONResponse(resultado)
     response.headers["Server-Timing"] = (
         f"entrada;dur={(validada - inicio) * 1000:.1f}, "
-        f"evaluacion;dur={(perf_counter() - validada) * 1000:.1f}"
+        f"evaluacion;dur={(evaluada - validada) * 1000:.1f}, "
+        f"serializacion;dur={(perf_counter() - evaluada) * 1000:.3f}"
     )
-    return resultado
+    return response

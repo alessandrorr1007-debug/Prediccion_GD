@@ -13,6 +13,7 @@ import logging
 import math
 import pickle
 import warnings
+from functools import lru_cache
 from pathlib import Path
 from threading import Lock
 from typing import List, Dict, Any, Optional, Tuple
@@ -35,7 +36,6 @@ _MODELO_SUCESOS = None
 _CARGA_PICKLE = {}
 _LOCK_MODELOS = Lock()
 _LOCK_HAAR = Lock()
-_FACE_CASCADE = None
 
 
 def _cargar_pickle(ruta, metodo):
@@ -94,16 +94,18 @@ def _obtener_yolo_pose():
 def _obtener_yolo_best():
     return YOLO_BEST.cargar()
 
-def _obtener_face_cascade():
-    global _FACE_CASCADE
-    if _FACE_CASCADE is None:
-        ruta_cascade = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-        _FACE_CASCADE = cv2.CascadeClassifier(ruta_cascade)
-    return _FACE_CASCADE
+@lru_cache(maxsize=2)
+def _obtener_face_cascade(experimental=False):
+    variante = "alt" if experimental else "default"
+    ruta = Path(cv2.data.haarcascades) / f"haarcascade_frontalface_{variante}.xml"
+    detector = cv2.CascadeClassifier(str(ruta))
+    if detector.empty():
+        raise RuntimeError(f"No se pudo cargar la cascada facial {variante}")
+    return detector
 
-def detectar_rostros(gris, tamano_minimo):
+def detectar_rostros(gris, tamano_minimo, *, experimental=False):
     with _LOCK_HAAR:
-        return _obtener_face_cascade().detectMultiScale(
+        return _obtener_face_cascade(experimental).detectMultiScale(
             gris, scaleFactor=1.15, minNeighbors=4, minSize=tamano_minimo)
 
 def _tensor_a_numpy(t: Any) -> np.ndarray:

@@ -41,7 +41,51 @@ class ExperimentalTests(unittest.TestCase):
         cargar.assert_not_called()
         self.assertEqual(respuesta.status_code, 200)
         self.assertEqual(respuesta.json()["fuentes"]["imagen"]["estado"], "imagen_invalida")
-        self.assertRegex(respuesta.headers["Server-Timing"], r"^entrada;dur=\d+\.\d, evaluacion;dur=\d+\.\d$")
+        self.assertRegex(respuesta.headers["Server-Timing"], r"^entrada;dur=\d+\.\d, evaluacion;dur=\d+\.\d, serializacion;dur=\d+\.\d{3}$")
+
+    def test_deteccion_pequena_y_multiple_no_carga_clasificador(self):
+        casos = (
+            ([(5, 10, 49, 49)], "rostro_pequeno"),
+            ([(5, 10, 49, 49), (60, 30, 55, 55)], "multiples_rostros"),
+        )
+        for cajas, estado in casos:
+            with (self.subTest(estado=estado),
+                  patch.object(experimental.predictor, "detectar_rostros", return_value=cajas) as detectar,
+                  patch.object(experimental.modelos_fase7, "obtener_modelo") as cargar):
+                fuente = self.enviar(imagen={"imagen_b64": imagen_b64(), "modelo_facial": "real"}).json()["fuentes"]["imagen"]
+                self.assertEqual(detectar.call_args.args[1], (30, 30))
+                self.assertEqual(fuente["deteccion_facial"], estado)
+                self.assertEqual(fuente["estado"], "evidencia_insuficiente")
+                self.assertEqual(fuente["rostros_detectados"], len(cajas))
+                self.assertEqual(fuente["rostros"][0], {"x": 5, "y": 10, "ancho": 49, "alto": 49})
+                cargar.assert_not_called()
+
+    def test_detector_real_con_foto_publica_por_http(self):
+        ruta = Path(__file__).resolve().parents[1] / "_archivo/fase7/datos/astronaut.png"
+        if not ruta.is_file():
+            self.skipTest("Requiere la fotografía pública de los artefactos locales")
+        foto = cv2.imdecode(np.frombuffer(ruta.read_bytes(), np.uint8), cv2.IMREAD_COLOR)
+        pequena = cv2.resize(foto, (256, 256), interpolation=cv2.INTER_AREA)
+        doble = np.hstack([foto, foto])
+        with patch.object(experimental.modelos_fase7, "obtener_modelo", return_value=None):
+            for imagen, extension, cantidad, deteccion in (
+                (foto, ".png", 1, "rostro_detectado"),
+                (pequena, ".webp", 1, "rostro_pequeno"),
+                (doble, ".jpg", 2, "multiples_rostros"),
+            ):
+                with self.subTest(deteccion=deteccion):
+                    _, archivo = cv2.imencode(extension, imagen)
+                    contenido = base64.b64encode(archivo).decode("ascii")
+                    respuesta = self.enviar(imagen={"imagen_b64": contenido, "modelo_facial": "real"})
+                    self.assertEqual(respuesta.status_code, 200)
+                    fuente = respuesta.json()["fuentes"]["imagen"]
+                    self.assertEqual(fuente["deteccion_facial"], deteccion)
+                    self.assertEqual(fuente["rostros_detectados"], cantidad)
+                    self.assertEqual(fuente["estado"], "modelo_no_disponible" if deteccion == "rostro_detectado" else "evidencia_insuficiente")
+                    alto, ancho = imagen.shape[:2]
+                    for caja in fuente["rostros"]:
+                        self.assertLessEqual(caja["x"] + caja["ancho"], ancho)
+                        self.assertLessEqual(caja["y"] + caja["alto"], alto)
 
     def test_audio_declarado_independiente_y_errores_de_formato(self):
         salida = self.enviar(audio={"duracion_segundos": 4, "f0_hz": 150, "rms_normalizado": .2},
