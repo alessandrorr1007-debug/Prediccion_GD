@@ -185,148 +185,151 @@
               <input id="auto-capture-interval" type="number" min="5" value="5" step="1">
             </div>
             <p id="auto-capture-status" class="capture-note" role="status">La captura automática requiere una cámara activa.</p>
-            <div id="resultado-facial-captura" aria-live="polite"></div>
+            <div id="resultado-facial-captura" class="sr-only" aria-live="polite"></div>
             <p class="capture-note">La captura automática solo envía fotogramas si la activas. El análisis facial experimental muestra expresiones de identidad desconocida.</p>
           </section>
 
-          <!-- Tarjeta Derecha (52%): Selección y Estado de Alumnos en la Captura -->
-          <section class="card students-selection-card" id="students-selection-card">
-            <div class="card-header-bar" id="students-header-bar">
-              <div class="students-header-title-wrap">
-                <h3 class="card-title" id="students-panel-title">🎯 Selección y Estado de Alumnos en la Captura</h3>
-                <p class="card-subtitle-note" id="students-panel-subtitle">Haz clic en cualquier alumno de la captura para consultar su predicción individual</p>
-              </div>
-              <div class="students-header-actions">
-                <div class="students-counter-chip" id="students-counter-chip">
-                  <span id="students-count-badge">Esperando captura</span>
+          <!-- Columna Derecha (52%): Detección / Alumnos + Reconocimiento Facial -->
+          <div class="right-analysis-column">
+            <section class="card students-selection-card" id="students-selection-card">
+              <div class="card-header-bar" id="students-header-bar">
+                <div class="students-header-title-wrap">
+                  <h3 class="card-title" id="students-panel-title">🎯 Detección y Análisis Facial</h3>
+                  <p class="card-subtitle-note" id="students-panel-subtitle">Captura o sube una fotografía para detectar el rostro y estimar su expresión</p>
                 </div>
-                <button type="button" id="btn-toggle-students-panel" class="btn-panel-toggle" aria-expanded="false" title="Expandir o contraer panel">
-                  <span id="students-toggle-icon">▼</span>
-                  <span id="students-toggle-label">Detalles</span>
-                </button>
+                <div class="students-header-actions">
+                  <div class="students-counter-chip" id="students-counter-chip">
+                    <span id="students-count-badge">Esperando captura</span>
+                  </div>
+                  <button type="button" id="btn-toggle-students-panel" class="btn-panel-toggle" aria-expanded="false" title="Expandir o contraer panel">
+                    <span id="students-toggle-icon">▼</span>
+                    <span id="students-toggle-label">Detalles</span>
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <!-- Cuadrícula de Tarjetas de Alumnos (Grid 2 Columnas) / Contenedor Dinámico -->
-            <div id="students-grid" class="students-grid-container" role="region" aria-label="Alumnos o estado facial en la captura">
-              <div class="students-empty-state waiting-state">
-                <div class="empty-state-icon">📸</div>
-                <div class="empty-state-title">Esperando captura de imagen</div>
-                <div class="empty-state-desc">Presiona 'Capturar fotograma' o 'Subir Foto' para iniciar el análisis.</div>
+              <!-- Cuadrícula de Tarjetas de Alumnos (Grid 2 Columnas) / Contenedor Dinámico -->
+              <div id="students-grid" class="students-grid-container" role="region" aria-label="Alumnos o estado facial en la captura">
+                <div class="students-empty-state waiting-state">
+                  <div class="empty-state-icon">📸</div>
+                  <div class="empty-state-title">Esperando captura de imagen</div>
+                  <div class="empty-state-desc">Presiona 'Capturar fotograma' o 'Subir Foto' para iniciar el análisis.</div>
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
+
+            <!-- Panel Inmediatamente Debajo: Reconocimiento Facial: Resultados de Expresión -->
+            <section class="card prediction-card emotions-card" id="emotions-results-card">
+              <div class="card-header-clean">
+                <h3 class="card-title-sm" id="facial-card-title">
+                  🔮 Reconocimiento Facial <span class="selected-student-label" id="facial-student-label">(Facial experimental)</span>
+                </h3>
+                <span class="sub-label" id="facial-card-sublabel">Estimación experimental de la expresión facial</span>
+              </div>
+
+              <!-- Barras Horizontales de Expresiones Faciales -->
+              <div class="emotions-bars-list" id="emotions-bars-list">
+                <!-- 1. Neutral (😐) -->
+                <div class="emotion-item" id="emo-item-neutral">
+                  <div class="emotion-title-row">
+                    <span class="emo-label" id="emo-label-neutral">Neutral (😐)</span>
+                    <span id="emo-pct-neutral" class="emo-val text-neutral">0%</span>
+                  </div>
+                  <div class="progress-track">
+                    <div id="emo-bar-neutral" class="progress-fill fill-neutral" style="width: 0%;"></div>
+                  </div>
+                </div>
+
+                <!-- 2. Alegría (😊) -->
+                <div class="emotion-item" id="emo-item-felicidad">
+                  <div class="emotion-title-row">
+                    <span class="emo-label" id="emo-label-felicidad">Alegría (😊)</span>
+                    <span id="emo-pct-felicidad" class="emo-val text-felicidad">0%</span>
+                  </div>
+                  <div class="progress-track">
+                    <div id="emo-bar-felicidad" class="progress-fill fill-felicidad" style="width: 0%;"></div>
+                  </div>
+                </div>
+
+                <!-- 3. Tristeza (😢) -->
+                <div class="emotion-item" id="emo-item-tristeza">
+                  <div class="emotion-title-row">
+                    <span class="emo-label" id="emo-label-tristeza">Tristeza (😢)</span>
+                    <span id="emo-pct-tristeza" class="emo-val text-tristeza">0%</span>
+                  </div>
+                  <div class="progress-track">
+                    <div id="emo-bar-tristeza" class="progress-fill fill-tristeza" style="width: 0%;"></div>
+                  </div>
+                </div>
+
+                <!-- 4. Miedo (😨) -->
+                <div class="emotion-item" id="emo-item-miedo">
+                  <div class="emotion-title-row">
+                    <span class="emo-label" id="emo-label-miedo">Miedo (😨)</span>
+                    <span id="emo-pct-miedo" class="emo-val text-miedo">0%</span>
+                  </div>
+                  <div class="progress-track">
+                    <div id="emo-bar-miedo" class="progress-fill fill-miedo" style="width: 0%;"></div>
+                  </div>
+                </div>
+
+                <!-- 5. Enojo (😠) -->
+                <div class="emotion-item" id="emo-item-enojo">
+                  <div class="emotion-title-row">
+                    <span class="emo-label" id="emo-label-enojo">Enojo (😠)</span>
+                    <span id="emo-pct-enojo" class="emo-val text-enojo">0%</span>
+                  </div>
+                  <div class="progress-track">
+                    <div id="emo-bar-enojo" class="progress-fill fill-enojo" style="width: 0%;"></div>
+                  </div>
+                </div>
+
+                <!-- 6. Sorpresa (😲) -->
+                <div class="emotion-item" id="emo-item-sorpresa">
+                  <div class="emotion-title-row">
+                    <span class="emo-label" id="emo-label-sorpresa">Sorpresa (😲)</span>
+                    <span id="emo-pct-sorpresa" class="emo-val text-sorpresa">0%</span>
+                  </div>
+                  <div class="progress-track">
+                    <div id="emo-bar-sorpresa" class="progress-fill fill-sorpresa" style="width: 0%;"></div>
+                  </div>
+                </div>
+
+                <!-- 7. Disgusto (🤢) -->
+                <div class="emotion-item" id="emo-item-disgusto">
+                  <div class="emotion-title-row">
+                    <span class="emo-label" id="emo-label-disgusto">Disgusto (🤢)</span>
+                    <span id="emo-pct-disgusto" class="emo-val text-disgusto">0%</span>
+                  </div>
+                  <div class="progress-track">
+                    <div id="emo-bar-disgusto" class="progress-fill fill-disgusto" style="width: 0%;"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Resumen de Estado Emocional Dominante y Acción Detectada -->
+              <div class="dominant-emotion-pill-wrap">
+                <div id="dominant-pill-box" class="dominant-pill">
+                  <span class="dot-accent-orange"></span>
+                  <span id="dominant-emotion-container">Estado Observable: <strong id="dominant-emotion-text">Sin evaluar — Esperando captura</strong></span>
+                </div>
+                <div id="action-pill-box" class="action-pill">
+                  <span class="dot-action-blue"></span>
+                  <span>Contexto / Acción: <strong id="student-action-badge">Esperando detección en captura</strong></span>
+                </div>
+              </div>
+
+              <div class="card-footer-badge" id="facial-card-footer">
+                <span>Modelo facial experimental · Categorías observables</span>
+              </div>
+            </section>
+          </div>
         </div>
 
         <!-- ================================================================
-             FILA INFERIOR (3 TARJETAS: PREDICCIÓN DEL ESTUDIANTE SELECCIONADO)
+             FILA INFERIOR (2 TARJETAS: SUCESOS PROBABLES + PROYECCIÓN ACADÉMICA)
              ================================================================ -->
         <div class="bottom-row-grid">
-          <!-- Tarjeta 1 (Izquierda 33%): Reconocimiento Facial -->
-          <section class="card prediction-card emotions-card">
-            <div class="card-header-clean">
-              <h3 class="card-title-sm" id="facial-card-title">
-                🔮 Reconocimiento Facial <span class="selected-student-label" id="facial-student-label">(Sin selección)</span>
-              </h3>
-              <span class="sub-label" id="facial-card-sublabel">Estimación experimental de la expresión facial</span>
-            </div>
-
-            <!-- Barras Horizontales de Expresiones Faciales -->
-            <div class="emotions-bars-list" id="emotions-bars-list">
-              <!-- 1. Neutral (😐) -->
-              <div class="emotion-item" id="emo-item-neutral">
-                <div class="emotion-title-row">
-                  <span class="emo-label" id="emo-label-neutral">Neutral (😐)</span>
-                  <span id="emo-pct-neutral" class="emo-val text-neutral">0%</span>
-                </div>
-                <div class="progress-track">
-                  <div id="emo-bar-neutral" class="progress-fill fill-neutral" style="width: 0%;"></div>
-                </div>
-              </div>
-
-              <!-- 2. Alegría (😊) -->
-              <div class="emotion-item" id="emo-item-felicidad">
-                <div class="emotion-title-row">
-                  <span class="emo-label" id="emo-label-felicidad">Alegría (😊)</span>
-                  <span id="emo-pct-felicidad" class="emo-val text-felicidad">0%</span>
-                </div>
-                <div class="progress-track">
-                  <div id="emo-bar-felicidad" class="progress-fill fill-felicidad" style="width: 0%;"></div>
-                </div>
-              </div>
-
-              <!-- 3. Tristeza (😢) -->
-              <div class="emotion-item" id="emo-item-tristeza">
-                <div class="emotion-title-row">
-                  <span class="emo-label" id="emo-label-tristeza">Tristeza (😢)</span>
-                  <span id="emo-pct-tristeza" class="emo-val text-tristeza">0%</span>
-                </div>
-                <div class="progress-track">
-                  <div id="emo-bar-tristeza" class="progress-fill fill-tristeza" style="width: 0%;"></div>
-                </div>
-              </div>
-
-              <!-- 4. Miedo (😨) -->
-              <div class="emotion-item" id="emo-item-miedo">
-                <div class="emotion-title-row">
-                  <span class="emo-label" id="emo-label-miedo">Miedo (😨)</span>
-                  <span id="emo-pct-miedo" class="emo-val text-miedo">0%</span>
-                </div>
-                <div class="progress-track">
-                  <div id="emo-bar-miedo" class="progress-fill fill-miedo" style="width: 0%;"></div>
-                </div>
-              </div>
-
-              <!-- 5. Enojo (😠) -->
-              <div class="emotion-item" id="emo-item-enojo">
-                <div class="emotion-title-row">
-                  <span class="emo-label" id="emo-label-enojo">Enojo (😠)</span>
-                  <span id="emo-pct-enojo" class="emo-val text-enojo">0%</span>
-                </div>
-                <div class="progress-track">
-                  <div id="emo-bar-enojo" class="progress-fill fill-enojo" style="width: 0%;"></div>
-                </div>
-              </div>
-
-              <!-- 6. Sorpresa (😲) -->
-              <div class="emotion-item" id="emo-item-sorpresa">
-                <div class="emotion-title-row">
-                  <span class="emo-label" id="emo-label-sorpresa">Sorpresa (😲)</span>
-                  <span id="emo-pct-sorpresa" class="emo-val text-sorpresa">0%</span>
-                </div>
-                <div class="progress-track">
-                  <div id="emo-bar-sorpresa" class="progress-fill fill-sorpresa" style="width: 0%;"></div>
-                </div>
-              </div>
-
-              <!-- 7. Disgusto (🤢) -->
-              <div class="emotion-item" id="emo-item-disgusto">
-                <div class="emotion-title-row">
-                  <span class="emo-label" id="emo-label-disgusto">Disgusto (🤢)</span>
-                  <span id="emo-pct-disgusto" class="emo-val text-disgusto">0%</span>
-                </div>
-                <div class="progress-track">
-                  <div id="emo-bar-disgusto" class="progress-fill fill-disgusto" style="width: 0%;"></div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Resumen de Estado Emocional Dominante y Acción Detectada -->
-            <div class="dominant-emotion-pill-wrap">
-              <div id="dominant-pill-box" class="dominant-pill">
-                <span class="dot-accent-orange"></span>
-                <span id="dominant-emotion-container">Estado Observable: <strong id="dominant-emotion-text">Sin evaluar — Esperando captura</strong></span>
-              </div>
-              <div id="action-pill-box" class="action-pill">
-                <span class="dot-action-blue"></span>
-                <span>Contexto / Acción: <strong id="student-action-badge">Esperando detección en captura</strong></span>
-              </div>
-            </div>
-
-            <div class="card-footer-badge" id="facial-card-footer">
-              <span>Modelo facial experimental · Categorías observables</span>
-            </div>
-          </section>
 
           <!-- Tarjeta 2 (Centro 34%): Predicción de Sucesos Probables -->
           <section class="card prediction-card events-card">

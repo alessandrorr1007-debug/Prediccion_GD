@@ -482,13 +482,36 @@ body {
 }
 
 /* ==========================================================================
-   FILA SUPERIOR: CÁMARA (48%) + SELECCIÓN DE ALUMNOS (52%)
+   FILA SUPERIOR (2 COLUMNAS): CAPTURA IZQ + DETECCIÓN Y EXPRESIÓN DER
    ========================================================================== */
 .top-row-grid {
   display: grid;
-  grid-template-columns: 48% 52%;
+  grid-template-columns: minmax(0, 48fr) minmax(0, 52fr);
   gap: 20px;
   align-items: start;
+}
+
+.camera-card {
+  min-width: 0;
+}
+
+.right-analysis-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* Selector de Modo Cámara vs Aula */
@@ -1168,20 +1191,26 @@ body {
 .attention-fill-danger { background-color: var(--color-danger); }
 
 /* ==========================================================================
-   FILA INFERIOR: 3 TARJETAS DE PREDICCIÓN INDIVIDUAL (33% · 34% · 33%)
+   FILA INFERIOR: 2 TARJETAS DE SUCESOS Y PROYECCIÓN ACADÉMICA
    ========================================================================== */
 .bottom-row-grid {
   display: grid;
-  grid-template-columns: 33% 34% 33%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
   align-items: stretch;
 }
 
 .prediction-card {
-  min-height: 380px;
+  min-height: 360px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+}
+
+.right-analysis-column .emotions-card {
+  min-height: 0;
+  justify-content: flex-start;
 }
 
 .card-header-clean {
@@ -1608,10 +1637,10 @@ body {
 /* Responsividad para pantallas medianas / laptops */
 @media (max-width: 1200px) {
   .top-row-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .bottom-row-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -1660,6 +1689,12 @@ body {
   }
   .card {
     padding: 14px;
+  }
+  .prediction-card {
+    min-height: 0;
+  }
+  .emotions-bars-list {
+    gap: 10px;
   }
   .card-header-bar {
     flex-wrap: wrap;

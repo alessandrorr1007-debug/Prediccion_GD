@@ -1011,7 +1011,22 @@ test("fallos parciales de audio o imagen sin rostro no invalidan predicción aca
 test("CSS mantiene arquitectura responsive sin alturas mínimas excesivas en panel compacto", () => {
   const css = readFileSync(join(raiz, "frontend/style.css"), "utf8");
   assert.match(css, /\.top-row-grid\s*\{[^}]*align-items:\s*start/);
+  assert.match(css, /\.right-analysis-column\s*\{[^}]*flex-direction:\s*column/);
+  assert.match(css, /\.bottom-row-grid\s*\{[^}]*repeat\(2,/);
   assert.match(css, /\.students-selection-card\.compact-mode/);
   assert.match(css, /@media\s*\(max-width:\s*1200px\)/);
   assert.match(css, /@media\s*\(max-width:\s*768px\)/);
+});
+
+test("Entrega 1 ubica Reconocimiento Facial en columna derecha debajo de Detección Facial sin duplicar salida", () => {
+  const html = readFileSync(join(raiz, "frontend/index.html"), "utf8");
+  const inicioTop = html.indexOf('class="top-row-grid"');
+  const inicioRight = html.indexOf('class="right-analysis-column"');
+  const inicioStudents = html.indexOf('id="students-selection-card"');
+  const inicioEmotions = html.indexOf('id="emotions-results-card"');
+  const inicioBottom = html.indexOf('class="bottom-row-grid"');
+  assert.ok(inicioTop !== -1 && inicioRight > inicioTop);
+  assert.ok(inicioStudents > inicioRight && inicioEmotions > inicioStudents);
+  assert.ok(inicioBottom > inicioEmotions);
+  assert.match(html, /<div id="resultado-facial-captura" class="sr-only"/);
 });
