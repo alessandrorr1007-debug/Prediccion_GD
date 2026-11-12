@@ -37,10 +37,18 @@ after(() => { if (proceso && proceso.exitCode === null) proceso.kill(); });
 
 class Elemento {
   constructor() {
-    this.value = ""; this.textContent = ""; this.children = []; this.listeners = {};
-    this.hidden = false; this.disabled = false; this.style = {};
-    this.classList = { add() {}, remove() {}, toggle() {} };
+    this.value = ""; this.textContent = ""; this.innerHTML = ""; this.children = []; this.listeners = {};
+    this.hidden = false; this.disabled = false; this.style = {}; this.attributes = {};
+    this._classes = new Set();
+    this.classList = {
+      add: (...c) => c.forEach(x => this._classes.add(x)),
+      remove: (...c) => c.forEach(x => this._classes.delete(x)),
+      toggle: (c, f) => (f === undefined ? !this._classes.has(c) : f) ? this._classes.add(c) : this._classes.delete(c),
+      contains: c => this._classes.has(c)
+    };
   }
+  setAttribute(k, v) { this.attributes[k] = String(v); }
+  getAttribute(k) { return this.attributes[k]; }
   addEventListener(nombre, fn) { this.listeners[nombre] = fn; }
   querySelectorAll() { return []; }
   append(...hijos) { this.children.push(...hijos); }
@@ -542,7 +550,7 @@ test("el aviso del lienzo se limita al modo Aula y la interfaz distingue resulta
                          /Rostro detectado.*Demasiado pequeño/, /Error técnico/]) {
     await subir();
     assert.match(e["capture-status-text"].textContent, mensaje);
-    assert.equal(e["students-count-badge"].textContent, "Modo Aula");
+    assert.match(e["students-count-badge"].textContent, /rostro|Rostro|Error/);
     assert.deepEqual(avisos, []);
   }
 });
@@ -785,4 +793,225 @@ test("recuperación tras error de inferencia no congela la interfaz y permite re
   await entrada.listeners.change({ target: entrada });
   assert.match(e["capture-status-text"].textContent, /Abstención/);
   assert.equal(e["emo-pct-neutral"].textContent, "40.0%");
+});
+
+test("panel compacto con un rostro en modo facial muestra resumen mínimo contraído por defecto", async () => {
+  const e = montar({
+    FileReader: class {
+      readAsDataURL() { this.result = "data:image/jpeg;base64,FOTO"; this.onload(); this.onloadend(); }
+    },
+    fetch: async () => Response.json({
+      fuentes: {
+        imagen: {
+          estado: "abstencion",
+          rostros_detectados: 1,
+          calidad_entrada: { recorte_px: [96, 96] },
+          puntajes_calibrados: { neutral: 0.313, alegria: 0.312, enojo: 0.236, tristeza: 0.139 },
+          modelo: { algoritmo: "hog_svm", version: "fase8-1.0", dataset: { nombre: "CMU Face Images" } }
+        }
+      }
+    })
+  });
+  e["modo-analisis-captura"].value = "facial";
+  const entrada = e["input-upload-image"];
+  entrada.files = [{ name: "rostro.jpg" }];
+  await entrada.listeners.change({ target: entrada });
+
+  assert.ok(e["students-selection-card"].classList.contains("compact-mode"));
+  assert.match(e["students-panel-title"].textContent, /Detección y Análisis Facial/);
+  assert.doesNotMatch(e["students-panel-subtitle"].textContent, /Haz clic en cualquier alumno/);
+  assert.equal(e["students-count-badge"].textContent, "1 rostro detectado");
+  assert.match(e["students-grid"].innerHTML, /Rostro 1 · Identidad desconocida/);
+  assert.match(e["students-grid"].innerHTML, /Resultado facial disponible/);
+  assert.equal(e["btn-toggle-students-panel"].hidden, false);
+  assert.equal(e["btn-toggle-students-panel"].getAttribute("aria-expanded"), "false");
+  assert.doesNotMatch(e["students-grid"].innerHTML, /OpenCV Haar Cascade/);
+});
+
+test("panel compacto sin rostros indica ausencia sin contenedores vacíos ni botón de detalles", async () => {
+  const e = montar({
+    FileReader: class {
+      readAsDataURL() { this.result = "data:image/jpeg;base64,FOTO"; this.onload(); this.onloadend(); }
+    },
+    fetch: async () => Response.json({
+      fuentes: {
+        imagen: {
+          estado: "evidencia_insuficiente",
+          deteccion_facial: "sin_rostro",
+          rostros_detectados: 0
+        }
+      }
+    })
+  });
+  e["modo-analisis-captura"].value = "facial";
+  const entrada = e["input-upload-image"];
+  entrada.files = [{ name: "vacio.jpg" }];
+  await entrada.listeners.change({ target: entrada });
+
+  assert.ok(e["students-selection-card"].classList.contains("compact-mode"));
+  assert.equal(e["students-count-badge"].textContent, "No se detectaron rostros");
+  assert.match(e["students-grid"].innerHTML, /No se detectaron rostros/);
+  assert.equal(e["btn-toggle-students-panel"].hidden, true);
+});
+
+test("panel facial puede expandirse para mostrar detalles técnicos y volver a contraerse", async () => {
+  const e = montar({
+    FileReader: class {
+      readAsDataURL() { this.result = "data:image/jpeg;base64,FOTO"; this.onload(); this.onloadend(); }
+    },
+    fetch: async () => Response.json({
+      fuentes: {
+        imagen: {
+          estado: "estimacion_experimental",
+          rostros_detectados: 1,
+          expresion: "alegria",
+          calidad_entrada: { recorte_px: [120, 120] },
+          puntajes_calibrados: { neutral: 0.1, alegria: 0.75, enojo: 0.1, tristeza: 0.05 }
+        }
+      }
+    })
+  });
+  e["modo-analisis-captura"].value = "facial";
+  const entrada = e["input-upload-image"];
+  entrada.files = [{ name: "feliz.jpg" }];
+  await entrada.listeners.change({ target: entrada });
+
+  // Contraído inicialmente
+  assert.equal(e["btn-toggle-students-panel"].getAttribute("aria-expanded"), "false");
+  assert.equal(e["students-toggle-label"].textContent, "Detalles");
+
+  // Expandir
+  e["btn-toggle-students-panel"].listeners.click();
+  assert.equal(e["btn-toggle-students-panel"].getAttribute("aria-expanded"), "true");
+  assert.equal(e["students-toggle-label"].textContent, "Contraer");
+  assert.match(e["students-grid"].innerHTML, /OpenCV Haar Cascade/);
+  assert.match(e["students-grid"].innerHTML, /120 × 120 px/);
+  assert.match(e["students-grid"].innerHTML, /No atribuida/);
+
+  // Contraer nuevamente
+  e["btn-toggle-students-panel"].listeners.click();
+  assert.equal(e["btn-toggle-students-panel"].getAttribute("aria-expanded"), "false");
+  assert.equal(e["students-toggle-label"].textContent, "Detalles");
+  assert.doesNotMatch(e["students-grid"].innerHTML, /120 × 120 px/);
+});
+
+test("cambio dinámico entre Facial experimental y Modo Aula actualiza todos los encabezados y mensajes", async () => {
+  const e = montar();
+  e["modo-analisis-captura"].value = "facial";
+  e["modo-analisis-captura"].listeners.change({ target: e["modo-analisis-captura"] });
+
+  assert.ok(e["students-selection-card"].classList.contains("compact-mode"));
+  assert.match(e["students-panel-title"].textContent, /Detección y Análisis Facial/);
+  assert.equal(e["students-count-badge"].textContent, "Esperando captura facial");
+  assert.doesNotMatch(e["facial-card-title"].textContent, /Sin selección/);
+  assert.match(e["events-card-title"].textContent, /Inactivo en captura individual/);
+  assert.match(e["academic-card-title"].textContent, /Independiente/);
+
+  e["modo-analisis-captura"].value = "aula";
+  e["modo-analisis-captura"].listeners.change({ target: e["modo-analisis-captura"] });
+
+  assert.equal(e["students-selection-card"].classList.contains("compact-mode"), false);
+  assert.match(e["students-panel-title"].textContent, /Selección y Estado de Alumnos/);
+  assert.equal(e["students-count-badge"].textContent, "Esperando captura");
+  assert.match(e["facial-card-title"].textContent, /Sin selección/);
+});
+
+test("modo aula carga estudiantes seleccionables, permite contraer/expandir y conserva seguimiento", async () => {
+  const e = montar({
+    fetch: async () => Response.json({
+      total_alumnos: 2,
+      resolucion_captura: "1280x720",
+      modelos_predictivos_disponibles: true,
+      estudiantes: [
+        {
+          id: 1, nombre: "Alonso", estado: "Concentrado", estadoClase: "status-concentrado",
+          atencion: 90, tipoAtencion: "attention-fill-green",
+          emociones: { neutral: 80, felicidad: 10, tristeza: 2, miedo: 2, enojo: 2, sorpresa: 2, disgusto: 2, dominante: "Neutral" },
+          causas: [], consecuencias: [], score: 15, nivelRiesgo: "BAJO", esRiesgoAlto: false, alertaExamen: "Sin riesgo", narrativa: "Estable"
+        },
+        {
+          id: 2, nombre: "Beatriz", estado: "Distraída", estadoClase: "status-distraido",
+          atencion: 45, tipoAtencion: "attention-fill-amber",
+          emociones: { neutral: 40, felicidad: 5, tristeza: 30, miedo: 10, enojo: 5, sorpresa: 5, disgusto: 5, dominante: "Tristeza" },
+          causas: [], consecuencias: [], score: 70, nivelRiesgo: "ALTO", esRiesgoAlto: true, alertaExamen: "Atención requerida", narrativa: "Revisar"
+        }
+      ]
+    })
+  });
+  e["modo-analisis-captura"].value = "aula";
+  await e["btn-group-classroom"].listeners.click();
+
+  assert.equal(e["students-selection-card"].classList.contains("compact-mode"), false);
+  assert.equal(e["students-count-badge"].textContent, "2 Alumnos Detectados");
+  assert.match(e["students-grid"].innerHTML, /Alonso/);
+  assert.match(e["students-grid"].innerHTML, /Beatriz/);
+  assert.equal(e["btn-toggle-students-panel"].hidden, false);
+  assert.equal(e["btn-toggle-students-panel"].getAttribute("aria-expanded"), "true");
+
+  // Contraer lista en Modo Aula
+  e["btn-toggle-students-panel"].listeners.click();
+  assert.equal(e["btn-toggle-students-panel"].getAttribute("aria-expanded"), "false");
+  assert.match(e["students-grid"].innerHTML, /2 alumnos disponibles/);
+
+  // Expandir lista nuevamente
+  e["btn-toggle-students-panel"].listeners.click();
+  assert.equal(e["btn-toggle-students-panel"].getAttribute("aria-expanded"), "true");
+  assert.match(e["students-grid"].innerHTML, /Beatriz/);
+});
+
+test("botón Nueva Captura reinicia panel compacto, resultados faciales y estado de espera", async () => {
+  const e = montar({
+    FileReader: class {
+      readAsDataURL() { this.result = "data:image/jpeg;base64,FOTO"; this.onload(); this.onloadend(); }
+    },
+    fetch: async () => Response.json({
+      fuentes: { imagen: { estado: "abstencion", rostros_detectados: 1, puntajes_calibrados: { neutral: 0.4, alegria: 0.3, enojo: 0.2, tristeza: 0.1 } } }
+    })
+  });
+  e["modo-analisis-captura"].value = "facial";
+  e["input-upload-image"].files = [{ name: "rostro.jpg" }];
+  await e["input-upload-image"].listeners.change({ target: e["input-upload-image"] });
+  assert.equal(e["students-count-badge"].textContent, "1 rostro detectado");
+
+  e["btn-new-capture"].listeners.click();
+  assert.equal(e["students-count-badge"].textContent, "Esperando captura facial");
+  assert.equal(e["btn-toggle-students-panel"].hidden, true);
+  assert.equal(e["emo-pct-neutral"].textContent, "0%");
+});
+
+test("fallos parciales de audio o imagen sin rostro no invalidan predicción académica válida", async () => {
+  const e = montar({
+    fetch: async () => Response.json({
+      schema_version: 1,
+      fuentes: {
+        imagen: { estado: "evidencia_insuficiente", deteccion_facial: "sin_rostro", rostros_detectados: 0 },
+        audio: { estado: "error_inferencia", motivo: "Fallo de formato de audio" }
+      },
+      academico: {
+        estado: "estimacion_experimental",
+        desenlace_estimado: "aprueba",
+        probabilidad_no_aprueba: 0.18,
+        puntajes_calibrados: { aprueba: 0.82, no_aprueba: 0.18 },
+        corte: "despues_g2",
+        modelo: { algoritmo: "logistic_regression", version: "fase7-1.0", dataset: "UCI Student Performance" }
+      },
+      sincronizacion: { estado: "fuentes_insuficientes", fuentes_elegibles: [] }
+    })
+  });
+  e["experimental-json"].value = JSON.stringify({
+    schema_version: 1, academico: { G1: 15, G2: 16, corte: "despues_g2", escala: "0-20" }
+  });
+  await e["analisis-experimental"].listeners.submit({ preventDefault() {} });
+
+  assert.equal(e["riesgo-score-num"].textContent, "18");
+  assert.match(e["riesgo-nivel-text"].textContent, /Aprobación proyectada/);
+  assert.match(e["academic-card-title"].textContent, /Evaluación curricular/);
+});
+
+test("CSS mantiene arquitectura responsive sin alturas mínimas excesivas en panel compacto", () => {
+  const css = readFileSync(join(raiz, "frontend/style.css"), "utf8");
+  assert.match(css, /\.top-row-grid\s*\{[^}]*align-items:\s*start/);
+  assert.match(css, /\.students-selection-card\.compact-mode/);
+  assert.match(css, /@media\s*\(max-width:\s*1200px\)/);
+  assert.match(css, /@media\s*\(max-width:\s*768px\)/);
 });

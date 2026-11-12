@@ -190,23 +190,29 @@
           </section>
 
           <!-- Tarjeta Derecha (52%): Selección y Estado de Alumnos en la Captura -->
-          <section class="card students-selection-card">
-            <div class="card-header-bar">
-              <div>
-                <h3 class="card-title">🎯 Selección y Estado de Alumnos en la Captura</h3>
-                <p class="card-subtitle-note">Haz clic en cualquier alumno de la captura para consultar su predicción individual</p>
+          <section class="card students-selection-card" id="students-selection-card">
+            <div class="card-header-bar" id="students-header-bar">
+              <div class="students-header-title-wrap">
+                <h3 class="card-title" id="students-panel-title">🎯 Selección y Estado de Alumnos en la Captura</h3>
+                <p class="card-subtitle-note" id="students-panel-subtitle">Haz clic en cualquier alumno de la captura para consultar su predicción individual</p>
               </div>
-              <div class="students-counter-chip">
-                <span id="students-count-badge">Esperando captura</span>
+              <div class="students-header-actions">
+                <div class="students-counter-chip" id="students-counter-chip">
+                  <span id="students-count-badge">Esperando captura</span>
+                </div>
+                <button type="button" id="btn-toggle-students-panel" class="btn-panel-toggle" aria-expanded="false" title="Expandir o contraer panel">
+                  <span id="students-toggle-icon">▼</span>
+                  <span id="students-toggle-label">Detalles</span>
+                </button>
               </div>
             </div>
 
-            <!-- Cuadrícula de Tarjetas de Alumnos (Grid 2 Columnas) -->
-            <div id="students-grid" class="students-grid-container" role="listbox" aria-label="Alumnos detectados en la captura">
+            <!-- Cuadrícula de Tarjetas de Alumnos (Grid 2 Columnas) / Contenedor Dinámico -->
+            <div id="students-grid" class="students-grid-container" role="region" aria-label="Alumnos o estado facial en la captura">
               <div class="students-empty-state waiting-state">
                 <div class="empty-state-icon">📸</div>
                 <div class="empty-state-title">Esperando captura de imagen</div>
-                <div class="empty-state-desc">Presiona 'Capturar Imagen y Predecir' (o recibe una captura del módulo de Imagen) para detectar a los alumnos presentes y ejecutar el modelo de predicción.</div>
+                <div class="empty-state-desc">Presiona 'Capturar fotograma' o 'Subir Foto' para iniciar el análisis.</div>
               </div>
             </div>
           </section>

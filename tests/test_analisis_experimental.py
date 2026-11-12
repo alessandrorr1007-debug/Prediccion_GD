@@ -177,6 +177,32 @@ class ExperimentalTests(unittest.TestCase):
             self.assertEqual(salida["fuentes"]["imagen"]["estado"], "abstencion")
             self.assertEqual(salida["academico"]["estado"], "sin_entrada")
 
+    def test_academico_datos_insuficientes_y_escala_0_20(self):
+        parcial = self.enviar(academico={"G1": 14, "corte": "despues_g2", "escala": "0-20"}).json()["academico"]
+        self.assertEqual(parcial["estado"], "evidencia_insuficiente")
+        self.assertIn("G2", parcial["campos_faltantes"])
+        self.assertEqual(self.enviar(academico={"G1": 21, "G2": 10}).status_code, 422)
+        self.assertEqual(self.enviar(academico={"G1": -1, "G2": 10}).status_code, 422)
+
+    def test_fallo_audio_y_sin_rostro_conservan_academico_valido(self):
+        modelo_acad = Mock()
+        modelo_acad.classes_ = ["aprueba", "no_aprueba"]
+        modelo_acad.predict_proba.return_value = [[.82, .18]]
+        artefacto = {
+            "modelo": modelo_acad, "tipo": "academico", "version": "fase7-1.0",
+            "algoritmo": "logistic_regression", "dataset": "UCI Student Performance", "sklearn": "1.5.0"
+        }
+        with patch.object(experimental.modelos_fase7, "obtener_modelo", return_value=artefacto):
+            salida = self.enviar(
+                imagen={"imagen_b64": imagen_b64()},
+                audio={"wav_b64": "no-es-wav-valido"},
+                academico={"G1": 15, "G2": 16, "corte": "despues_g2", "escala": "0-20"},
+            ).json()
+            self.assertEqual(salida["fuentes"]["imagen"]["estado"], "evidencia_insuficiente")
+            self.assertEqual(salida["fuentes"]["audio"]["estado"], "audio_invalido")
+            self.assertEqual(salida["academico"]["estado"], "estimacion_experimental")
+            self.assertEqual(salida["academico"]["desenlace_estimado"], "aprueba")
+
 
 def datos_academicos():
     return {

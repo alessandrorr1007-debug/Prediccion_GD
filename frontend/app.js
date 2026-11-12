@@ -83,6 +83,9 @@ let estudianteSeleccionadoId = null;
 let animCanvasId = null;
 let modoCapturaCongelada = false;
 let estadoCuadricula = "espera";
+let panelEstudiantesExpandido = false;
+let ultimoResultadoFacial = null;
+let ultimoResultadoAcademico = null;
 
 // Datos calibrados de demostración (utilizados en pruebas y simulación)
 const DEMO_INICIAL_ESTUDIANTES = [
@@ -129,9 +132,12 @@ const DEMO_INICIAL_ESTUDIANTES = [
 // ============================================================================
 
 function renderizarPanelesInferiores(estudiante) {
+  const modoSelect = elemento("modo-analisis-captura");
+  const esFacial = Boolean(modoSelect && modoSelect.value === "facial");
+  const labelDefault = esFacial ? "(Facial experimental)" : "(Sin selección)";
   const labels = typeof document !== "undefined" && document.querySelectorAll ? document.querySelectorAll(".selected-student-label") : [];
   labels.forEach(el => {
-    el.textContent = estudiante ? `(${estudiante.nombre})` : "(Sin selección)";
+    el.textContent = estudiante ? `(${estudiante.nombre})` : labelDefault;
   });
 
   const emoNeutral = elemento("emo-pct-neutral");
@@ -174,15 +180,15 @@ function renderizarPanelesInferiores(estudiante) {
   const academicFooter = elemento("academic-card-footer");
 
   if (!estudiante) {
-    if (facialTitle) facialTitle.textContent = '🔮 Reconocimiento Facial (Sin selección)';
-    if (facialSub) facialSub.textContent = "Estimación experimental de la expresión facial";
-    if (facialFooter) facialFooter.innerHTML = '<span>Modelo facial experimental · Categorías observables</span>';
+    if (facialTitle) facialTitle.textContent = esFacial ? '🔮 Reconocimiento Facial (Facial experimental)' : '🔮 Reconocimiento Facial (Sin selección)';
+    if (facialSub) facialSub.textContent = esFacial ? "Estimación experimental de la expresión facial (datos reales)" : "Estimación experimental de la expresión facial";
+    if (facialFooter) facialFooter.innerHTML = esFacial ? '<span>🔬 Modelo Facial HOG+SVM (fase8-1.0) · CMU Face Images (4 expresiones verificadas)</span>' : '<span>Modelo facial experimental · Categorías observables</span>';
 
-    if (eventsTitle) eventsTitle.textContent = '📋 Predicción de Sucesos Probables (Sin selección)';
-    if (eventsFooter) eventsFooter.innerHTML = '<span>Proyección de sucesos basada en contexto y tiempo en aula</span>';
+    if (eventsTitle) eventsTitle.textContent = esFacial ? '📋 Predicción de Sucesos Probables (Inactivo en captura individual)' : '📋 Predicción de Sucesos Probables (Sin selección)';
+    if (eventsFooter) eventsFooter.innerHTML = esFacial ? '<span>Requiere supervisión de aula o secuencia temporal</span>' : '<span>Proyección de sucesos basada en contexto y tiempo en aula</span>';
 
-    if (academicTitle) academicTitle.textContent = '📈 Análisis y Proyección Académica (Sin selección)';
-    if (academicFooter) academicFooter.innerHTML = '<span>La evaluación académica requiere datos curriculares verificados</span>';
+    if (academicTitle) academicTitle.textContent = esFacial ? '📈 Análisis y Proyección Académica (Independiente)' : '📈 Análisis y Proyección Académica (Sin selección)';
+    if (academicFooter) academicFooter.innerHTML = '<span>La evaluación académica requiere datos curriculares verificados (escala 0-20)</span>';
 
     // Reseteo limpio cuando no hay estudiantes en la captura o antes de capturar
     if (emoNeutral && barNeutral) { emoNeutral.textContent = "0%"; barNeutral.style.width = "0%"; }
@@ -193,15 +199,19 @@ function renderizarPanelesInferiores(estudiante) {
     if (emoSorpresa && barSorpresa) { emoSorpresa.textContent = "0%"; barSorpresa.style.width = "0%"; }
     if (emoDisgusto && barDisgusto) { emoDisgusto.textContent = "0%"; barDisgusto.style.width = "0%"; }
     if (domEmoText) domEmoText.textContent = "Sin evaluar — Esperando captura";
-    if (actionBadge) actionBadge.textContent = "Esperando detección en captura";
+    if (actionBadge) actionBadge.textContent = esFacial ? "Análisis facial individual de identidad desconocida" : "Esperando detección en captura";
 
     const causesList = elemento("causes-list");
     if (causesList) {
-      causesList.innerHTML = `<div class="prediction-empty-notice"><span>⏳</span><span>Esperando captura de aula para proyectar acontecimientos previos...</span></div>`;
+      causesList.innerHTML = esFacial
+        ? `<div class="prediction-empty-notice"><span>ℹ️</span><span>No aplicable a captura facial individual.<br>La proyección de causas previas requiere eventos temporales o contexto de aula.</span></div>`
+        : `<div class="prediction-empty-notice"><span>⏳</span><span>Esperando captura de aula para proyectar acontecimientos previos...</span></div>`;
     }
     const consequencesList = elemento("consequences-list");
     if (consequencesList) {
-      consequencesList.innerHTML = `<div class="prediction-empty-notice"><span>⏳</span><span>Esperando captura de aula para proyectar consecuencias futuras...</span></div>`;
+      consequencesList.innerHTML = esFacial
+        ? `<div class="prediction-empty-notice"><span>ℹ️</span><span>No aplicable a captura facial individual.<br>La proyección de consecuencias futuras requiere supervisión grupal de clase.</span></div>`
+        : `<div class="prediction-empty-notice"><span>⏳</span><span>Esperando captura de aula para proyectar consecuencias futuras...</span></div>`;
     }
     const riskBanner = elemento("risk-score-banner");
     const riesgoScoreNum = elemento("riesgo-score-num");
@@ -211,10 +221,20 @@ function renderizarPanelesInferiores(estudiante) {
 
     if (riskBanner) riskBanner.className = "risk-score-banner bg-risk-optimal";
     if (riesgoScoreNum) riesgoScoreNum.textContent = "—";
-    if (riesgoNivelText) riesgoNivelText.textContent = "Sin evaluar — Esperando captura";
-    if (examRiskDesc) examRiskDesc.textContent = "Presiona 'Capturar fotograma' o 'Subir Foto' para iniciar el análisis.";
+    if (riesgoNivelText) {
+      riesgoNivelText.textContent = esFacial
+        ? "Predicción académica independiente: faltan datos curriculares (G1 y G2)."
+        : "Sin evaluar — Esperando captura";
+    }
+    if (examRiskDesc) {
+      examRiskDesc.textContent = esFacial
+        ? "Para calcular la proyección académica se requieren calificaciones curriculares (G1 y G2 en escala 0-20). Las expresiones faciales nunca sustituyen el desempeño académico."
+        : "Presiona 'Capturar fotograma' o 'Subir Foto' para iniciar el análisis.";
+    }
     if (narrativeText) {
-      narrativeText.innerHTML = "Esperando captura para evaluar las emociones y el desempeño de los estudiantes en el aula.";
+      narrativeText.innerHTML = esFacial
+        ? "Esperando captura facial para estimar la expresión observable de identidad desconocida sin asociar datos escolares."
+        : "Esperando captura para evaluar las emociones y el desempeño de los estudiantes en el aula.";
     }
     return;
   }
@@ -313,21 +333,33 @@ function renderizarPanelesInferiores(estudiante) {
 }
 
 function renderizarResultadoFacial(resultadoFacial, resultadoAcademico) {
+  ultimoResultadoFacial = resultadoFacial;
+  if (resultadoAcademico !== undefined) ultimoResultadoAcademico = resultadoAcademico;
   const labels = typeof document !== "undefined" && document.querySelectorAll ? document.querySelectorAll(".selected-student-label") : [];
   const rostros = resultadoFacial?.rostros_detectados ?? (resultadoFacial?.deteccion_facial === "sin_rostro" ? 0 : (resultadoFacial ? 1 : 0));
   const labelText = resultadoFacial
     ? (rostros === 1 ? "(Rostro 1 · Identidad desconocida)" : rostros > 1 ? `(${rostros} rostros detectados)` : "(Sin rostro detectado)")
-    : "(Sin selección)";
+    : "(Facial experimental)";
 
   labels.forEach(el => { el.textContent = labelText; });
   const fLabel = elemento("facial-student-label"); if (fLabel) fLabel.textContent = labelText;
-  const evLabel = elemento("events-student-label"); if (evLabel) evLabel.textContent = "(Captura facial individual)";
-  const acLabel = elemento("academic-student-label"); if (acLabel) acLabel.textContent = resultadoAcademico?.estado === "estimacion_experimental" ? "(Evaluación académica)" : "(No disponible)";
+  const evLabel = elemento("events-student-label"); if (evLabel) evLabel.textContent = "(Inactivo en captura individual)";
+  const acLabel = elemento("academic-student-label"); if (acLabel) acLabel.textContent = ultimoResultadoAcademico?.estado === "estimacion_experimental" ? "(Evaluación curricular)" : "(Independiente)";
 
   // Título y subtítulo del panel facial adaptados al clasificador operativo
   const facialTitle = elemento("facial-card-title");
   if (facialTitle) {
     facialTitle.textContent = `🔮 Reconocimiento Facial: 4 Expresiones Observables ${labelText}`;
+  }
+  const eventsTitle = elemento("events-card-title");
+  if (eventsTitle) {
+    eventsTitle.textContent = '📋 Predicción de Sucesos Probables (Inactivo en captura individual)';
+  }
+  const academicTitle = elemento("academic-card-title");
+  if (academicTitle) {
+    academicTitle.textContent = ultimoResultadoAcademico?.estado === "estimacion_experimental"
+      ? '📈 Análisis y Proyección Académica (Evaluación curricular)'
+      : '📈 Análisis y Proyección Académica (Independiente)';
   }
   const facialSub = elemento("facial-card-sublabel");
   if (facialSub) {
@@ -509,34 +541,163 @@ function renderizarCuadriculaEstudiantes() {
   const container = elemento("students-grid");
   if (!container) return;
 
+  const card = elemento("students-selection-card");
+  const panelTitle = elemento("students-panel-title");
+  const panelSubtitle = elemento("students-panel-subtitle");
   const countBadge = elemento("students-count-badge");
-  if (estadoCuadricula === "facial") {
-    if (countBadge) countBadge.textContent = "Modo Aula";
-    container.textContent = "Consulta el resultado facial junto al visor.";
-    return;
-  }
-  if (countBadge) {
-    if (!modoCapturaCongelada && estudiantesEnCaptura.length === 0) {
-      countBadge.textContent = "Esperando captura";
-    } else {
-      countBadge.textContent = `${estudiantesEnCaptura.length} Alumno${estudiantesEnCaptura.length === 1 ? "" : "s"} Detectado${estudiantesEnCaptura.length === 1 ? "" : "s"}`;
-    }
-  }
+  const toggleBtn = elemento("btn-toggle-students-panel");
+  const toggleIcon = elemento("students-toggle-icon");
+  const toggleLabel = elemento("students-toggle-label");
 
-  if (estudiantesEnCaptura.length === 0) {
-    if (estadoCuadricula === "sin_modelos") {
-      container.textContent = "Modelos de predicción no disponibles para esta imagen.";
-    } else if (estadoCuadricula !== "sin_personas") {
-      // Estado Inicial / En espera de captura (Preview de cámara limpia)
+  const selectModo = elemento("modo-analisis-captura");
+  const modo = selectModo ? selectModo.value : (estadoCuadricula === "facial" ? "facial" : "aula");
+  const esFacial = modo === "facial";
+
+  if (esFacial) {
+    if (card) card.classList.add("compact-mode");
+    if (panelTitle) panelTitle.textContent = "🎯 Detección y Análisis Facial";
+
+    if (!ultimoResultadoFacial) {
+      if (countBadge) countBadge.textContent = "Esperando captura facial";
+      if (panelSubtitle) panelSubtitle.textContent = "Captura o sube una fotografía para detectar el rostro y estimar su expresión";
+      if (toggleBtn) toggleBtn.hidden = true;
       container.innerHTML = `
-        <div class="students-empty-state waiting-state">
-          <div class="empty-state-icon">📸</div>
-          <div class="empty-state-title">Esperando captura de imagen</div>
-          <div class="empty-state-desc">Presiona 'Capturar Imagen y Predecir' (o recibe una captura del módulo de Imagen) para detectar a los alumnos presentes y ejecutar el modelo de predicción.</div>
+        <div class="facial-waiting-compact">
+          <span class="facial-waiting-icon">📸</span>
+          <div class="facial-waiting-text">
+            <strong>Esperando captura facial</strong>
+            <p>Presiona 'Capturar fotograma' o 'Subir Foto' para evaluar la expresión observable sin asociar identidades.</p>
+          </div>
         </div>
       `;
-    } else {
-      // Post-captura: Ninguna persona detectada en la foto tomada
+      return;
+    }
+
+    const rostros = ultimoResultadoFacial.rostros_detectados
+      ?? (ultimoResultadoFacial.deteccion_facial === "sin_rostro" ? 0 : 1);
+    const estado = ultimoResultadoFacial.estado;
+    const det = ultimoResultadoFacial.deteccion_facial;
+
+    if (rostros === 1 || det === "rostro_detectado" || det === "rostro_pequeno" || estado === "abstencion" || estado === "estimacion_experimental") {
+      if (countBadge) countBadge.textContent = "1 rostro detectado";
+      if (panelSubtitle) panelSubtitle.textContent = "Análisis individual de expresión observable · Identidad desconocida";
+      if (toggleBtn) {
+        toggleBtn.hidden = false;
+        if (typeof toggleBtn.setAttribute === "function") {
+          toggleBtn.setAttribute("aria-expanded", String(panelEstudiantesExpandido));
+        }
+      }
+      if (toggleIcon) toggleIcon.textContent = panelEstudiantesExpandido ? "▲" : "▼";
+      if (toggleLabel) toggleLabel.textContent = panelEstudiantesExpandido ? "Contraer" : "Detalles";
+
+      const disponible = estado === "estimacion_experimental" || estado === "abstencion";
+      const badgeTexto = disponible ? "Resultado facial disponible"
+        : (det === "rostro_pequeno" ? "Rostro pequeño" : "Evidencia insuficiente");
+      const badgeClase = disponible ? "available" : "abstention";
+
+      if (!panelEstudiantesExpandido) {
+        container.innerHTML = `
+          <div class="facial-compact-card">
+            <div class="facial-compact-header-row">
+              <div class="facial-compact-id-group">
+                <div class="facial-compact-avatar">👤</div>
+                <div class="facial-compact-identity">Rostro 1 · Identidad desconocida</div>
+              </div>
+              <div class="facial-compact-status-badge ${badgeClase}">
+                <span>●</span> ${badgeTexto}
+              </div>
+            </div>
+            <p class="facial-compact-hint">Resultado facial disponible en el panel inferior. No se asocia a perfiles de alumnos ni registros académicos.</p>
+          </div>
+        `;
+      } else {
+        const dim = ultimoResultadoFacial.calidad_entrada?.recorte_px
+          ? `${ultimoResultadoFacial.calidad_entrada.recorte_px[0]} × ${ultimoResultadoFacial.calidad_entrada.recorte_px[1]} px`
+          : (ultimoResultadoFacial.rostros?.[0] ? `${ultimoResultadoFacial.rostros[0].ancho} × ${ultimoResultadoFacial.rostros[0].alto} px` : "Recorte frontal >= 64 × 64 px");
+        container.innerHTML = `
+          <div class="facial-compact-card expanded">
+            <div class="facial-compact-header-row">
+              <div class="facial-compact-id-group">
+                <div class="facial-compact-avatar">👤</div>
+                <div class="facial-compact-identity">Rostro 1 · Identidad desconocida</div>
+              </div>
+              <div class="facial-compact-status-badge ${badgeClase}">
+                <span>●</span> ${badgeTexto}
+              </div>
+            </div>
+            <div class="facial-details-box">
+              <div class="facial-detail-item"><span>Detector facial:</span><strong>OpenCV Haar Cascade (frontalface_alt)</strong></div>
+              <div class="facial-detail-item"><span>Clasificador:</span><strong>HOG + SVM (fase8-1.0 · CMU Face Images)</strong></div>
+              <div class="facial-detail-item"><span>Dimensión recorte:</span><strong>${dim}</strong></div>
+              <div class="facial-detail-item"><span>Identidad:</span><strong>No atribuida (análisis biométrico no vinculante)</strong></div>
+              <div class="facial-detail-note">En modo facial experimental se evalúa únicamente la expresión observable en el rostro detectado. No se vincula a perfiles de alumnos ni registros académicos.</div>
+            </div>
+          </div>
+        `;
+      }
+      return;
+    }
+
+    if (rostros === 0 || det === "sin_rostro") {
+      if (countBadge) countBadge.textContent = "No se detectaron rostros";
+      if (panelSubtitle) panelSubtitle.textContent = "Captura facial individual sin rostros identificados";
+      if (toggleBtn) toggleBtn.hidden = true;
+      container.innerHTML = `
+        <div class="facial-empty-compact">
+          <span class="facial-empty-icon">🚫</span>
+          <div class="facial-empty-text">
+            <strong>No se detectaron rostros</strong>
+            <p>Asegúrate de que haya un rostro frontal visible y con iluminación adecuada.</p>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    if (rostros > 1 || det === "multiples_rostros") {
+      if (countBadge) countBadge.textContent = `${rostros} rostros detectados`;
+      if (panelSubtitle) panelSubtitle.textContent = "Se detectaron múltiples rostros · Se requiere uno solo para clasificar";
+      if (toggleBtn) toggleBtn.hidden = true;
+      container.innerHTML = `
+        <div class="facial-empty-compact">
+          <span class="facial-empty-icon">👥</span>
+          <div class="facial-empty-text">
+            <strong>${rostros} rostros detectados</strong>
+            <p>Encuadra un solo rostro frontal para realizar la clasificación facial experimental.</p>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    // Caso de error u otro estado
+    if (countBadge) countBadge.textContent = "Error de análisis";
+    if (panelSubtitle) panelSubtitle.textContent = "Ocurrió un error técnico durante la inferencia facial";
+    if (toggleBtn) toggleBtn.hidden = true;
+    container.innerHTML = `
+      <div class="facial-empty-compact">
+        <span class="facial-empty-icon">⚠️</span>
+        <div class="facial-empty-text">
+          <strong>Error técnico durante el análisis facial</strong>
+          <p>${ultimoResultadoFacial.motivo || "Puedes reintentar la captura o verificar el estado del servidor."}</p>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  // MODO AULA
+  if (card) card.classList.remove("compact-mode");
+  if (panelTitle) panelTitle.textContent = "🎯 Selección y Estado de Alumnos en la Captura";
+  if (panelSubtitle) panelSubtitle.textContent = "Haz clic en cualquier alumno de la captura para consultar su predicción individual";
+
+  if (estudiantesEnCaptura.length === 0) {
+    if (toggleBtn) toggleBtn.hidden = true;
+    if (estadoCuadricula === "sin_modelos") {
+      if (countBadge) countBadge.textContent = "Modelos no disponibles";
+      container.textContent = "Modelos de predicción no disponibles para esta imagen.";
+    } else if (estadoCuadricula === "sin_personas" || modoCapturaCongelada) {
+      if (countBadge) countBadge.textContent = "0 Alumnos Detectados";
       container.innerHTML = `
         <div class="students-empty-state">
           <div class="empty-state-icon">🚫</div>
@@ -544,7 +705,39 @@ function renderizarCuadriculaEstudiantes() {
           <div class="empty-state-desc">Asegúrate de que haya al menos un alumno visible en el encuadre o toma una nueva captura para generar predicciones.</div>
         </div>
       `;
+    } else {
+      if (countBadge) countBadge.textContent = "Esperando captura";
+      container.innerHTML = `
+        <div class="students-empty-state waiting-state">
+          <div class="empty-state-icon">📸</div>
+          <div class="empty-state-title">Esperando captura de imagen</div>
+          <div class="empty-state-desc">Presiona 'Capturar fotograma' o 'Probar con Captura Grupal' para detectar a los alumnos presentes y consultar predicciones.</div>
+        </div>
+      `;
     }
+    return;
+  }
+
+  if (countBadge) {
+    countBadge.textContent = `${estudiantesEnCaptura.length} Alumno${estudiantesEnCaptura.length === 1 ? "" : "s"} Detectado${estudiantesEnCaptura.length === 1 ? "" : "s"}`;
+  }
+  if (toggleBtn) {
+    toggleBtn.hidden = false;
+    if (typeof toggleBtn.setAttribute === "function") {
+      toggleBtn.setAttribute("aria-expanded", String(panelEstudiantesExpandido));
+    }
+  }
+  if (toggleIcon) toggleIcon.textContent = panelEstudiantesExpandido ? "▲" : "▼";
+  if (toggleLabel) toggleLabel.textContent = panelEstudiantesExpandido ? "Contraer" : "Expandir";
+
+  if (!panelEstudiantesExpandido) {
+    const sel = estudiantesEnCaptura.find(e => e.id === estudianteSeleccionadoId) || estudiantesEnCaptura[0];
+    container.innerHTML = `
+      <div class="aula-compact-summary">
+        <span>👥 <strong>${estudiantesEnCaptura.length} alumnos disponibles</strong> · Seleccionado: <strong>${sel.nombre}</strong> (Ref. ${sel.id})</span>
+        <span style="color: var(--color-blue); font-size: 11px; font-weight: 600;">Pulsa 'Expandir' para ver tarjetas</span>
+      </div>
+    `;
     return;
   }
 
@@ -1059,6 +1252,7 @@ async function procesarCaptura(obtenerImagen, origen) {
       estadoCaptura(datos.estado === "evidencia_insuficiente" && Object.hasOwn(ESTADOS_DETECCION_FACIAL, datos.deteccion_facial)
         ? ESTADOS_DETECCION_FACIAL[datos.deteccion_facial] : ESTADOS_FACIALES[datos.estado]);
       renderizarResultadoFacial(datos);
+      renderizarCuadriculaEstudiantes();
       return;
     }
 
@@ -1087,6 +1281,7 @@ async function procesarCaptura(obtenerImagen, origen) {
     estadoCaptura(mensajeError);
     if (facial) {
       renderizarResultadoFacial({ estado: "error_inferencia", motivo: mensajeError, rostros_detectados: 0 });
+      renderizarCuadriculaEstudiantes();
     }
     if (origen === "automatica") {
       elemento("auto-capture-enabled").checked = false;
@@ -1120,6 +1315,8 @@ function volverANuevaCaptura() {
   estadoCuadricula = "espera";
   estudiantesEnCaptura = [];
   estudianteSeleccionadoId = null;
+  ultimoResultadoFacial = null;
+  panelEstudiantesExpandido = false;
 
   if (statusText) statusText.textContent = sesionCamara?.lista ? "Cámara lista" : "Cámara detenida";
   if (!sesionCamara) estadoAutomatico("La captura automática requiere una cámara activa.");
@@ -1129,6 +1326,8 @@ function volverANuevaCaptura() {
 
 // Acción: "🖼️ Probar con Captura Grupal"
 function cargarEscenarioAulaEjemplo() {
+  ultimoResultadoFacial = null;
+  panelEstudiantesExpandido = true;
   return procesarCaptura(() => null, "ejemplo");
 }
 
@@ -1173,25 +1372,34 @@ function configurarEventosCaptura() {
   elemento("btn-stop-camera").addEventListener("click", detenerCamara);
   elemento("auto-capture-enabled").addEventListener("change", actualizarEstadoAutomatico);
 
+  const btnToggle = elemento("btn-toggle-students-panel");
+  if (btnToggle) {
+    btnToggle.addEventListener("click", () => {
+      panelEstudiantesExpandido = !panelEstudiantesExpandido;
+      renderizarCuadriculaEstudiantes();
+    });
+  }
+
   configurarSubidaFoto();
 
   const selectModo = elemento("modo-analisis-captura");
   if (selectModo) {
     selectModo.addEventListener("change", (e) => {
       const modo = e.target.value;
+      ultimoResultadoFacial = null;
+      estudiantesEnCaptura = [];
+      estudianteSeleccionadoId = null;
       if (modo === "facial") {
+        estadoCuadricula = "facial";
+        panelEstudiantesExpandido = false;
         estadoCaptura("Modo facial experimental seleccionado. Captura o sube una fotografía con rostro frontal.");
-        if (estadoCuadricula === "espera" || estadoCuadricula === "sin_personas") {
-          estadoCuadricula = "facial";
-          renderizarCuadriculaEstudiantes();
-        }
       } else {
+        estadoCuadricula = "espera";
+        panelEstudiantesExpandido = true;
         estadoCaptura("Modo captura de aula histórica seleccionado. Captura o sube una imagen de aula con estudiantes.");
-        if (estadoCuadricula === "facial") {
-          estadoCuadricula = "espera";
-          renderizarCuadriculaEstudiantes();
-        }
       }
+      renderizarCuadriculaEstudiantes();
+      renderizarPanelesInferiores(null);
     });
   }
 }
@@ -1248,7 +1456,7 @@ function lista(contenedor, titulo, textos) {
 async function cargarEstadoIntegracion() {
   const panel = elemento("integracion-modulos");
   const boton = elemento("actualizar-integracion");
-  boton.disabled = true;
+  if (boton) boton.disabled = true;
   try {
     const respuesta = await fetch(`${servidor()}/api/modulos`);
     if (!respuesta.ok) throw new Error();
@@ -1259,10 +1467,12 @@ async function cargarEstadoIntegracion() {
       const modulo = datos.modulos.find(m => m.nombre === fuente);
       const li = document.createElement("li");
       const nombre = fuente.toUpperCase();
-      if (!modulo) li.textContent = `${nombre} · estado no disponible`;
-      else if (fuente === "audio") li.textContent = `${nombre} · productor y contrato pendientes`;
-      else if (!modulo.archivos_presentes?.length) li.textContent = `${nombre} · adaptador no disponible`;
-      else li.textContent = `${nombre} · adaptador disponible · ${modulo.validacion || "Validación del productor pendiente"}`;
+      if (!modulo) li.textContent = `${nombre} · no evaluado · estado no disponible`;
+      else if (fuente === "audio" || modulo.estado_integracion === "integracion_pendiente") {
+        li.textContent = `${nombre} · productor y contrato pendientes (pendiente de integración)`;
+      }
+      else if (!modulo.archivos_presentes?.length) li.textContent = `${nombre} · adaptador no disponible (datos insuficientes)`;
+      else li.textContent = `${nombre} · adaptador disponible (disponible) · ${modulo.validacion || "Validación del productor pendiente"}`;
       panel.append(li);
     }
   } catch {
@@ -1270,7 +1480,7 @@ async function cargarEstadoIntegracion() {
     li.textContent = "No se pudo consultar el estado de imagen, video y audio.";
     panel.replaceChildren(li);
   } finally {
-    boton.disabled = false;
+    if (boton) boton.disabled = false;
   }
 }
 
