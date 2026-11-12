@@ -33,6 +33,7 @@ from backend.entrenamiento_prediccion.predictor import obtener_escenario_aula_ej
 from backend.modulos.prediccion.api import router as motor_router
 from backend.modulos.prediccion.analisis_experimental import router as experimental_router
 from backend.modulos.prediccion.orquestacion_fase10 import router as integral_router
+from backend.modulos.prediccion.recepcion_multimodal import router as recepcion_router
 from backend.modulos.prediccion.captura_entrada import EntradaCaptura, EntradaVision, leer_captura
 from backend.modulos.prediccion.seguimiento_api import router as seguimiento_router
 from backend.modulos.vision_service import procesar_frame
@@ -53,6 +54,7 @@ app.include_router(motor_router, prefix="/api")
 app.include_router(seguimiento_router, prefix="/api")
 app.include_router(experimental_router, prefix="/api")
 app.include_router(integral_router, prefix="/api")
+app.include_router(recepcion_router, prefix="/api")
 
 
 @app.get("/api/modulos")

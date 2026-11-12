@@ -860,3 +860,150 @@ test("backend preserva endpoints internos de modulos, seguimiento, demo sintetic
   assert.notEqual(e["riesgo-score-num"].textContent, "—");
   assert.match(e["causes-list"].innerHTML, /Aprobación proyectada/);
 });
+
+// ============================================================================
+// 6. ENTREGA FINAL UNIFICADA: INTERPRETACIÓN VISUAL, OBJETOS Y POLLING HTTP
+// ============================================================================
+
+test("una sola fotografia muestra interpretacion visual rica, objetos separados y fallback sin bloquear expresion", async () => {
+  let respuestaServidor;
+  const e = montar({
+    FileReader: class {
+      readAsDataURL() { this.result = "data:image/jpeg;base64,FOTO"; this.onload(); this.onloadend(); }
+    },
+    fetch: async () => Response.json(respuestaServidor)
+  });
+  const entrada = e["input-upload-image"];
+
+  respuestaServidor = {
+    fuentes: {
+      imagen: {
+        estado: "abstencion",
+        deteccion_facial: "rostro_detectado",
+        rostros_detectados: 1,
+        identidad_verificada: false,
+        hipotesis: { categoria: "neutral", probabilidad: 0.41, concluyente: false },
+        puntajes_calibrados: { neutral: 0.41, alegria: 0.30, enojo: 0.19, tristeza: 0.10 },
+        criterio_abstencion: { umbral: 0.55, margen_minimo: 0.10, motivos: ["probabilidad_insuficiente"] },
+        deteccion_objetos: {
+          estado: "detectado",
+          objetos: [
+            { clase: "persona", etiqueta: "Persona", confianza: 0.92, origen: "yolo" },
+            { clase: "telefono", etiqueta: "Teléfono móvil", confianza: 0.87, origen: "yolo" }
+          ],
+          objetos_no_persona: [
+            { clase: "telefono", etiqueta: "Teléfono móvil", confianza: 0.87, origen: "yolo" }
+          ],
+          senales_encuadre: [{ codigo: "telefono_en_cuadro", descripcion: "Se detecta un teléfono móvil visible en escena.", origen: "yolo" }]
+        }
+      }
+    }
+  };
+  entrada.files = [{ name: "alumno.jpg" }];
+  await entrada.listeners.change({ target: entrada });
+
+  assert.equal(e["riesgo-score-num"].textContent, "—");
+  assert.match(e["students-grid"].innerHTML, /Teléfono móvil/);
+  assert.match(e["causes-list"].innerHTML, /Observación visual/);
+  assert.match(e["causes-list"].innerHTML, /Teléfono móvil/);
+  assert.match(e["causes-list"].innerHTML, /Sin probabilidad asignada/);
+  assert.match(e["consequences-list"].innerHTML, /Evidencia adicional requerida/);
+
+  // Fallback cuando detector de objetos no está disponible pero la expresión sigue funcionando
+  respuestaServidor = {
+    fuentes: {
+      imagen: {
+        estado: "estimacion_experimental",
+        deteccion_facial: "rostro_detectado",
+        rostros_detectados: 1,
+        expresion: "alegria",
+        hipotesis: { categoria: "alegria", probabilidad: 0.78, concluyente: true },
+        puntajes_calibrados: { alegria: 0.78, neutral: 0.12, enojo: 0.06, tristeza: 0.04 },
+        deteccion_objetos: { estado: "modelo_no_disponible", objetos: [], objetos_no_persona: [], senales_encuadre: [] }
+      }
+    }
+  };
+  entrada.files = [{ name: "alegria_sin_yolo.jpg" }];
+  await entrada.listeners.change({ target: entrada });
+  assert.match(e["dominant-emotion-text"].textContent, /Expresión observable: Alegria \(78\.0%\)/);
+  assert.match(e["causes-list"].innerHTML, /Clasificación facial concluyente/);
+  assert.match(e["consequences-list"].innerHTML, /detector local de objetos no estuvo disponible/i);
+  e["btn-toggle-students-panel"].listeners.click();
+  assert.match(e["students-grid"].innerHTML, /Detector objetos:.*modelo no disponible/i);
+});
+
+test("polling automatico consulta /recepcion/ultima?desde=N, aplica resultados y respeta Nueva Captura", async () => {
+  const urlsConsultadas = [];
+  let respuestaCanal = { actualizacion_id: 0, disponible: false };
+  const e = montar({
+    fetch: async (url) => {
+      urlsConsultadas.push(url);
+      const parsed = new URL(url);
+      const desde = Number(parsed.searchParams.get("desde") || "0");
+      if (desde && respuestaCanal.actualizacion_id <= desde) {
+        return Response.json({ actualizacion_id: respuestaCanal.actualizacion_id, disponible: respuestaCanal.disponible, sin_cambios: true });
+      }
+      return Response.json(respuestaCanal);
+    }
+  });
+
+  // Sin novedades
+  await e._api.verificarRecepcionAutomatica();
+  assert.match(urlsConsultadas.at(-1), /\/api\/prediccion\/recepcion\/ultima\?desde=0$/);
+  assert.equal(e["riesgo-score-num"].textContent, "—");
+
+  // Llega actualización multimodal secuencia 3
+  respuestaCanal = {
+    actualizacion_id: 3,
+    disponible: true,
+    resultado: {
+      actualizacion_id: 3,
+      fusion: {
+        ejecutada: false,
+        metodo: "sin_modelo_conjunto_validado",
+        explicacion: "Sin modelo conjunto calibrado; reporte separado."
+      },
+      analisis: {
+        fuentes: {
+          imagen: {
+            estado: "evidencia_insuficiente",
+            deteccion_facial: "sin_rostro",
+            rostros_detectados: 0,
+            deteccion_objetos: {
+              estado: "solo_externas",
+              objetos: [{ clase: "reloj", etiqueta: "Reloj", confianza: 0.85, origen: "modulo_imagen" }],
+              objetos_no_persona: [{ clase: "reloj", etiqueta: "Reloj", confianza: 0.85, origen: "modulo_imagen" }],
+              senales_encuadre: []
+            }
+          },
+          audio: {
+            estado: "tipo_incompatible_no_vocal",
+            tipo_observacion: "asistencia",
+            motivo: "El evento «asistencia» no es señal vocal; excluido del modelo RAVDESS."
+          }
+        },
+        academico: {
+          estado: "estimacion_experimental",
+          desenlace_estimado: "no_aprueba",
+          desenlace: "G3 < 10/20",
+          probabilidad_no_aprueba: 0.67,
+          corte: "despues_g2"
+        },
+        sincronizacion: { estado: "referencias_incompatibles", conflictos_referencia: ["identidades_contradictorias"] }
+      }
+    }
+  };
+
+  await e._api.verificarRecepcionAutomatica();
+  assert.equal(e["riesgo-score-num"].textContent, "67");
+  assert.match(e["causes-list"].innerHTML, /Reloj/);
+  assert.match(e["causes-list"].innerHTML, /asistencia.*no es señal vocal/);
+  assert.match(e["consequences-list"].innerHTML, /identidades_contradictorias/);
+
+  // Al pulsar Nueva Captura y volver a consultar, usa ?desde=3 y no restaura la vista borrada
+  e["btn-new-capture"].listeners.click();
+  assert.equal(e["riesgo-score-num"].textContent, "—");
+  await e._api.verificarRecepcionAutomatica();
+  assert.match(urlsConsultadas.at(-1), /\/api\/prediccion\/recepcion\/ultima\?desde=3$/);
+  assert.equal(e["riesgo-score-num"].textContent, "—");
+});

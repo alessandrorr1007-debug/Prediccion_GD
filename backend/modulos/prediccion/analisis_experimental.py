@@ -2,12 +2,12 @@
 import base64
 import logging
 from time import perf_counter
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 import cv2
 import numpy as np
 from fastapi import APIRouter, Request
-from pydantic import AwareDatetime, Field, model_validator
+from pydantic import AwareDatetime, Field, StrictBool, model_validator
 from starlette.concurrency import run_in_threadpool
 from starlette.responses import JSONResponse
 
@@ -15,6 +15,8 @@ from backend.entrenamiento_prediccion import predictor
 from backend.entrenamiento_prediccion.imagenes import ImagenInvalida, decodificar_imagen
 from . import modelos_fase7
 from .captura_entrada import leer_captura
+from .detector_objetos import detectar_objetos_imagen
+from .interpretacion_visual import construir_interpretacion_visual
 from .seguimiento_contrato import Contrato, Naturaleza, Texto, Unidad
 
 ETIQUETAS = ("neutral", "alegria", "tristeza", "enojo", "miedo", "sorpresa", "asco")
@@ -40,6 +42,10 @@ class Referencia(Contrato):
 class ImagenExperimental(Referencia):
     imagen_b64: Annotated[str, Field(strict=True, min_length=1)]
     modelo_facial: Literal["automatico", "real", "historico"] = "automatico"
+    detectar_objetos: StrictBool = True
+    detecciones_objetos: list[dict[str, Any]] | None = Field(default=None, max_length=200)
+    estudiante_id: Texto | None = None
+    estado_identidad: Literal["desconocida", "verificada", "ambigua"] = "desconocida"
 
 
 class AudioExperimental(Referencia):
@@ -50,9 +56,14 @@ class AudioExperimental(Referencia):
     variabilidad_f0_hz: Annotated[float, Field(strict=True, ge=0, le=4000, allow_inf_nan=False)] | None = None
     pausas_segundos: Annotated[float, Field(strict=True, ge=0, allow_inf_nan=False)] | None = None
     ritmo_segmentos_minuto: Annotated[float, Field(strict=True, ge=0, allow_inf_nan=False)] | None = None
+    tipo_observacion: Literal["vocal", "asistencia", "transcripcion", "desconocida"] | None = None
+    estudiante_id: Texto | None = None
+    estado_identidad: Literal["desconocida", "verificada", "ambigua"] = "desconocida"
 
     @model_validator(mode="after")
     def validar_pausas(self):
+        if self.tipo_observacion in {"asistencia", "transcripcion"}:
+            return self
         if self.duracion_segundos is None and (self.wav_b64 is None or self.pausas_segundos is not None):
             raise ValueError("Los descriptores de audio requieren duración")
         if self.pausas_segundos is not None and self.pausas_segundos > self.duracion_segundos:
@@ -105,10 +116,10 @@ def localizar_rostros(gris):
 def analizar_expresion(entrada):
     tiempos = {}
 
-    def medir(etapa, operacion, *args):
+    def medir(etapa, operacion, *args, **kwargs):
         inicio = perf_counter()
         try:
-            return operacion(*args)
+            return operacion(*args, **kwargs)
         finally:
             tiempos[etapa] = round((perf_counter() - inicio) * 1000, 3)
 
@@ -118,9 +129,19 @@ def analizar_expresion(entrada):
         return {"estado": "imagen_invalida", "motivo": str(error), "tiempos_ms": tiempos}
     gris = medir("escala_de_grises", cv2.cvtColor, imagen, cv2.COLOR_BGR2GRAY)
     caras = medir("deteccion", localizar_rostros, gris)
+    obj_det = medir(
+        "objetos",
+        detectar_objetos_imagen,
+        imagen,
+        caras=caras,
+        gris=gris,
+        detecciones_externas=getattr(entrada, "detecciones_objetos", None),
+        usar_yolo=getattr(entrada, "detectar_objetos", False),
+    )
     alto, ancho = gris.shape
     deteccion = {"rostros_detectados": len(caras), "rostros": caras, "imagen_px": [ancho, alto],
-                 "detector_facial": "opencv_haar_frontalface_alt", "tiempos_ms": tiempos}
+                 "detector_facial": "opencv_haar_frontalface_alt", "deteccion_objetos": obj_det,
+                 "tiempos_ms": tiempos}
     if not caras:
         return dict(deteccion, estado="evidencia_insuficiente", deteccion_facial="sin_rostro",
                     motivo="Prueba con un rostro frontal visible y bien iluminado.")
@@ -169,10 +190,19 @@ def analizar_expresion(entrada):
 
 
 def analizar_audio(entrada):
+    if getattr(entrada, "tipo_observacion", None) in {"asistencia", "transcripcion"}:
+        return {
+            "estado": "tipo_incompatible_no_vocal",
+            "tipo_observacion": entrada.tipo_observacion,
+            "motivo": f"La entrada de tipo «{entrada.tipo_observacion}» no corresponde a señal vocal y se excluye del clasificador acústico.",
+            "clasificador": "omitido_por_incompatibilidad",
+        }
     if entrada.wav_b64 is not None:
         return analizar_wav(entrada)
-    caracteristicas = entrada.model_dump(exclude=set(Referencia.model_fields) | {"duracion_segundos", "wav_b64"},
-                                       exclude_none=True)
+    caracteristicas = entrada.model_dump(
+        exclude=set(Referencia.model_fields) | {"duracion_segundos", "wav_b64", "tipo_observacion", "estudiante_id", "estado_identidad"},
+        exclude_none=True,
+    )
     insuficiente = (
         entrada.duracion_segundos < .25 or not caracteristicas or entrada.rms_normalizado == 0
         or entrada.pausas_segundos == entrada.duracion_segundos
@@ -234,6 +264,15 @@ def evaluar(entrada):
         conflictos.append("naturalezas_distintas")
     if fechas and (max(fechas) - min(fechas)).total_seconds() > 1:
         conflictos.append("tiempos_incompatibles")
+    identidades_verificadas = {
+        getattr(datos, "estudiante_id", None)
+        for datos in referencias
+        if getattr(datos, "estado_identidad", "desconocida") == "verificada" and getattr(datos, "estudiante_id", None)
+    }
+    if any(getattr(datos, "estado_identidad", "desconocida") == "ambigua" for datos in referencias):
+        conflictos.append("identidad_ambigua")
+    if len(identidades_verificadas) > 1:
+        conflictos.append("identidades_contradictorias")
     compartido = (entrada.imagen is not None and entrada.video is not None
                   and entrada.imagen.evento_id is not None and entrada.imagen.evento_id == entrada.video.evento_id
                   and entrada.imagen.sesion_id is not None and entrada.imagen.sesion_id == entrada.video.sesion_id)
@@ -248,6 +287,7 @@ def evaluar(entrada):
         referencias_compatibles = not conflictos
     deduplicado = (compartido and entrada.imagen == entrada.video and entrada.imagen.fecha_hora is not None
                    and entrada.imagen.naturaleza != "desconocida")
+    conflicto_identidad = "identidades_contradictorias" in conflictos or "identidad_ambigua" in conflictos
     for nombre, datos in (("imagen", entrada.imagen), ("video", entrada.video), ("audio", entrada.audio)):
         if datos is None:
             fuentes[nombre] = {"estado": "sin_entrada"}
@@ -261,7 +301,20 @@ def evaluar(entrada):
             logger.warning("Análisis experimental fallido (%s): %s", nombre, type(error).__name__)
             resultado = {"estado": "error_inferencia", "motivo": "No fue posible completar el análisis de esta fuente."}
         referencia = datos.model_dump(mode="json", include=set(Referencia.model_fields))
-        fuentes[nombre] = dict(resultado, referencia=referencia, identidad_verificada=False)
+        identidad_ok = (
+            not conflicto_identidad
+            and getattr(datos, "estado_identidad", "desconocida") == "verificada"
+            and bool(getattr(datos, "estudiante_id", None))
+        )
+        salida_fuente = dict(
+            resultado,
+            referencia=referencia,
+            identidad_verificada=identidad_ok,
+            estado_identidad="ambigua" if conflicto_identidad else getattr(datos, "estado_identidad", "desconocida"),
+        )
+        if identidad_ok:
+            salida_fuente["estudiante_id"] = getattr(datos, "estudiante_id")
+        fuentes[nombre] = salida_fuente
         if resultado["estado"] in {"estimacion_experimental", "caracteristicas_declaradas"}:
             sincronizables.append((nombre, datos))
 
@@ -289,11 +342,38 @@ def evaluar(entrada):
     except Exception as error:
         logger.warning("Análisis académico experimental fallido: %s", type(error).__name__)
         academico = {"estado": "error_inferencia"}
-    return {"schema_version": 1, "fuentes": fuentes, "academico": academico, "sincronizacion": {
-        "estado": estado, "fuentes_elegibles": [nombre for nombre, _ in sincronizables],
-        "evento_visual_compartido": compartido, "fusion_estadistica": "pendiente",
-        "conflictos_referencia": conflictos, "referencias_compatibles": referencias_compatibles,
-    }}
+
+    fuente_visual = (
+        fuentes["imagen"] if fuentes["imagen"].get("estado") != "sin_entrada"
+        else fuentes["video"] if fuentes["video"].get("estado") != "sin_entrada"
+        else None
+    )
+    interpretacion_visual = construir_interpretacion_visual(
+        fuente_visual,
+        objeto_det=fuente_visual.get("deteccion_objetos") if isinstance(fuente_visual, dict) else None,
+        resultado_audio=fuentes["audio"],
+        resultado_academico=academico,
+    )
+    if isinstance(fuentes.get("imagen"), dict) and fuentes["imagen"].get("estado") != "sin_entrada":
+        fuentes["imagen"]["interpretacion_visual"] = interpretacion_visual
+    if isinstance(fuentes.get("video"), dict) and fuentes["video"].get("estado") != "sin_entrada":
+        fuentes["video"]["interpretacion_visual"] = (
+            interpretacion_visual if fuentes["imagen"].get("estado") == "sin_entrada"
+            else construir_interpretacion_visual(
+                fuentes["video"],
+                objeto_det=fuentes["video"].get("deteccion_objetos"),
+                resultado_audio=fuentes["audio"],
+                resultado_academico=academico,
+            )
+        )
+
+    return {"schema_version": 1, "fuentes": fuentes, "academico": academico,
+            "interpretacion_visual": interpretacion_visual,
+            "sincronizacion": {
+                "estado": estado, "fuentes_elegibles": [nombre for nombre, _ in sincronizables],
+                "evento_visual_compartido": compartido, "fusion_estadistica": "pendiente",
+                "conflictos_referencia": conflictos, "referencias_compatibles": referencias_compatibles,
+            }}
 
 
 router = APIRouter(tags=["Análisis experimental de Predicción"])

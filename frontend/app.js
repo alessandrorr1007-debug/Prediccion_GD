@@ -15,6 +15,102 @@ let ultimoResultadoImagen = null;
 let ultimoResultadoVideo = null;
 let ultimoResultadoAudio = null;
 let ultimoResultadoAcademico = null;
+let ultimaInterpretacionVisual = null;
+let ultimaFusion = null;
+let ultimaSincronizacion = null;
+let ultimaSecuenciaRecepcion = 0;
+
+function obtenerBaseBackend() {
+  return typeof location !== "undefined" && location.origin && location.protocol !== "file:"
+    ? location.origin
+    : "http://127.0.0.1:8001";
+}
+
+function resolverIdentidadVisual(visual) {
+  if (!visual || typeof visual !== "object") return "Identidad desconocida";
+  if (visual.estado_identidad === "ambigua") return "Identidad ambigua / contradictoria";
+  if (visual.identidad_verificada === true && visual.estudiante_id) {
+    return `Identidad verificada: ${visual.estudiante_id}`;
+  }
+  return "Identidad desconocida";
+}
+
+const GUIA_OBJETOS_UI = {
+  telefono: { icono: "📱", texto: "Se detectó un teléfono móvil; la presencia del dispositivo podría justificar revisar si hay actividad autorizada o posible interrupción de atención.", limite: "Una fotografía aislada no demuestra distracción ni bajo rendimiento." },
+  reloj: { icono: "⌚", texto: "Se detectó un reloj visible; observación neutral sujeta al reglamento o actividad de aula.", limite: "Detectar un reloj no acredita conducta académica irregular." },
+  audifonos: { icono: "🎧", texto: "Se detectaron audífonos; requiere confirmar si corresponden a material de clase o uso restringido.", limite: "Una captura puntual no demuestra desatención." },
+  laptop: { icono: "💻", texto: "Se detectó un computador portátil en el encuadre; compatible con trabajo digital según contexto de sesión.", limite: "Su presencia no implica conducta anómala." },
+  libro: { icono: "📖", texto: "Se detectó un libro en la imagen; elemento de apoyo sujeto a las reglas de la actividad.", limite: "No permite inferir desempeño sin contexto docente." },
+  cuaderno: { icono: "📓", texto: "Se detectó un cuaderno en la captura; material habitual de estudio.", limite: "No constituye indicador de riesgo académico." },
+  mochila: { icono: "🎒", texto: "Se detectó una mochila en el entorno.", limite: "Sin implicación directa sobre atención o rendimiento." }
+};
+
+const POSIBILIDADES_GENERALES_UI = [
+  "Cansancio o fatiga acumulada",
+  "Estrés o carga relacionada con actividades académicas",
+  "Concentración o expresión facial habitual en reposo",
+  "Situaciones personales externas no observables ni evaluadas por el sistema"
+];
+
+function construirInterpretacionLocal(img, acad, aud, backendInterp = null) {
+  if (backendInterp && typeof backendInterp === "object" && backendInterp.resumen) {
+    return backendInterp;
+  }
+  const obs = [];
+  const hip = [];
+  const lim = [
+    "La expresión facial observada es compatible con varias interpretaciones. No permite establecer por sí sola el estado emocional real del estudiante.",
+    "El sistema no afirma ni diagnostica problemas familiares, depresión, ansiedad, estrés clínico ni rendimiento futuro a partir de una fotografía."
+  ];
+  const hipImg = extraerHipotesis(img);
+  const detObj = img?.deteccion_objetos;
+  const objetos = detObj?.objetos_no_persona || [];
+  let obsTexto = "No se recibió fotografía ni fotograma para evaluación visual.";
+  let interpTexto = "Las demás modalidades pueden evaluarse de forma independiente sin requerir imagen.";
+  if (img) {
+    const rostros = img.rostros_detectados ?? (img.deteccion_facial === "sin_rostro" ? 0 : 1);
+    interpTexto = "La expresión facial observada es compatible con varias interpretaciones. No permite establecer por sí sola el estado emocional real del estudiante.";
+    if (img.estado === "estimacion_experimental" && hipImg) {
+      obsTexto = `Expresión facial observable con mayor compatibilidad: ${hipImg.label.toLowerCase()} (${hipImg.pctTexto}).`;
+      if (["tristeza", "enojo"].includes(hipImg.categoria)) {
+        POSIBILIDADES_GENERALES_UI.forEach(d => hip.push({ tipo: "posibilidad_general_no_evaluada", descripcion: d, es_prediccion_individual: false, probabilidad_asignada: null }));
+      }
+    } else if (img.estado === "abstencion" && hipImg) {
+      obsTexto = `La categoría con mayor probabilidad es ${hipImg.label.toLowerCase()} (${hipImg.pctTexto}). Sin embargo, la confianza no supera el umbral necesario para una clasificación concluyente.`;
+      POSIBILIDADES_GENERALES_UI.forEach(d => hip.push({ tipo: "posibilidad_general_no_evaluada", descripcion: d, es_prediccion_individual: false, probabilidad_asignada: null }));
+    } else if (img.deteccion_facial === "multiples_rostros" || rostros > 1) {
+      obsTexto = `Se detectaron ${rostros} rostros en la imagen; no se clasifica una expresión individual.`;
+      interpTexto = "Múltiples rostros impiden atribuir una única expresión o identidad sin seguimiento autorizado.";
+    } else if (img.deteccion_facial === "rostro_pequeno") {
+      obsTexto = "Se detectó 1 rostro con tamaño inferior a 64 × 64 px; resolución insuficiente para clasificar.";
+    } else if (img.deteccion_facial === "sin_rostro" || rostros === 0) {
+      obsTexto = "No se detectó un rostro frontal visible en la fotografía.";
+      interpTexto = "Sin rostro frontal visible no es posible estimar expresión facial.";
+    }
+    for (const o of objetos) {
+      const conf = typeof o.confianza === "number" ? `${(o.confianza * 100).toFixed(1)}%` : "—";
+      const guia = GUIA_OBJETOS_UI[o.clase];
+      obs.push({ tipo: "objeto", clase: o.clase, hecho: `${o.etiqueta || formatearCategoria(o.clase)} (${conf})`, confianza: o.confianza });
+      if (guia) {
+        hip.push({ tipo: "interpretacion_contextual_objeto", clase: o.clase, descripcion: guia.texto, es_prediccion_individual: false, probabilidad_asignada: null });
+        if (!lim.includes(guia.limite)) lim.push(guia.limite);
+      }
+    }
+    if (detObj?.estado === "modelo_no_disponible" || detObj?.estado === "error_inferencia") {
+      lim.push("El detector local de objetos no estuvo disponible para esta captura; únicamente se evaluó el rostro.");
+    }
+  }
+  const evReq = acad && acad.estado === "estimacion_experimental"
+    ? "Se dispone de evaluación académica paralela e independiente; recuerda no atribuir causalidad escolar desde expresiones faciales."
+    : "Para analizar posibles relaciones con el desempeño académico se requieren registros de asistencia, participación, evaluaciones u otras evidencias pertinentes.";
+  return {
+    observaciones: obs,
+    hipotesis: hip,
+    limitaciones: lim,
+    evidencia_requerida: [evReq],
+    resumen: { observacion_visual: obsTexto, interpretacion: interpTexto, informacion_adicional_necesaria: evReq }
+  };
+}
 
 function escaparHtml(valor) {
   return String(valor ?? "")
@@ -35,7 +131,10 @@ const ETIQUETAS_LEGIBLES = {
   miedo: "Miedo",
   sorpresa: "Sorpresa",
   aprueba: "Aprueba",
-  no_aprueba: "No aprueba"
+  no_aprueba: "No aprueba",
+  telefono: "Teléfono móvil",
+  audifonos: "Audífonos",
+  laptop: "Computador portátil"
 };
 
 const ERRORES_CAPTURA = {
@@ -159,6 +258,21 @@ function setBarraExpresion(pctId, barId, prob) {
 // RENDERIZADO DE PANELES DE DETECCIÓN, RECONOCIMIENTO Y RESULTADOS
 // ============================================================================
 
+function renderizarChipsObjetos(visual) {
+  const detObj = visual?.deteccion_objetos;
+  if (!detObj) return "";
+  const objs = detObj.objetos_no_persona || [];
+  const senales = (detObj.senales_encuadre || []).filter(s => ["rostro_parcial_o_borde", "iluminacion_baja", "sobreexposicion", "nitidez_reducida"].includes(s.codigo));
+  if (!objs.length && !senales.length) return "";
+  const chipsObj = objs.map(o => {
+    const ic = GUIA_OBJETOS_UI[o.clase]?.icono || "📦";
+    const pct = typeof o.confianza === "number" ? ` ${(o.confianza * 100).toFixed(0)}%` : "";
+    return `<span class="object-chip">${ic} ${escaparHtml(o.etiqueta || formatearCategoria(o.clase))}${pct}</span>`;
+  });
+  const chipsSen = senales.map(s => `<span class="quality-chip-warn">⚠️ ${escaparHtml(s.codigo.replaceAll("_", " "))}</span>`);
+  return `<div class="object-chips-row">${chipsObj.join("")}${chipsSen.join("")}</div>`;
+}
+
 function renderizarDetalleVisual(visual) {
   const card = elemento("students-selection-card");
   const panelTitle = elemento("students-panel-title");
@@ -192,10 +306,12 @@ function renderizarDetalleVisual(visual) {
   const rostros = visual.rostros_detectados ?? (visual.deteccion_facial === "sin_rostro" ? 0 : 1);
   const estado = visual.estado;
   const det = visual.deteccion_facial;
+  const identidadTxt = resolverIdentidadVisual(visual);
+  const chipsHtml = renderizarChipsObjetos(visual);
 
   if (rostros === 1 || det === "rostro_detectado" || det === "rostro_pequeno" || estado === "abstencion" || estado === "estimacion_experimental") {
     if (countBadge) countBadge.textContent = "1 rostro detectado";
-    if (panelSubtitle) panelSubtitle.textContent = "Análisis individual de expresión observable · Identidad desconocida";
+    if (panelSubtitle) panelSubtitle.textContent = `Análisis individual de expresión observable · ${identidadTxt}`;
     if (toggleBtn) {
       toggleBtn.hidden = false;
       toggleBtn.setAttribute?.("aria-expanded", String(panelEstudiantesExpandido));
@@ -214,12 +330,13 @@ function renderizarDetalleVisual(visual) {
           <div class="facial-compact-header-row">
             <div class="facial-compact-id-group">
               <div class="facial-compact-avatar" aria-hidden="true">👤</div>
-              <div class="facial-compact-identity">Rostro 1 · Identidad desconocida</div>
+              <div class="facial-compact-identity">Rostro 1 · ${escaparHtml(identidadTxt)}</div>
             </div>
             <div class="facial-compact-status-badge ${badgeClase}">
               <span>●</span> ${escaparHtml(badgeTexto)}
             </div>
           </div>
+          ${chipsHtml}
           <p class="facial-compact-hint">Resultado facial disponible debajo sin asociar perfiles personales ni registros académicos.</p>
         </div>
       `;
@@ -228,22 +345,30 @@ function renderizarDetalleVisual(visual) {
         ? `${visual.calidad_entrada.recorte_px[0]} × ${visual.calidad_entrada.recorte_px[1]} px`
         : (visual.rostros?.[0] ? `${visual.rostros[0].ancho} × ${visual.rostros[0].alto} px` : "Recorte frontal ≥ 64 × 64 px");
       const descMod = visual.modelo ? describirModeloExperimental(visual.modelo) : "HOG + SVM (fase8-1.0 · CMU Face Images)";
+      const estadoDetObj = visual.deteccion_objetos?.estado
+        ? `YOLOv8n (best.pt) · ${visual.deteccion_objetos.estado.replaceAll("_", " ")}`
+        : "No ejecutado";
+      const detIdentidad = visual.identidad_verificada
+        ? `${identidadTxt} (asociación explícita verificada)`
+        : "No atribuida (análisis biométrico no vinculante)";
       container.innerHTML = `
         <div class="facial-compact-card expanded">
           <div class="facial-compact-header-row">
             <div class="facial-compact-id-group">
               <div class="facial-compact-avatar" aria-hidden="true">👤</div>
-              <div class="facial-compact-identity">Rostro 1 · Identidad desconocida</div>
+              <div class="facial-compact-identity">Rostro 1 · ${escaparHtml(identidadTxt)}</div>
             </div>
             <div class="facial-compact-status-badge ${badgeClase}">
               <span>●</span> ${escaparHtml(badgeTexto)}
             </div>
           </div>
+          ${chipsHtml}
           <div class="facial-details-box">
             <div class="facial-detail-item"><span>Detector facial:</span><strong>${escaparHtml(visual.detector_facial || "OpenCV Haar Cascade (frontalface_alt)")}</strong></div>
             <div class="facial-detail-item"><span>Clasificador:</span><strong>${escaparHtml(descMod)}</strong></div>
+            <div class="facial-detail-item"><span>Detector objetos:</span><strong>${escaparHtml(estadoDetObj)}</strong></div>
             <div class="facial-detail-item"><span>Dimensión recorte:</span><strong>${escaparHtml(dim)}</strong></div>
-            <div class="facial-detail-item"><span>Identidad:</span><strong>No atribuida (análisis biométrico no vinculante)</strong></div>
+            <div class="facial-detail-item"><span>Identidad:</span><strong>${escaparHtml(detIdentidad)}</strong></div>
           </div>
         </div>
       `;
@@ -261,6 +386,7 @@ function renderizarDetalleVisual(visual) {
         <div class="facial-empty-text">
           <strong>No se detectaron rostros</strong>
           <p>Asegúrate de que haya un rostro frontal visible y con iluminación adecuada.</p>
+          ${chipsHtml}
         </div>
       </div>
     `;
@@ -276,6 +402,7 @@ function renderizarDetalleVisual(visual) {
         <div class="facial-empty-text">
           <strong>${rostros} rostros detectados</strong>
           <p>Encuadra un solo rostro frontal para evaluar su expresión sin atribución de identidad.</p>
+          ${chipsHtml}
         </div>
       </div>
     `;
@@ -290,6 +417,7 @@ function renderizarDetalleVisual(visual) {
       <div class="facial-empty-text">
         <strong>Error técnico durante el análisis facial</strong>
         <p>${escaparHtml(visual.motivo || ESTADOS_FACIALES[estado] || "Puedes reintentar la captura o subir otra imagen.")}</p>
+        ${chipsHtml}
       </div>
     </div>
   `;
@@ -300,6 +428,9 @@ function renderizarEstadoEsperaPaneles() {
   ultimoResultadoVideo = null;
   ultimoResultadoAudio = null;
   ultimoResultadoAcademico = null;
+  ultimaInterpretacionVisual = null;
+  ultimaFusion = null;
+  ultimaSincronizacion = null;
   panelEstudiantesExpandido = false;
 
   renderizarDetalleVisual(null);
@@ -357,11 +488,14 @@ function renderizarEstadoEsperaPaneles() {
   if (academicFooter) academicFooter.innerHTML = "<span>Basado exclusivamente en evidencia verificada · Identidad no atribuida</span>";
 }
 
-function renderizarAnalisisIndependiente(resultadoImagen = null, resultadoAcademico = null, resultadoAudio = null, resultadoVideo = null) {
+function renderizarAnalisisIndependiente(resultadoImagen = null, resultadoAcademico = null, resultadoAudio = null, resultadoVideo = null, extras = {}) {
   ultimoResultadoImagen = resultadoImagen && resultadoImagen.estado !== "sin_entrada" ? resultadoImagen : null;
   ultimoResultadoVideo = resultadoVideo && resultadoVideo.estado !== "sin_entrada" ? resultadoVideo : null;
   ultimoResultadoAudio = resultadoAudio && resultadoAudio.estado !== "sin_entrada" ? resultadoAudio : null;
   ultimoResultadoAcademico = resultadoAcademico && resultadoAcademico.estado !== "sin_entrada" ? resultadoAcademico : null;
+  ultimaInterpretacionVisual = extras?.interpretacion_visual || null;
+  ultimaFusion = extras?.fusion || null;
+  ultimaSincronizacion = extras?.sincronizacion || null;
 
   const img = ultimoResultadoImagen || ultimoResultadoVideo;
   const acad = ultimoResultadoAcademico;
@@ -375,6 +509,8 @@ function renderizarAnalisisIndependiente(resultadoImagen = null, resultadoAcadem
   const hipImg = extraerHipotesis(img);
   const hipAud = extraerHipotesis(aud);
   const hipAcad = extraerHipotesis(acad);
+  const identidadTxt = resolverIdentidadVisual(img);
+  const interpretacion = construirInterpretacionLocal(img, acad, aud, ultimaInterpretacionVisual || img?.interpretacion_visual);
 
   const modalidadesActivas = [
     ultimoResultadoImagen && "Imagen",
@@ -388,7 +524,7 @@ function renderizarAnalisisIndependiente(resultadoImagen = null, resultadoAcadem
 
   const rostros = img ? (img.rostros_detectados ?? (img.deteccion_facial === "sin_rostro" ? 0 : 1)) : 0;
   const visualLabel = img
-    ? (rostros === 1 ? "(Rostro 1 · Identidad desconocida)" : rostros > 1 ? `(${rostros} rostros)` : "(Sin rostro)")
+    ? (rostros === 1 ? `(Rostro 1 · ${identidadTxt})` : rostros > 1 ? `(${rostros} rostros)` : "(Sin rostro)")
     : "(Sin fotografía)";
 
   // Tarjeta Reconocimiento Facial
@@ -456,7 +592,7 @@ function renderizarAnalisisIndependiente(resultadoImagen = null, resultadoAcadem
   const actionBadge = elemento("student-action-badge");
   if (actionBadge) {
     actionBadge.textContent = img
-      ? "Análisis facial individual · Identidad desconocida"
+      ? `Análisis facial individual · ${identidadTxt}`
       : "Modalidad independiente activa · Sin atribución biométrica";
   }
 
@@ -469,6 +605,18 @@ function renderizarAnalisisIndependiente(resultadoImagen = null, resultadoAcadem
 
   if (img) {
     const etiquetaOrigen = ultimoResultadoImagen ? "Imagen" : "Video";
+    if (interpretacion?.resumen?.observacion_visual) {
+      itemsResultados.push(`
+        <div class="prob-item visual-obs-item">
+          <div class="prob-item-text-row">
+            <span class="prob-item-title">👁️ Observación visual</span>
+            <span class="context-pill-muted">${escaparHtml(identidadTxt)}</span>
+          </div>
+          <div class="prob-item-subnote">${escaparHtml(interpretacion.resumen.observacion_visual)}</div>
+          <div class="prob-item-subnote"><strong>Interpretación:</strong> ${escaparHtml(interpretacion.resumen.interpretacion)}</div>
+        </div>
+      `);
+    }
     if (img.estado === "estimacion_experimental" && hipImg) {
       itemsResultados.push(`
         <div class="prob-item conclusive-item">
@@ -477,7 +625,7 @@ function renderizarAnalisisIndependiente(resultadoImagen = null, resultadoAcadem
             <span class="prob-item-pct">${escaparHtml(hipImg.pctTexto)}</span>
           </div>
           <div class="prob-progress-track"><div class="prob-progress-fill" style="width: ${hipImg.pctNum.toFixed(1)}%;"></div></div>
-          <div class="prob-item-subnote">Rostros detectados: ${rostros} · Identidad desconocida · Supera umbral ≥ 55% y margen ≥ 10%.</div>
+          <div class="prob-item-subnote">Rostros detectados: ${rostros} · ${escaparHtml(identidadTxt)} · Supera umbral ≥ 55% y margen ≥ 10%.</div>
         </div>
       `);
     } else if (img.estado === "abstencion") {
@@ -505,6 +653,39 @@ function renderizarAnalisisIndependiente(resultadoImagen = null, resultadoAcadem
         </div>
       `);
       itemsAdvertencias.push(`<div class="prob-item warning-item"><div class="prob-item-text-row"><span class="prob-item-title">⚠️ Evidencia visual insuficiente</span><span class="prob-item-pct">Omitida</span></div><div class="prob-item-subnote">${escaparHtml(detalle)}</div></div>`);
+    }
+
+    // Objetos detectados de forma separada (YOLO best.pt / adaptadores externos)
+    const obsObjetos = (interpretacion?.observaciones || []).filter(o => o.tipo === "objeto");
+    const interpObjetos = (interpretacion?.hipotesis || []).filter(h => h.tipo === "interpretacion_contextual_objeto");
+    for (const objObs of obsObjetos) {
+      const claseObj = objObs.clase || "";
+      const iconoObj = GUIA_OBJETOS_UI[claseObj]?.icono || "📦";
+      const pctObj = typeof objObs.confianza === "number" ? `${(objObs.confianza * 100).toFixed(1)}%` : "—";
+      const ctxObj = interpObjetos.find(h => h.clase === claseObj)?.descripcion || "";
+      itemsResultados.push(`
+        <div class="prob-item object-item">
+          <div class="prob-item-text-row">
+            <span class="prob-item-title">${iconoObj} Objeto detectado: <strong>${escaparHtml(formatearCategoria(claseObj))}</strong></span>
+            <span class="prob-item-pct">${escaparHtml(pctObj)}</span>
+          </div>
+          <div class="prob-item-subnote">${escaparHtml(objObs.hecho)} ${escaparHtml(ctxObj)}</div>
+        </div>
+      `);
+    }
+
+    // Posibilidades generales no evaluadas (sin probabilidad inventada)
+    const posibilidades = (interpretacion?.hipotesis || []).filter(h => h.tipo === "posibilidad_general_no_evaluada");
+    if (posibilidades.length) {
+      itemsResultados.push(`
+        <div class="prob-item hypothesis-context-item">
+          <div class="prob-item-text-row">
+            <span class="prob-item-title">💡 Posibilidades generales (no son predicciones individuales)</span>
+            <span class="context-pill-muted">Sin probabilidad asignada</span>
+          </div>
+          <ul class="context-hyp-list">${posibilidades.map(p => `<li>${escaparHtml(p.descripcion)}</li>`).join("")}</ul>
+        </div>
+      `);
     }
   }
 
@@ -598,6 +779,36 @@ function renderizarAnalisisIndependiente(resultadoImagen = null, resultadoAcadem
     }
   }
 
+  // Advertencias de fusión, evidencia adicional requerida y límites
+  if (ultimaFusion?.explicacion) {
+    itemsAdvertencias.push(`<div class="prob-item warning-item"><div class="prob-item-text-row"><span class="prob-item-title">🔀 Regla de integración multimodal</span><span class="prob-item-pct">Independiente</span></div><div class="prob-item-subnote">${escaparHtml(ultimaFusion.explicacion)}</div></div>`);
+  }
+  if (ultimaSincronizacion?.conflictos_referencia?.length) {
+    itemsAdvertencias.push(`<div class="prob-item error-item"><div class="prob-item-text-row"><span class="prob-item-title">⚠️ Conflictos de referencia detectados</span><span class="prob-item-pct">${ultimaSincronizacion.conflictos_referencia.length}</span></div><div class="prob-item-subnote">${escaparHtml(ultimaSincronizacion.conflictos_referencia.join(", "))}</div></div>`);
+  }
+  if (interpretacion?.resumen?.informacion_adicional_necesaria) {
+    itemsAdvertencias.push(`
+      <div class="prob-item required-evidence-item">
+        <div class="prob-item-text-row">
+          <span class="prob-item-title">🧾 Evidencia adicional requerida</span>
+          <span class="context-pill-muted">Fuera de fotografía</span>
+        </div>
+        <div class="prob-item-subnote">${escaparHtml(interpretacion.resumen.informacion_adicional_necesaria)}</div>
+      </div>
+    `);
+  }
+  const limTextos = (interpretacion?.limitaciones || []).slice(0, 3);
+  if (limTextos.length && img) {
+    itemsAdvertencias.push(`
+      <div class="prob-item warning-item">
+        <div class="prob-item-text-row">
+          <span class="prob-item-title">📏 Límites de interpretación</span>
+          <span class="prob-item-pct">Alcance</span>
+        </div>
+        <ul class="context-hyp-list">${limTextos.map(l => `<li>${escaparHtml(l)}</li>`).join("")}</ul>
+      </div>
+    `);
+  }
   itemsAdvertencias.push('<div class="prediction-empty-notice"><span>🛡️</span><span><strong>Sin sucesos artificiales:</strong> No se fabrican causas previas ni consecuencias futuras a partir de señales faciales o acústicas aisladas.</span></div>');
 
   const causesList = elemento("causes-list");
@@ -605,7 +816,7 @@ function renderizarAnalisisIndependiente(resultadoImagen = null, resultadoAcadem
   const consequencesList = elemento("consequences-list");
   if (consequencesList) consequencesList.innerHTML = itemsAdvertencias.join("");
   const eventsFooter = elemento("events-card-footer");
-  if (eventsFooter) eventsFooter.innerHTML = "<span>Evaluación independiente por modalidad · Sin fusión automática</span>";
+  if (eventsFooter) eventsFooter.innerHTML = "<span>Evaluación independiente por modalidad · Sin diagnósticos ni fusión no calibrada</span>";
 
   // Tarjeta Inferior Derecha: Análisis y Proyección Académica
   const academicTitle = elemento("academic-card-title");
@@ -702,7 +913,12 @@ function aplicarPayloadExterno(salida) {
     fuentes.imagen ?? null,
     analisis.academico ?? salida.academico ?? null,
     fuentes.audio ?? null,
-    fuentes.video ?? null
+    fuentes.video ?? null,
+    {
+      interpretacion_visual: analisis.interpretacion_visual ?? salida.interpretacion_visual ?? null,
+      sincronizacion: analisis.sincronizacion ?? null,
+      fusion: salida.fusion ?? null
+    }
   );
 }
 
@@ -940,14 +1156,17 @@ function capturarFrame(video) {
   return frame;
 }
 
+function obtenerBaseBackend() {
+  return typeof location !== "undefined" && location.origin && location.protocol !== "file:"
+    ? location.origin
+    : "http://127.0.0.1:8001";
+}
+
 async function solicitarAnalisisFacial(imagen, signal) {
   const cuerpo = { schema_version: 1, imagen: { imagen_b64: imagen, modelo_facial: "real" } };
   let respuesta;
   try {
-    const baseCaptura = typeof location !== "undefined" && location.origin && location.protocol !== "file:"
-      ? location.origin
-      : "http://127.0.0.1:8001";
-    respuesta = await fetch(`${baseCaptura}/api/prediccion/analisis-experimental`, {
+    respuesta = await fetch(`${obtenerBaseBackend()}/api/prediccion/analisis-experimental`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(cuerpo),
@@ -1040,12 +1259,21 @@ async function procesarCaptura(obtenerImagen, origen) {
 
     const acad = datosCompletos?.academico && datosCompletos.academico.estado !== "sin_entrada" ? datosCompletos.academico : ultimoResultadoAcademico;
     const aud = datosCompletos?.fuentes?.audio && datosCompletos.fuentes.audio.estado !== "sin_entrada" ? datosCompletos.fuentes.audio : ultimoResultadoAudio;
-    renderizarAnalisisIndependiente(resultado, acad, aud, null);
+    renderizarAnalisisIndependiente(
+      resultado,
+      acad,
+      aud,
+      datosCompletos?.fuentes?.video ?? null,
+      {
+        interpretacion_visual: datosCompletos?.interpretacion_visual ?? resultado?.interpretacion_visual ?? null,
+        sincronizacion: datosCompletos?.sincronizacion ?? null
+      }
+    );
   } catch (error) {
     if (signal.aborted && !agotado) return;
     const mensajeError = agotado ? "El servidor tardó demasiado en responder. Puedes reintentar." : error.message;
     estadoCaptura(mensajeError, "offline");
-    renderizarAnalisisIndependiente({ estado: "error_inferencia", motivo: mensajeError, rostros_detectados: 0 }, ultimoResultadoAcademico, ultimoResultadoAudio, null);
+    renderizarAnalisisIndependiente({ estado: "error_inferencia", motivo: mensajeError, rostros_detectados: 0 }, ultimoResultadoAcademico, ultimoResultadoAudio, null, {});
     if (origen === "automatica") {
       const autoCheck = elemento("auto-capture-enabled");
       if (autoCheck) autoCheck.checked = false;
@@ -1184,12 +1412,59 @@ function configurarEventos() {
   configurarSubidaFoto();
 }
 
+const INTERVALO_RECEPCION_MS = 3000;
+let consultaRecepcionEnCurso = false;
+
+async function verificarRecepcionAutomatica(forzar = false) {
+  if (typeof fetch !== "function" || peticionCaptura || consultaRecepcionEnCurso) return null;
+  consultaRecepcionEnCurso = true;
+  try {
+    const desde = forzar ? 0 : ultimaSecuenciaRecepcion;
+    const opciones = typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
+      ? { signal: AbortSignal.timeout(4000) }
+      : {};
+    const respuesta = await fetch(`${obtenerBaseBackend()}/api/prediccion/recepcion/ultima?desde=${desde}`, opciones);
+    if (!respuesta?.ok) return null;
+    const data = await respuesta.json().catch(() => null);
+    if (!data || data.sin_cambios) return null;
+    const seq = Number(data.actualizacion_id) || 0;
+    if (seq <= ultimaSecuenciaRecepcion && !forzar) return null;
+    ultimaSecuenciaRecepcion = Math.max(ultimaSecuenciaRecepcion, seq);
+    if (!data.disponible || !data.resultado) {
+      return data;
+    }
+    if (modoCapturaCongelada && !peticionCaptura) {
+      modoCapturaCongelada = false;
+      const imgDisplay = elemento("captured-image-display");
+      if (imgDisplay) {
+        imgDisplay.style.display = "none";
+        imgDisplay.removeAttribute?.("src");
+      }
+      const video = elemento("webcam-feed");
+      if (video) video.style.display = sesionCamara?.lista ? "block" : "none";
+      const placeholder = elemento("camera-placeholder");
+      if (placeholder) placeholder.classList?.toggle("hidden", Boolean(sesionCamara?.lista));
+    }
+    aplicarPayloadExterno(data.resultado);
+    return data;
+  } catch {
+    return null;
+  } finally {
+    consultaRecepcionEnCurso = false;
+  }
+}
+
 configurarEventos();
 volverANuevaCaptura();
 
 if (typeof window !== "undefined") {
   iniciarRelojEnVivo();
   iniciarRenderizadoCanvas();
+  setInterval(() => {
+    if (typeof document === "undefined" || !document.hidden) {
+      void verificarRecepcionAutomatica();
+    }
+  }, INTERVALO_RECEPCION_MS);
   if (typeof window.addEventListener === "function") {
     window.addEventListener("aulapredict:resultados", (ev) => aplicarPayloadExterno(ev?.detail));
     window.addEventListener("pagehide", () => {
@@ -1202,6 +1477,7 @@ if (typeof window !== "undefined") {
 globalThis.AulaPredict = {
   aplicarResultados: aplicarPayloadExterno,
   reiniciarResultados: volverANuevaCaptura,
+  verificarRecepcionAutomatica,
   extraerHipotesis,
   renderizarAnalisisIndependiente,
   iniciarCamara,

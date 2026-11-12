@@ -1,0 +1,111 @@
+{
+  "fase": "13C-entrega-final-unificada",
+  "objetivo": "Auditar y evaluar mejora del clasificador facial con validación estricta por sujeto en CPU sin inventar métricas.",
+  "dataset": {
+    "nombre": "CMU Face Images",
+    "total_muestras_utilizables": 196,
+    "sujetos_totales": 20,
+    "clases": [
+      "alegria",
+      "enojo",
+      "neutral",
+      "tristeza"
+    ],
+    "particiones": {
+      "entrenamiento": 92,
+      "validacion": 32,
+      "calibracion": 34,
+      "prueba_ciega": 38
+    },
+    "descartes_haar": {
+      "sin_un_rostro": 117,
+      "pgm_invalido": 7,
+      "personas_sin_recortes": 0
+    },
+    "fer2013_csv_disponible": false
+  },
+  "modelo_vigente": {
+    "ruta": "_archivo\\fase8\\modelos\\facial.joblib",
+    "version": "fase8-1.0",
+    "algoritmo": "hog_svm",
+    "accuracy_prueba": 0.3684,
+    "f1_macro_prueba": 0.308,
+    "log_loss_prueba": 1.3463624954784763,
+    "brier_multiclase": 0.7290514285631094,
+    "ece_10_tramos": 0.021873667351731962,
+    "cobertura_umbral_055_margen_010": 0.0,
+    "matriz_confusion": [
+      [
+        5,
+        1,
+        3,
+        2
+      ],
+      [
+        4,
+        0,
+        4,
+        0
+      ],
+      [
+        1,
+        0,
+        6,
+        3
+      ],
+      [
+        2,
+        0,
+        4,
+        3
+      ]
+    ],
+    "latencia_lote_prueba_ms": 140.096,
+    "latencia_unica_cpu": {
+      "mediana_ms": 5.847,
+      "p95_ms": 15.709
+    }
+  },
+  "evaluacion_candidatos_cpu": {
+    "hog_svm_baseline_repro": {
+      "cv_groupkfold_f1_macro": 0.4365,
+      "cv_groupkfold_accuracy": 0.443
+    },
+    "clahe_hog_sim_lr_c005": {
+      "cv_groupkfold_f1_macro": 0.3551,
+      "cv_groupkfold_accuracy": 0.3608
+    },
+    "clahe_hog_sim_lr_c020": {
+      "cv_groupkfold_f1_macro": 0.3699,
+      "cv_groupkfold_accuracy": 0.3734
+    },
+    "clahe_hog_sim_pca24_lr": {
+      "cv_groupkfold_f1_macro": 0.3822,
+      "cv_groupkfold_accuracy": 0.3861
+    },
+    "ms_clahe_hog_sim_lr": {
+      "cv_groupkfold_f1_macro": 0.4002,
+      "cv_groupkfold_accuracy": 0.4051
+    },
+    "ms_clahe_hog_sim_pca30_svc": {
+      "cv_groupkfold_f1_macro": 0.3808,
+      "cv_groupkfold_accuracy": 0.4114
+    },
+    "clahe_hog_lbp_pca32_lr": {
+      "cv_groupkfold_f1_macro": 0.3827,
+      "cv_groupkfold_accuracy": 0.3861
+    }
+  },
+  "mejor_candidato_cv": "hog_svm_baseline_repro",
+  "decision": "conservar_modelo_vigente",
+  "justificacion": [
+    "Ningún candidato ligero en CPU superó al modelo vigente (hog_svm_baseline_repro F1_macro=0.4365 frente a candidatos <=0.4002 en GroupKFold estricto por sujeto).",
+    "El cuello de botella principal es estructural del conjunto CMU Face Images (solo 196 recortes utilizables de 20 personas en 4 poses a baja resolución) y no existe fer2013.csv local para preentrenar expresiones ricas.",
+    "Conservar fase8-1.0 evita degradar calibración (ECE actual 0.0219), conserva la abstención preventiva honesta ante baja confianza y cumple la regla de no reemplazar sin mejora demostrable."
+  ],
+  "plan_rollback": {
+    "artefacto_respaldado": "_archivo/fase8/modelos/facial.joblib",
+    "variable_entorno": "AULAPREDICT_MODELOS_FASE8",
+    "procedimiento": "Mantener o restaurar el artefacto fase8-1.0 validado en _archivo/fase8/modelos/facial.joblib sin cambiar los contratos HTTP ni el umbral 0.55 / margen 0.10."
+  }
+}
