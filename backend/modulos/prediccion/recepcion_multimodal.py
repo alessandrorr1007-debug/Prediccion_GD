@@ -275,32 +275,11 @@ def _procesar_eventos_externos(
         else:
             contr_lote.add(ev.evento_id)
 
-    dup_hist, contr_hist = ESTADO_CANAL.registrar_eventos(
-        [(ev.evento_id, _huella_evento(ev)) for _, ev in filtrados_lote]
-    )
-    duplicados = sorted(dup_lote | set(dup_hist))
-    contradictorios = sorted(contr_lote | set(contr_hist))
-    omitidos = set(dup_hist) | set(contradictorios)
-
-    con_fecha = [(idx, ev) for idx, ev in filtrados_lote if ev.fecha_hora is not None and ev.evento_id not in omitidos]
-    reordenados = False
-    if len(con_fecha) >= 2:
-        fechas_orig = [ev.fecha_hora for _, ev in con_fecha]
-        if fechas_orig != sorted(fechas_orig):
-            reordenados = True
-
-    ordenados = sorted(
-        [(idx, ev) for idx, ev in filtrados_lote if ev.evento_id not in omitidos],
-        key=lambda par: (
-            par[1].fecha_hora is None,
-            par[1].fecha_hora or datetime.max.replace(tzinfo=timezone.utc),
-            par[0],
-        ),
-    )
-
     excluidos = []
     elegibles: list[EventoModulo] = []
-    for _, ev in ordenados:
+    for _, ev in filtrados_lote:
+        if ev.evento_id in contr_lote:
+            continue
         if entrada.sesion_id is not None and ev.sesion_id is not None and ev.sesion_id != entrada.sesion_id:
             excluidos.append({"evento_id": ev.evento_id, "modulo": ev.modulo, "motivo": "sesion_distinta"})
             continue
@@ -312,6 +291,17 @@ def _procesar_eventos_externos(
                 excluidos.append({"evento_id": ev.evento_id, "modulo": ev.modulo, "motivo": "captura_fuera_de_ventana"})
                 continue
         elegibles.append(ev)
+
+    dup_hist, contr_hist = ESTADO_CANAL.registrar_eventos(
+        [(ev.evento_id, vistas_lote[ev.evento_id]) for ev in elegibles]
+    )
+    duplicados = sorted(dup_lote | set(dup_hist))
+    contradictorios = sorted(contr_lote | set(contr_hist))
+    omitidos = set(dup_hist) | set(contr_hist)
+    elegibles = [ev for ev in elegibles if ev.evento_id not in omitidos]
+    fechas_orig = [ev.fecha_hora for ev in elegibles if ev.fecha_hora is not None]
+    reordenados = fechas_orig != sorted(fechas_orig)
+    elegibles.sort(key=lambda ev: ev.fecha_hora or datetime.max.replace(tzinfo=timezone.utc))
 
     detecciones_extra: dict[str, list[dict[str, Any]]] = {"imagen": [], "video": []}
     audio_incompatible: EventoModulo | None = None

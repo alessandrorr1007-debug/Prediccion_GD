@@ -74,14 +74,18 @@ class Fase13UnificadaTests(unittest.TestCase):
         self.assertTrue(all("caja" not in objeto for objeto in salida[1:]))
 
     def test_reintento_de_evento_no_reemplaza_el_resultado_publicado(self):
-        carga = {"schema_version": 1, "eventos": [{
+        carga = {"schema_version": 1, "sesion_id": "s1", "eventos": [{
             "evento_id": "foto-1",
             "modulo": "imagen",
+            "sesion_id": "s1",
             "tipo_observacion": "objeto",
             "datos_observados": {"objetos": [{"clase": "libro", "confianza": 0.9}]},
         }]}
         ruta = "/api/prediccion/recepcion"
+        excluida = self.client.post(ruta, json=dict(carga, sesion_id="s2")).json()
+        self.assertEqual(excluida["analisis"]["fuentes"]["imagen"]["estado"], "sin_entrada")
         primera = self.client.post(ruta, json=carga).json()
+        self.assertEqual(primera["analisis"]["fuentes"]["imagen"]["deteccion_objetos"]["estado"], "solo_externas")
         reintento = self.client.post(ruta, json=carga).json()
         self.assertEqual(reintento["analisis"]["fuentes"]["imagen"]["estado"], "sin_entrada")
         self.assertEqual(reintento["actualizacion_id"], primera["actualizacion_id"])
